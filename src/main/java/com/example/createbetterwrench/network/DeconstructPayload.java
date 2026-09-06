@@ -55,9 +55,9 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
             }
             int removed = DeconstructLogic.deconstructRegion(
                 (net.minecraft.server.level.ServerLevel) sp.level(), cornerA, cornerB, scope, sp);
-            if (removed > 0)
-                sp.displayClientMessage(net.minecraft.network.chat.Component
-                    .literal("[Create: Better Wrench] Deconstructed " + removed + " blocks"), false);
+            // 始终提示(含 0), 显示在 actionbar
+            sp.displayClientMessage(net.minecraft.network.chat.Component
+                .literal("本次拆除了 " + removed + " 个方块"), true);
         });
     }
 }

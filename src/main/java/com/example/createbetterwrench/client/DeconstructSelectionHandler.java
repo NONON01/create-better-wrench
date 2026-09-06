@@ -5,16 +5,20 @@ import com.example.createbetterwrench.mode.DeconstructScope;
 import com.example.createbetterwrench.mode.WrenchMode;
 import com.example.createbetterwrench.network.DeconstructPayload;
 
+import com.simibubi.create.AllSpecialTextures;
+import net.createmod.catnip.outliner.Outliner;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -25,12 +29,16 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * 通过拦截客户端鼠标右键(MouseButton.Pre)抢在 Create WrenchEventHandler 之前吃掉本次点击,
  * 从而让右键只做"选角 A / 选角 B", 不会触发普通扳手的旋转/拆除。</p>
  *
- * <p>右键两次: 第一次定 A, 第二次定 B 并立即向服务端发送 DeconstructPayload 执行拆除。</p>
+ * <p>交互: 第一次右键定 A, 之后移动视角会用 catnip Outliner 画蓝色选区框(A → 当前视线块);
+ * 第二次右键定 B 并立即向服务端发送 DeconstructPayload 执行拆除。</p>
  */
 @EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
 public final class DeconstructSelectionHandler {
 
+    private static final Object OUTLINE_KEY = "deconstruct_select";
+
     private static BlockPos cornerA;
+    private static BlockPos previewB;
 
     private DeconstructSelectionHandler() {
     }
@@ -53,8 +61,7 @@ public final class DeconstructSelectionHandler {
 
         if (cornerA == null) {
             cornerA = hit;
-            mc.player.displayClientMessage(
-                Component.literal("Corner A set: " + hit.toShortString()), true);
+            previewB = hit;
             return true;
         }
         // 第二次右键: 定 B 并发包
@@ -63,11 +70,13 @@ public final class DeconstructSelectionHandler {
         ClientPacketListener conn = mc.getConnection();
         if (conn != null)
             PacketDistributor.sendToServer(DeconstructPayload.create(cornerA, b, scope));
-        mc.player.displayClientMessage(
-            Component.literal("Deconstructing region A=" + cornerA.toShortString()
-                + " B=" + b.toShortString() + " (" + scope.name() + ")"), false);
-        cornerA = null;
+        resetSelection();
         return true;
+    }
+
+    private static void resetSelection() {
+        cornerA = null;
+        previewB = null;
     }
 
     /** 玩家视线对某方块的射线(用于选角)。 */
@@ -91,6 +100,51 @@ public final class DeconstructSelectionHandler {
             event.setCanceled(true);
     }
 
+    /**
+     * 每帧刷新: 拆除模式下用 Outliner 画"蓝图与笔式"蓝框(蓝线 + 淡蓝格纹面)。
+     * - 未选 A: 画准星所指的单个方块框;
+     * - 已选 A: 画 A → 当前视线块 的区域框。
+     * 由本类的 ClientTickEvent.Post 订阅驱动(仿 Create 每帧刷新 outliner 的惯用法)。
+     */
+    @SubscribeEvent
+    public static void onClientTick(ClientTickEvent.Post event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null)
+            return;
+
+        if (!active(mc)) {
+            // 不在拆除模式: 清掉残留框
+            Outliner.getInstance().remove(OUTLINE_KEY);
+            if (cornerA != null)
+                resetSelection();
+            return;
+        }
+
+        BlockPos hit = rayTraceBlock(mc);
+
+        if (cornerA == null) {
+            // 未选 A: 画准星所指单格的框
+            if (hit == null) {
+                Outliner.getInstance().remove(OUTLINE_KEY);
+                return;
+            }
+            Outliner.getInstance().chaseAABB(OUTLINE_KEY, new AABB(hit))
+                .colored(0x6886c5)
+                .withFaceTextures(AllSpecialTextures.CHECKERED, AllSpecialTextures.HIGHLIGHT_CHECKERED)
+                .lineWidth(1 / 16f);
+            return;
+        }
+
+        // 已选 A: 画 A → 当前视线块 的区域框
+        previewB = hit != null ? hit : cornerA;
+        AABB box = new AABB(Vec3.atLowerCornerOf(cornerA), Vec3.atLowerCornerOf(previewB))
+            .expandTowards(1, 1, 1);
+        Outliner.getInstance().chaseAABB(OUTLINE_KEY, box)
+            .colored(0x6886c5)
+            .withFaceTextures(AllSpecialTextures.CHECKERED, AllSpecialTextures.HIGHLIGHT_CHECKERED)
+            .lineWidth(1 / 16f);
+    }
+
     /** 供其它类查询当前是否已选 A(如 HUD 是否画提示)。 */
     public static boolean hasCornerA() {
         return cornerA != null;
@@ -103,6 +157,6 @@ public final class DeconstructSelectionHandler {
 
     /** 潜行时取消已选的 A(供后续 Esc/Shift 取消)。 */
     public static void cancel() {
-        cornerA = null;
+        resetSelection();
     }
 }

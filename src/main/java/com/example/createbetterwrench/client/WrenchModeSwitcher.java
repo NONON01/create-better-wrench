@@ -69,10 +69,10 @@ public final class WrenchModeSwitcher {
         return null;
     }
 
-    /** 当前模式 Ctrl 选项的展示文本(用于 actionbar 提示); 无则为空。 */
+    /** 当前模式 Ctrl 选项的完整展示串, 如"拆除模式:全部"; 无则为空串。 */
     public static String ctrlOptionHint() {
         if (current == WrenchMode.DECONSTRUCT)
-            return deconstructScope.displayName().getString();
+            return "拆除模式:" + deconstructScope.displayName().getString();
         return "";
     }
 }

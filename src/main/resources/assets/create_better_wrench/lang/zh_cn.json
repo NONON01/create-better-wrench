@@ -3,6 +3,8 @@
   "itemGroup.create_better_wrench": "精密扳手",
   "mode.create_better_wrench.connect": "连接",
   "mode.create_better_wrench.deconstruct": "拆除",
+  "mode.create_better_wrench.logistics": "物流网络",
+  "mode.create_better_wrench.coming_soon": "模组描述",
   "scope.create_better_wrench.deconstruct.all": "全部",
   "scope.create_better_wrench.deconstruct.create_only": "仅机械动力",
   "scope.create_better_wrench.deconstruct.redstone_only": "仅红石",

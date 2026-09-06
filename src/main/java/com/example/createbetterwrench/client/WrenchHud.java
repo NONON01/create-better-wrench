@@ -3,7 +3,10 @@ package com.example.createbetterwrench.client;
 import com.example.createbetterwrench.BetterWrenchMod;
 import com.example.createbetterwrench.mode.WrenchMode;
 import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.simibubi.create.foundation.gui.AllGuiTextures;
 
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.LayeredDraw;
@@ -15,15 +18,24 @@ import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 
 /**
- * 客户端:底部"模式工具条"的注册与输入接线。
+ * 客户端: 底部"模式工具条"(仿 Create 蓝图部署的 ToolSelection 风格)。
  *
- * <p>仅在玩家手持我们的扳手、且正按住 TOOLS_KEY(默认 ALT)时显示底部条并允许滚轮循环切换模式。</p>
+ * <p>仅在玩家手持扳手时绘制。平时很淡/几乎隐藏, 按住 TOOLS_KEY(默认 ALT)聚焦后变清晰,
+ * 松开后逐渐淡出(淡入淡出靠 displayAlpha / yOffset 每帧插值)。
+ * 底部横条中央显示各模式(当前项上浮高亮), Ctrl+滚轮/ALT+滚轮 切换见 WrenchInputHandler。</p>
  */
 @EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public final class WrenchHud {
 
     private static final ResourceLocation LAYER_ID =
         ResourceLocation.fromNamespaceAndPath(BetterWrenchMod.MODID, "wrench_mode_bar");
+
+    /** 视觉聚焦进度 0..1(用于淡入淡出)。 */
+    private static float focusAmount;
+    /** 工具条向上浮起量(聚焦时上移)。 */
+    private static float lift;
+    /** 模式选择器(懒加载)。 */
+    private static WrenchToolSelection selection;
 
     private WrenchHud() {
     }
@@ -33,48 +45,23 @@ public final class WrenchHud {
         event.registerAboveAll(LAYER_ID, WrenchHud::renderLayer);
     }
 
-    private static void renderLayer(GuiGraphics g, net.minecraft.client.DeltaTracker deltaTracker) {
+    private static void renderLayer(GuiGraphics g, DeltaTracker deltaTracker) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen != null)
             return;
-        if (!isHoldingOurWrench(mc))
+        boolean holding = isHoldingOurWrench(mc);
+        boolean focused = holding && WrenchModeSwitcher.TOOLS_KEY.isDown();
+
+        // 淡入淡出由 selection.update() 内部(yOffset)处理; 未持扳手时若完全淡出则不画
+        float target = focused ? 1f : 0f;
+        focusAmount += (target - focusAmount) * 0.15f;
+        if (!holding && focusAmount < 0.02f)
             return;
 
-        // 聚焦(按住 ALT)时全亮 + 可滚轮切换; 否则半透明提示
-        boolean focused = WrenchModeSwitcher.TOOLS_KEY.isDown();
-        float alpha = focused ? 1f : 0.35f;
-
-        WrenchMode[] modes = WrenchMode.values();
-        Window win = mc.getWindow();
-        int width = win.getGuiScaledWidth();
-        int height = win.getGuiScaledHeight();
-
-        // 每个模式一格, 底部一行
-        int cellW = 60;
-        int totalW = modes.length * cellW;
-        int x0 = (width - totalW) / 2;
-        int y = height - 40;
-
-        for (int i = 0; i < modes.length; i++) {
-            boolean sel = modes[i] == WrenchModeSwitcher.current;
-            int x = x0 + i * cellW;
-            int cy = sel ? y - 6 : y; // 选中项上浮
-            int color = sel ? 0xFFEEEEEE : 0xCC888888;
-            g.fill(x, cy, x + cellW, cy + 18, (int) (alpha * 255) << 24 | (sel ? 0x303030 : 0x101010));
-            g.drawCenteredString(mc.font, modes[i].displayName(), x + cellW / 2, cy + 5, color);
-        }
-
-        // 帮助文本(未聚焦时提示按 ALT 聚焦并滚轮)
-        if (!focused) {
-            String hint = "Hold " + WrenchModeSwitcher.TOOLS_KEY.getTranslatedKeyMessage().getString()
-                + " to focus mode bar";
-            g.drawCenteredString(mc.font, hint, width / 2, y - 16, 0xCCFFFFFF);
-        }
-
-        // 当前模式的 Ctrl 选项(如拆除范围)提示
-        String ctrlOpt = WrenchModeSwitcher.ctrlOptionHint();
-        if (!ctrlOpt.isEmpty())
-            g.drawCenteredString(mc.font, "Ctrl+Scroll: " + ctrlOpt, width / 2, y + 22, 0xCCCCFF);
+        WrenchToolSelection sel = getSelection();
+        sel.focused = focused;
+        sel.update();
+        sel.render(g, deltaTracker.getGameTimeDeltaPartialTick(false));
     }
 
     private static boolean isHoldingOurWrench(Minecraft mc) {
@@ -102,7 +89,7 @@ public final class WrenchHud {
             if (opt != null) {
                 String hint = WrenchModeSwitcher.ctrlOptionHint();
                 if (!hint.isEmpty())
-                    mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal("Ctrl: " + hint), true);
+                    mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(hint), true);
             }
             return true;
         }
@@ -111,8 +98,21 @@ public final class WrenchHud {
         if (!WrenchModeSwitcher.TOOLS_KEY.isDown())
             return false;
 
-        WrenchModeSwitcher.cycle(dir);
+        // 同步切换 selection(权威 current)并让 current 跟随
+        WrenchToolSelection sel = getSelection();
+        sel.setSelected(WrenchModeSwitcher.current);
+        sel.cycle(dir);
+        WrenchModeSwitcher.current = sel.getSelected();
         return true;
+    }
+
+    /** 懒加载模式选择器(保持与 WrenchModeSwitcher.current 同步)。 */
+    private static WrenchToolSelection getSelection() {
+        if (selection == null) {
+            selection = new WrenchToolSelection(java.util.Arrays.asList(WrenchMode.values()));
+            selection.setSelected(WrenchModeSwitcher.current);
+        }
+        return selection;
     }
 
     /** 该模式是否有可循环的 Ctrl 选项。 */
