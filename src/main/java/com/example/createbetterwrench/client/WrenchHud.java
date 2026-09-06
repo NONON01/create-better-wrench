@@ -82,21 +82,22 @@ public final class WrenchHud {
             || mc.player.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH);
     }
 
-    /** 由 GAME 总线客户端事件调用: 聚焦且滚轮时切换模式并吃掉本次滚动。 */
+    /** 由 GAME 总线客户端事件调用: 处理扳手模式/选项的滚轮切换, 返回 true 表示已消费本次滚动。 */
     public static boolean onMouseScrolled(InputEvent.MouseScrollingEvent event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen != null)
             return false;
         if (!isHoldingOurWrench(mc))
             return false;
-        if (!WrenchModeSwitcher.TOOLS_KEY.isDown())
-            return false;
         double delta = event.getScrollDeltaY();
         if (delta == 0)
             return true;
         int dir = (int) Math.signum(delta);
-        // 按住 Ctrl + 滚轮: 循环"当前模式自己的 Ctrl 选项"(如拆除范围), 并给 actionbar 提示
-        if (net.minecraft.client.gui.screens.Screen.hasControlDown()) {
+
+        // 规则一: 当前模式有自己的"Ctrl 选项"(如拆除范围)时, 按住 Ctrl+滚轮即切换(无需再按 ALT)。
+        // 这样避免与"滚轮切换热键栏物品"冲突——必须先在此消费并返回。
+        if (net.minecraft.client.gui.screens.Screen.hasControlDown()
+            && modeHasCtrlOption(WrenchModeSwitcher.current)) {
             Object opt = WrenchModeSwitcher.cycleCtrlOption(dir);
             if (opt != null) {
                 String hint = WrenchModeSwitcher.ctrlOptionHint();
@@ -105,7 +106,17 @@ public final class WrenchHud {
             }
             return true;
         }
+
+        // 规则二: 切"模式本身"仍需按 ALT(TOOLS_KEY)聚焦后滚轮, 否则放行(让滚轮正常切物品)。
+        if (!WrenchModeSwitcher.TOOLS_KEY.isDown())
+            return false;
+
         WrenchModeSwitcher.cycle(dir);
         return true;
+    }
+
+    /** 该模式是否有可循环的 Ctrl 选项。 */
+    private static boolean modeHasCtrlOption(WrenchMode mode) {
+        return mode == WrenchMode.DECONSTRUCT;
     }
 }
