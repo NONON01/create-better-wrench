@@ -2,6 +2,10 @@
   "item.create_better_wrench.better_wrench": "Create: Better Wrench",
   "itemGroup.create_better_wrench": "Create: Better Wrench",
   "mode.create_better_wrench.connect": "Connect",
+  "mode.create_better_wrench.deconstruct": "Deconstruct",
+  "scope.create_better_wrench.deconstruct.all": "All",
+  "scope.create_better_wrench.deconstruct.create_only": "Create Only",
+  "scope.create_better_wrench.deconstruct.redstone_only": "Redstone Only",
   "key.create_better_wrench.tools": "Focus Wrench Mode Bar",
   "key.categories.create_better_wrench": "Create: Better Wrench"
 }

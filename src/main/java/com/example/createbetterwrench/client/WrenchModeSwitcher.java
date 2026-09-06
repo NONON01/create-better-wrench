@@ -3,6 +3,7 @@ package com.example.createbetterwrench.client;
 import org.lwjgl.glfw.GLFW;
 
 import com.example.createbetterwrench.BetterWrenchMod;
+import com.example.createbetterwrench.mode.DeconstructScope;
 import com.example.createbetterwrench.mode.WrenchMode;
 import com.mojang.blaze3d.platform.InputConstants;
 
@@ -28,6 +29,9 @@ public final class WrenchModeSwitcher {
     /** 当前选中的模式。 */
     public static WrenchMode current = WrenchMode.CONNECT;
 
+    /** 「拆除」模式当前的 Ctrl 范围过滤(全部/仅机械动力/仅红石)。 */
+    public static DeconstructScope deconstructScope = DeconstructScope.ALL;
+
     private WrenchModeSwitcher() {
     }
 
@@ -49,5 +53,26 @@ public final class WrenchModeSwitcher {
         int len = all.length;
         current = all[((idx % len) + len) % len];
         return current;
+    }
+
+    /**
+     * 循环切换"当前模式自己的 Ctrl 选项"。
+     * 拆除 → 拆除范围(全部/仅机械动力/仅红石); 其它模式暂返回 null(连接的后备逻辑待后续)。
+     */
+    public static Object cycleCtrlOption(int direction) {
+        if (current == WrenchMode.DECONSTRUCT) {
+            DeconstructScope[] scopes = DeconstructScope.values();
+            int idx = deconstructScope.ordinal() + (direction < 0 ? -1 : 1);
+            deconstructScope = scopes[((idx % scopes.length) + scopes.length) % scopes.length];
+            return deconstructScope;
+        }
+        return null;
+    }
+
+    /** 当前模式 Ctrl 选项的展示文本(用于 actionbar 提示); 无则为空。 */
+    public static String ctrlOptionHint() {
+        if (current == WrenchMode.DECONSTRUCT)
+            return deconstructScope.displayName().getString();
+        return "";
     }
 }

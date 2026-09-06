@@ -70,6 +70,11 @@ public final class WrenchHud {
                 + " to focus mode bar";
             g.drawCenteredString(mc.font, hint, width / 2, y - 16, 0xCCFFFFFF);
         }
+
+        // 当前模式的 Ctrl 选项(如拆除范围)提示
+        String ctrlOpt = WrenchModeSwitcher.ctrlOptionHint();
+        if (!ctrlOpt.isEmpty())
+            g.drawCenteredString(mc.font, "Ctrl+Scroll: " + ctrlOpt, width / 2, y + 22, 0xCCCCFF);
     }
 
     private static boolean isHoldingOurWrench(Minecraft mc) {
@@ -89,7 +94,18 @@ public final class WrenchHud {
         double delta = event.getScrollDeltaY();
         if (delta == 0)
             return true;
-        WrenchModeSwitcher.cycle((int) Math.signum(delta));
+        int dir = (int) Math.signum(delta);
+        // 按住 Ctrl + 滚轮: 循环"当前模式自己的 Ctrl 选项"(如拆除范围), 并给 actionbar 提示
+        if (net.minecraft.client.gui.screens.Screen.hasControlDown()) {
+            Object opt = WrenchModeSwitcher.cycleCtrlOption(dir);
+            if (opt != null) {
+                String hint = WrenchModeSwitcher.ctrlOptionHint();
+                if (!hint.isEmpty())
+                    mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal("Ctrl: " + hint), true);
+            }
+            return true;
+        }
+        WrenchModeSwitcher.cycle(dir);
         return true;
     }
 }

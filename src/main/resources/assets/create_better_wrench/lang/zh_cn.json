@@ -1,0 +1,11 @@
+{
+  "item.create_better_wrench.better_wrench": "机械动力：更好的扳手",
+  "itemGroup.create_better_wrench": "机械动力：更好的扳手",
+  "mode.create_better_wrench.connect": "连接",
+  "mode.create_better_wrench.deconstruct": "拆除",
+  "scope.create_better_wrench.deconstruct.all": "全部",
+  "scope.create_better_wrench.deconstruct.create_only": "仅机械动力",
+  "scope.create_better_wrench.deconstruct.redstone_only": "仅红石",
+  "key.create_better_wrench.tools": "呼出扳手模式工具条",
+  "key.categories.create_better_wrench": "机械动力：更好的扳手"
+}
