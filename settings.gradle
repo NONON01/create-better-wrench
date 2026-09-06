@@ -1,0 +1,23 @@
+pluginManagement {
+    repositories {
+        // 国内镜像(加速插件下载; gradlePluginPortal 官方不可达时兜底)
+        maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url = 'https://maven.aliyun.com/repository/public' }
+        maven { url = 'https://repo.huaweicloud.com/repository/maven/' }
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+dependencyResolutionManagement {
+    repositories {
+        // 国内镜像优先(加速通用 mavenCentral 依赖; Create/NeoForge 专用源仍走 build.gradle 的官方仓库)
+        maven { url = 'https://maven.aliyun.com/repository/public' }
+        maven { url = 'https://repo.huaweicloud.com/repository/maven/' }
+    }
+}
+
+rootProject.name = 'create_better_wrench'

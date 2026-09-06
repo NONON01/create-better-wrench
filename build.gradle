@@ -1,0 +1,161 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.146'
+    id 'idea'
+}
+
+tasks.named('wrapper', Wrapper).configure {
+    distributionType = Wrapper.DistributionType.BIN
+}
+
+version = mod_version
+group = mod_group_id
+
+// ---- 机械动力 Create 集成开关与版本(默认关闭; 开启方法见 gradle.properties 注释) ----
+def createEnabled = (project.findProperty('enableCreate')?.toString() ?: 'false') == 'true'
+def mcVersion       = project.findProperty('minecraft_version') ?: '1.21.1'
+def createVer       = project.findProperty('create_version')     ?: '6.0.10-280'
+def ponderVer       = project.findProperty('ponder_version')     ?: '1.0.82'
+def flywheelVer     = project.findProperty('flywheel_version')   ?: '1.0.6'
+def registrateVer   = project.findProperty('registrate_version') ?: 'MC1.21-1.3.0+67'
+def createLocal      = (project.findProperty('createLocal')?.toString() ?: 'false') == 'true' // true=用 libs/ 里的本地 Create jar(备用)
+println('Create integration enabled: ' + createEnabled)
+
+sourceSets.main.resources {
+    srcDir('src/generated/resources')
+    exclude("**/*.bbmodel")
+    exclude("src/generated/**/.cache")
+}
+
+repositories {
+    // NeoForge 依赖(ModDevGradle 会自动处理官方仓库)
+    // 机械动力 Create / Flywheel / Ponder 所在仓库
+    maven { url = 'https://maven.createmod.net' }           // Create / Ponder / Flywheel
+    maven { url = 'https://maven.ithundxr.dev/snapshots' } // Registrate
+    // 其它示例仓库见官方文档，按需取消注释
+    // maven { url = 'https://www.cursemaven.com' }
+    // maven { url = 'https://api.modrinth.com/maven' }
+}
+
+base {
+    archivesName = mod_id
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+// 启用 Create 集成时，把 src/create 加入主源码集(该目录里的代码引用 Create API)
+if (createEnabled) {
+    sourceSets.main.java.srcDir 'src/create/java'
+    sourceSets.main.resources.srcDir 'src/create/resources'
+}
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        gameTestServer {
+            type = "gameTestServer"
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        data {
+            data()
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+// localRuntime 用于'可选'的运行时依赖(不打进发布物，但能本地运行测试)
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+dependencies {
+    // 启用 Create 集成时的官方 addon 依赖写法(参考 wiki.createmod.net/developers/depend-on-create)
+    if (createEnabled) {
+        if (createLocal) {
+            // 备用: 用 libs/ 里的本地 Create jar(规避某些网络下对远程 Create 依赖解析的挂起)
+            // 用法: gradle compileJava -PenableCreate=true -PcreateLocal=true
+            compileOnly files(fileTree(dir: 'libs', include: 'create-*.jar'))
+        } else {
+            // Create 本体(:slim 为不含内嵌库的变体; 关闭传递依赖, 由下方显式加 companion)
+            implementation("com.simibubi.create:create-" + mcVersion + ":" + createVer + ":slim") { transitive = false }
+            // Create 的 companion 依赖(开发期 classpath; 玩家侧由 Create 本体已内嵌, 无需另装)
+            implementation  "net.createmod.ponder:ponder-neoforge:" + ponderVer + "+mc" + mcVersion
+            // flywheel 视觉系统: 要让方块"真旋转"(.visual()/SingleAxisRotatingVisual/PartialModel/Models)
+            // 编译期需要 flywheel lib 的类(在 flywheel 本体里), 故本体须 compileOnly 而非仅 runtimeOnly。
+            compileOnly     "dev.engine-room.flywheel:flywheel-neoforge-api-" + mcVersion + ":" + flywheelVer
+            compileOnly     "dev.engine-room.flywheel:flywheel-neoforge-" + mcVersion + ":" + flywheelVer
+            runtimeOnly     "dev.engine-room.flywheel:flywheel-neoforge-" + mcVersion + ":" + flywheelVer
+            implementation  "com.tterrag.registrate:Registrate:" + registrateVer
+        }
+    }
+}
+
+// 把 gradle.properties / 模板占位符展开到 neoforge.mods.toml
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url "file://${project.projectDir}/repo"
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

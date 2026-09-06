@@ -1,0 +1,35 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+description='''
+机械动力:更好的扳手(Create Better Wrench)。
+不新增方块,提供一把更好用的 Create 扳手:ALT 呼出底部工具条 + 滚轮切换多种功能模式(如"连接")。
+'''
+
+# 依赖 NeoForge 与 Minecraft
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# 依赖机械动力 Create(本 mod 是纯 Create addon, 必装)
+[[dependencies.${mod_id}]]
+    modId="create"
+    type="required"
+    versionRange="[6.0.10,6.1.0)"
+    ordering="AFTER"
+    side="BOTH"
