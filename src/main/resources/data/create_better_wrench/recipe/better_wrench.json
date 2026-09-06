@@ -1,5 +1,6 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "equipment",
   "pattern": [
     "GG ",
     "GP ",
@@ -17,6 +18,6 @@
     }
   },
   "result": {
-    "item": "create_better_wrench:better_wrench"
+    "id": "create_better_wrench:better_wrench"
   }
 }
