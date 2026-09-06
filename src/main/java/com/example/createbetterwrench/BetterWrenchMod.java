@@ -8,7 +8,6 @@ import com.simibubi.create.AllCreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
@@ -37,7 +36,8 @@ public class BetterWrenchMod {
     public BetterWrenchMod(IEventBus modEventBus) {
         ITEMS.register(modEventBus);
         modEventBus.addListener(BetterWrenchMod::registerPayloads);
-        NeoForge.EVENT_BUS.addListener(BetterWrenchMod::addToCreateTab);
+        // BuildCreativeModeTabContentsEvent 是 IModBusEvent, 须注册在 mod 事件总线上(非 NeoForge.EVENT_BUS)
+        modEventBus.addListener(BetterWrenchMod::addToCreateTab);
         LOGGER.info("{} 正在加载...", MODID);
     }
 

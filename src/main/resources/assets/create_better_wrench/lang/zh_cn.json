@@ -1,5 +1,5 @@
 {
-  "item.create_better_wrench.better_wrench": "精密扳手 (Precision Wrench)",
+  "item.create_better_wrench.better_wrench": "精密扳手",
   "itemGroup.create_better_wrench": "精密扳手",
   "mode.create_better_wrench.connect": "连接",
   "mode.create_better_wrench.deconstruct": "拆除",
