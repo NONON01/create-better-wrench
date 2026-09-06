@@ -11,6 +11,8 @@ import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -48,6 +50,16 @@ public class BetterWrenchMod {
     public BetterWrenchMod(IEventBus modEventBus) {
         ITEMS.register(modEventBus);
         CREATIVE_TABS.register(modEventBus);
+        modEventBus.addListener(BetterWrenchMod::registerPayloads);
         LOGGER.info("{} 正在加载...", MODID);
+    }
+
+    /** 注册自定义网络载荷(packet)。 */
+    private static void registerPayloads(RegisterPayloadHandlersEvent event) {
+        PayloadRegistrar registrar = event.registrar(MODID).versioned("1");
+        registrar.playToServer(
+            com.example.createbetterwrench.network.DeconstructPayload.TYPE,
+            com.example.createbetterwrench.network.DeconstructPayload.STREAM_CODEC,
+            com.example.createbetterwrench.network.DeconstructPayload::handle);
     }
 }
