@@ -3,8 +3,6 @@ package com.example.createbetterwrench.connect;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.annotation.Nullable;
-
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllItems;
 import com.simibubi.create.content.kinetics.base.IRotate;
@@ -28,252 +26,380 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 /**
- * 「连接」模式的服务端核心: 判断 A→(拐点)→B 两段直线能否铺传动结构, 并在玩家背包足够时
- * 铺设(直线段铺轴, 拐点放齿轮箱)并精确扣料。
+ * 「连接」模式的服务端核心 —— 拐点数量不限, 每段边按几何自动路由。
  *
- * <p>规则(用户确认 2026-09-07):
+ * <p>交互(用户 2026-09-07 重定义):
+ * 起点 S(机械动力方块) → 若干普通方块拐点 c1..ck(数量不限) → 终点 E(机械动力方块)。</p>
+ *
+ * <p>每段相邻节点 a→b 的边按三档自动路由:
  * <ul>
- *   <li>A、B 必须是可接轴端的机械动力方块(IRotate + KineticBlockEntity, 且面向路径的面 hasShaftTowards);</li>
- *   <li>拐点为"普通方块"(非机械动力方块), 此处放齿轮箱, 拐弯必须成 90° 直角;</li>
- *   <li>只允许直线段 + 最多一次拐弯; 两段各自严格轴线对齐, 不齐则拒连;</li>
- *   <li>默认材料: 轴 create:shaft + 齿轮箱 create:gearbox; 副手若持传动杆(轴变体)则优先用副手;</li>
- *   <li>放置前先校验背包足量, 不足则整体拒绝、不放置、不扣料(不做部分放块);</li>
- *   <li>双源(两端已各自独立供力且方向冲突)会触发 Create 炸块, 连前预校验后拒连。</li>
- * </ul>
+ *   <li>差 1 个坐标(同轴)→ 直线铺轴, 无额外齿轮箱;</li>
+ *   <li>差 2 个坐标(同一平面)→ 自动一次 90° 拐弯(拐点先对齐 a 的轴再沿 b 的轴, 角点放齿轮箱);</li>
+ *   <li>差 3 个坐标(非同一平面, 需 ≥2 次拐弯)→ 拒连(NON_PLANAR)。</li>
+ * </ul></p>
+ *
+ * <p>每个方向改变处(被点拐点 + 每条拐弯边的自动角点)放一个齿轮箱。默认材料: 轴 create:shaft +
+ * 齿轮箱 create:gearbox(水平转) / create:vertical_gearbox(涉竖直转); 副手持轴变体则优先用副手。
+ * 放置先校验材料足量, 不足整拒不部分放; 双源方向冲突预检防炸块。</p>
  */
 public final class ConnectLogic {
 
-    /** 单段轴的最大格数(安全上限, 防止极端长路径)。 */
     private static final int MAX_LEG = 64;
 
     private ConnectLogic() {
     }
 
-    /** 判定结果(供服务端提示/客户端预览用)。 */
     public enum Result {
         SUCCESS,
         UNLOADED,
         NOT_KINETIC,
         AXIS_MISMATCH,
         BAD_TURN,
+        NON_PLANAR,
+        SAME_POS,
         PATH_BLOCKED,
         CONFLICTING_SOURCE,
         MATERIALS,
         TOO_LONG
     }
 
-    /** 落块计划: 若干轴格 + 可能的一个齿轮箱格。 */
-    public static final class Plan {
-        public final List<BlockPos> shafts = new ArrayList<>();
-        public final List<Axis> shaftAxes = new ArrayList<>();
-        public final BlockPos gearboxPos;   // null = 纯直线, 无齿轮箱
-        public final Axis gearboxAxis;      // 仅 gearboxPos != null 时有效
-        public final boolean verticalGearbox;
-
-        Plan(List<BlockPos> shafts, List<Axis> shaftAxes, BlockPos gearboxPos, Axis gearboxAxis,
-             boolean verticalGearbox) {
-            this.shafts.addAll(shafts);
-            this.shaftAxes.addAll(shaftAxes);
-            this.gearboxPos = gearboxPos;
-            this.gearboxAxis = gearboxAxis;
-            this.verticalGearbox = verticalGearbox;
+    /** 一截直线轴段(from→to, 不含两端, 沿 axis), to 若为节点则其上是齿轮箱。 */
+    private static final class Leg {
+        final Axis axis;
+        final BlockPos from;
+        final BlockPos to;
+        Leg(Axis axis, BlockPos from, BlockPos to) {
+            this.axis = axis;
+            this.from = from;
+            this.to = to;
         }
     }
 
-    /** 计划 + 判定结果。result != SUCCESS 时 plan 可能为空。 */
+    /** 一个齿轮箱放置点。 */
+    public static final class GearboxPlace {
+        public final BlockPos pos;
+        public final Axis axis;
+        public final boolean vertical;
+        GearboxPlace(BlockPos pos, Axis axis, boolean vertical) {
+            this.pos = pos;
+            this.axis = axis;
+            this.vertical = vertical;
+        }
+    }
+
+    /** 铺设计划(只读几何, 不含材料物品; 客户端可据此做幽灵预览)。 */
+    public static final class Plan {
+        public final List<BlockPos> shaftPositions = new ArrayList<>();
+        public final List<Axis> shaftAxes = new ArrayList<>();
+        public final List<GearboxPlace> gearboxes = new ArrayList<>();
+    }
+
     public static final class ResultOutcome {
         public final Result result;
         public final Plan plan;
-
         ResultOutcome(Result result, Plan plan) {
             this.result = result;
             this.plan = plan;
         }
     }
 
-    /** 玩家是否为"可接轴端"的机械动力方块(A/B 端点判定)。 */
-    public static boolean isKineticEnd(Level world, BlockPos pos, Direction toward) {
+    /** 判定一个方块是否为可接轴端的机械动力方块(IRotate + KineticBlockEntity)。 */
+    static boolean isKineticEnd(Level world, BlockPos pos) {
         BlockState state = world.getBlockState(pos);
-        Block block = state.getBlock();
-        if (!world.isLoaded(pos) || !(block instanceof IRotate rot))
+        if (!world.isLoaded(pos) || !(state.getBlock() instanceof IRotate))
             return false;
-        if (!(world.getBlockEntity(pos) instanceof KineticBlockEntity))
-            return false;
-        // 端点朝路径方向的这一面必须能接轴(真正的轴口/齿轮箱口才可连)
-        return rot.hasShaftTowards(world, pos, state, toward);
+        return world.getBlockEntity(pos) instanceof KineticBlockEntity;
     }
 
-    /**
-     * 计算铺设计划(只读, 不改世界): 校验轴线对齐/拐弯/占位/双源, 输出要落块的轴格与齿轮箱格。
-     * 客户端可用它做幽灵预览, 服务端用它做真正的放置。
-     */
-    public static ResultOutcome plan(Level world, BlockPos start, @Nullable BlockPos corner, BlockPos end) {
+    /** 计算铺设计划(只读, 不改世界)。corners 为按序点击的拐点(可为空列表=直线直达)。 */
+    public static ResultOutcome plan(Level world, BlockPos start, List<BlockPos> corners, BlockPos end) {
         if (!world.isLoaded(start) || !world.isLoaded(end))
             return new ResultOutcome(Result.UNLOADED, null);
-        if (corner != null && !world.isLoaded(corner))
-            return new ResultOutcome(Result.UNLOADED, null);
+        for (BlockPos c : corners)
+            if (!world.isLoaded(c))
+                return new ResultOutcome(Result.UNLOADED, null);
 
-        boolean hasCorner = corner != null;
+        if (start.equals(end))
+            return new ResultOutcome(Result.SAME_POS, null);
 
-        // --- 解析两段轴的轴向与方向 ---
-        Axis leg1Axis;
-        Direction d1; // start -> (corner|end)
-        if (hasCorner) {
-            leg1Axis = axisBetween(start, corner);
-            if (leg1Axis == null)
-                return new ResultOutcome(Result.AXIS_MISMATCH, null);
-            d1 = directionBetween(start, corner);
-        } else {
-            leg1Axis = axisBetween(start, end);
-            if (leg1Axis == null)
-                return new ResultOutcome(Result.AXIS_MISMATCH, null);
-            d1 = directionBetween(start, end);
-        }
+        // 节点链: start, c1..ck, end
+        List<BlockPos> chain = new ArrayList<>();
+        chain.add(start);
+        chain.addAll(corners);
+        chain.add(end);
 
-        Axis leg2Axis = null;
-        Direction d2 = null; // corner -> end
-        if (hasCorner) {
-            leg2Axis = axisBetween(corner, end);
-            if (leg2Axis == null)
-                return new ResultOutcome(Result.AXIS_MISMATCH, null);
-            d2 = directionBetween(corner, end);
-            // 拐弯必须是 90° 直角(两段垂直), 否则不是"一次拐弯"
-            if (leg1Axis == leg2Axis)
-                return new ResultOutcome(Result.BAD_TURN, null);
-        }
-
-        // --- 端点轴口校验 ---
-        if (!isKineticEnd(world, start, d1))
-            return new ResultOutcome(Result.NOT_KINETIC, null);
-        Direction endIn = hasCorner ? d2.getOpposite() : d1.getOpposite();
-        if (!isKineticEnd(world, end, endIn))
+        // 端点必须为机械动力方块
+        if (!isKineticEnd(world, start) || !isKineticEnd(world, end))
             return new ResultOutcome(Result.NOT_KINETIC, null);
 
-        // --- 双源安全校验: 两端若已各自独立供力且方向冲突, Create 会在连入时炸块 ---
+        // 逐边路由成直线轴段列表
+        List<Leg> legs = new ArrayList<>();
+        for (int i = 0; i < chain.size() - 1; i++) {
+            boolean first = i == 0;
+            Leg[] edge = routeEdge(world, chain.get(i), chain.get(i + 1), first,
+                start, world.getBlockState(start));
+            if (edge == null)
+                return new ResultOutcome(edgeResult(world, chain.get(i), chain.get(i + 1)), null);
+            for (Leg l : edge)
+                legs.add(l);
+        }
+        if (legs.isEmpty())
+            return new ResultOutcome(Result.AXIS_MISMATCH, null);
+
+        // 端点轴口校验
+        Leg firstLeg = legs.get(0);
+        BlockState startState = world.getBlockState(start);
+        if (!portOpen(world, start, startState, firstLeg.axis,
+            directionBetween(start, firstLeg.to)))
+            return new ResultOutcome(Result.NOT_KINETIC, null);
+        Leg lastLeg = legs.get(legs.size() - 1);
+        BlockState endState = world.getBlockState(end);
+        if (!portOpen(world, end, endState, lastLeg.axis,
+            directionBetween(lastLeg.from, end).getOpposite()))
+            return new ResultOutcome(Result.NOT_KINETIC, null);
+
+        // 双源安全校验(防 Create 炸块)
         if (conflicts(world, start, end))
             return new ResultOutcome(Result.CONFLICTING_SOURCE, null);
 
-        // --- 计算全部落块位置 ---
-        List<BlockPos> shaftPos = new ArrayList<>();
-        List<Axis> shaftAx = new ArrayList<>();
-
-        BlockPos c1 = hasCorner ? corner : end;
-        if (!collectShafts(world, start, c1, leg1Axis, shaftPos, shaftAx))
-            return new ResultOutcome(Result.PATH_BLOCKED, null);
-
-        BlockPos gearboxPos = null;
-        Axis gearboxAxis = null;
-        boolean verticalGearbox = false;
-
-        if (hasCorner) {
-            // 齿轮箱轴向: 水平↔水平 => Y; 竖直↔水平 => 垂直于水平腿的那条水平轴
-            if (leg1Axis.isVertical() || leg2Axis.isVertical()) {
-                Axis horizontalLeg = leg1Axis.isVertical() ? leg2Axis : leg1Axis;
-                gearboxAxis = horizontalLeg == Axis.X ? Axis.Z : Axis.X;
-                verticalGearbox = true;
-            } else {
-                gearboxAxis = Axis.Y;
-                verticalGearbox = false;
-            }
-            gearboxPos = corner;
-
-            List<BlockPos> second = new ArrayList<>();
-            List<Axis> secondAx = new ArrayList<>();
-            if (!collectShafts(world, corner, end, leg2Axis, second, secondAx))
+        // 汇总: 各轴段中间格铺轴 + 各内部节点(拐点/自动角点)放齿轮箱
+        Plan plan = new Plan();
+        for (Leg leg : legs) {
+            List<BlockPos> cells = interiorCells(leg.from, leg.to, leg.axis);
+            if (cells == null)
                 return new ResultOutcome(Result.PATH_BLOCKED, null);
-            shaftPos.addAll(second);
-            shaftAx.addAll(secondAx);
+            for (BlockPos p : cells) {
+                if (occupied(world, p))
+                    return new ResultOutcome(Result.PATH_BLOCKED, null);
+                plan.shaftPositions.add(p);
+                plan.shaftAxes.add(leg.axis);
+            }
+        }
+        for (int i = 0; i < legs.size() - 1; i++) {
+            Leg cur = legs.get(i);
+            Leg next = legs.get(i + 1);
+            BlockPos jp = cur.to; // 两块相邻轴段的共同节点
+            if (occupied(world, jp))
+                return new ResultOutcome(Result.PATH_BLOCKED, null);
+            Axis gax = junctionAxis(cur.axis, next.axis);
+            plan.gearboxes.add(new GearboxPlace(jp, gax, gax != Axis.Y));
         }
 
-        Plan plan = new Plan(shaftPos, shaftAx, gearboxPos, gearboxAxis, verticalGearbox);
         return new ResultOutcome(Result.SUCCESS, plan);
     }
 
-    /** 收集从 a 到 b(不含端点)之间沿 axis 的轴格; 若被不可替换方块挡住则返回 false。 */
-    private static boolean collectShafts(Level world, BlockPos a, BlockPos b, Axis axis,
-                                         List<BlockPos> out, List<Axis> outAxes) {
-        Direction dir = directionBetween(a, b);
-        int guard = 0;
-        for (BlockPos p = a.relative(dir); !p.equals(b); p = p.relative(dir)) {
-            if (++guard > MAX_LEG)
-                return false;
-            BlockState existing = world.getBlockState(p);
-            if (!existing.canBeReplaced()
-                && !(existing.getBlock() instanceof AbstractSimpleShaftBlock && existing.hasProperty(BlockStateProperties.AXIS)))
-                return false;
-            out.add(p.immutable());
-            outAxes.add(axis);
+    private static Result edgeResult(Level world, BlockPos a, BlockPos b) {
+        int n = differingCount(a, b);
+        if (n == 0)
+            return Result.SAME_POS;
+        if (n >= 3)
+            return Result.NON_PLANAR;
+        return Result.AXIS_MISMATCH; // 1 或 2 维但轴口/其它不成立
+    }
+
+    /** 路由一条边: 返回 1(直线)或 2(一次拐弯)个轴段; 无法路由返回 null。 */
+    private static Leg[] routeEdge(Level world, BlockPos a, BlockPos b, boolean first,
+                                   BlockPos start, BlockState startState) {
+        List<Axis> ds = differingAxes(a, b);
+        int n = ds.size();
+        if (n == 0 || n >= 3)
+            return null;
+
+        if (n == 1) {
+            Axis ax = ds.get(0);
+            return new Leg[] { new Leg(ax, a, b) };
         }
+
+        // n == 2 (同一平面): 两种 L 取向, 选一种
+        Axis p = ds.get(0);
+        Axis q = ds.get(1);
+        BlockPos cornerP = corner(b, a, p); // a 的 p 坐标换成 b 的
+        BlockPos cornerQ = corner(b, a, q);
+
+        boolean pOk = !first || portOpen(world, start, startState, p,
+            directionBetween(start, cornerP));
+        boolean qOk = !first || portOpen(world, start, startState, q,
+            directionBetween(start, cornerQ));
+
+        boolean useP;
+        if (first) {
+            if (pOk && qOk) {
+                // 都行: 优先沿起点旋转轴的那条, 否则取第一个差异轴
+                Axis rax = ((IRotate) startState.getBlock()).getRotationAxis(startState);
+                useP = p == rax ? true : (q == rax ? false : true);
+            } else
+                useP = pOk;
+        } else {
+            useP = true; // 非起点的源(齿轮箱)均可沿两轴出, 取第一个差异轴(确定)
+        }
+
+        if (useP && !pOk)
+            return null;
+        if (!useP && !qOk)
+            return null;
+
+        Axis firstAxis = useP ? p : q;
+        Axis secondAxis = useP ? q : p;
+        BlockPos corner = useP ? cornerP : cornerQ;
+        return new Leg[] { new Leg(firstAxis, a, corner), new Leg(secondAxis, corner, b) };
+    }
+
+    /** 把 posA 中 atAxis 的坐标替换成 posB 的值, 其余保持 posA。 */
+    private static BlockPos corner(BlockPos posA, BlockPos posB, Axis atAxis) {
+        int x = atAxis == Axis.X ? posB.getX() : posA.getX();
+        int y = atAxis == Axis.Y ? posB.getY() : posA.getY();
+        int z = atAxis == Axis.Z ? posB.getZ() : posA.getZ();
+        return new BlockPos(x, y, z);
+    }
+
+    /** 轴口是否朝向 dir 方向打开(只有端点锚/起点才需要; 内部齿轮箱不查)。 */
+    private static boolean portOpen(Level world, BlockPos pos, BlockState state, Axis axis, Direction dir) {
+        if (!(state.getBlock() instanceof IRotate rot))
+            return false;
+        return rot.hasShaftTowards(world, pos, state, dir);
+    }
+
+    /** 两轴段在共同节点处的齿轮箱轴向。 */
+    private static Axis junctionAxis(Axis a1, Axis a2) {
+        if (a1 != a2)
+            return thirdAxis(a1, a2);
+        // 共线(直通): 取任一垂直于 a1 的轴, 使齿轮箱可通过
+        return a1 == Axis.Y ? Axis.X : Axis.Y;
+    }
+
+    private static Axis thirdAxis(Axis a1, Axis a2) {
+        for (Axis ax : new Axis[] { Axis.X, Axis.Y, Axis.Z })
+            if (ax != a1 && ax != a2)
+                return ax;
+        return Axis.Y;
+    }
+
+    private static List<Axis> differingAxes(BlockPos a, BlockPos b) {
+        List<Axis> list = new ArrayList<>();
+        if (a.getX() != b.getX())
+            list.add(Axis.X);
+        if (a.getY() != b.getY())
+            list.add(Axis.Y);
+        if (a.getZ() != b.getZ())
+            list.add(Axis.Z);
+        return list;
+    }
+
+    private static int differingCount(BlockPos a, BlockPos b) {
+        return differingAxes(a, b).size();
+    }
+
+    private static Direction directionBetween(BlockPos a, BlockPos b) {
+        Axis axis = axisBetween(a, b);
+        if (axis == null)
+            return Direction.UP;
+        int delta = axis.choose(b.getX(), b.getY(), b.getZ()) - axis.choose(a.getX(), a.getY(), a.getZ());
+        return delta >= 0 ? Direction.get(AxisDirection.POSITIVE, axis)
+            : Direction.get(AxisDirection.NEGATIVE, axis);
+    }
+
+    private static Axis axisBetween(BlockPos a, BlockPos b) {
+        List<Axis> ds = differingAxes(a, b);
+        return ds.size() == 1 ? ds.get(0) : null;
+    }
+
+    /** from→to(不含两端)沿 axis 的中间格; 任一格超长无法铺完时返回 null。 */
+    private static List<BlockPos> interiorCells(BlockPos from, BlockPos to, Axis axis) {
+        List<BlockPos> out = new ArrayList<>();
+        Direction dir = directionBetween(from, to);
+        int guard = 0;
+        for (BlockPos p = from.relative(dir); !p.equals(to); p = p.relative(dir)) {
+            if (++guard > MAX_LEG)
+                return null;
+            out.add(p.immutable());
+        }
+        return out;
+    }
+
+    private static boolean occupied(Level world, BlockPos pos) {
+        BlockState existing = world.getBlockState(pos);
+        if (existing.canBeReplaced())
+            return false;
+        if (existing.getBlock() instanceof AbstractSimpleShaftBlock
+            && existing.hasProperty(BlockStateProperties.AXIS))
+            return false; // 已有同型轴可复用
         return true;
     }
 
-    /**
-     * 真正执行连接(服务端权威): 先校验背包材料是否足够; 不足则返回 MATERIALS 且不做任何改动。
-     * 成功则落块(switchToBlockState)并从背包/副手依次扣料(creative 跳过扣料)。
-     */
-    public static Result connect(ServerLevel world, Player player, BlockPos start, @Nullable BlockPos corner,
+    private static boolean conflicts(Level world, BlockPos start, BlockPos end) {
+        float s1 = speedAt(world, start);
+        float s2 = speedAt(world, end);
+        if (s1 == 0 || s2 == 0)
+            return false;
+        return Math.signum(s1) != Math.signum(s2);
+    }
+
+    private static float speedAt(Level world, BlockPos pos) {
+        if (!(world.getBlockEntity(pos) instanceof KineticBlockEntity kbe))
+            return 0;
+        return kbe.getTheoreticalSpeed();
+    }
+
+    /** 真正执行连接: 校验材料足量后落块并扣料(creative 跳过扣料)。 */
+    public static Result connect(ServerLevel world, Player player, BlockPos start, List<BlockPos> corners,
                                  BlockPos end) {
-        ResultOutcome oc = plan(world, start, corner, end);
+        ResultOutcome oc = plan(world, start, corners, end);
         if (oc.result != Result.SUCCESS)
             return oc.result;
-
         Plan plan = oc.plan;
 
-        // 材料物品: 轴默认 create:shaft; 副手持"传动杆(轴变体)"则优先用副手
         Item shaftItem = resolveShaftItem(player);
-        Item gearboxItem = plan.gearboxPos != null
-            ? (plan.verticalGearbox ? AllItems.VERTICAL_GEARBOX.get() : AllBlocks.GEARBOX.asItem())
-            : null;
+        int shaftCount = plan.shaftPositions.size();
+        int gearboxCount = plan.gearboxes.size();
+        int verticalCount = 0;
+        for (GearboxPlace g : plan.gearboxes)
+            if (g.vertical)
+                verticalCount++;
+        int horizontalCount = gearboxCount - verticalCount;
 
-        int shaftNeed = plan.shafts.size();
-        int gearboxNeed = plan.gearboxPos != null ? 1 : 0;
+        Item gearboxItem = AllBlocks.GEARBOX.asItem();
+        Item verticalItem = AllItems.VERTICAL_GEARBOX.get();
 
         if (!player.isCreative()) {
-            if (countItem(player, shaftItem) < shaftNeed)
+            if (countItem(player, shaftItem) < shaftCount)
                 return Result.MATERIALS;
-            if (gearboxNeed > 0 && countItem(player, gearboxItem) < gearboxNeed)
+            if (horizontalCount > 0 && countItem(player, gearboxItem) < horizontalCount)
+                return Result.MATERIALS;
+            if (verticalCount > 0 && countItem(player, verticalItem) < verticalCount)
                 return Result.MATERIALS;
         }
 
-        // --- 放置 ---
-        placeShafts(world, plan, shaftItem);
-        if (plan.gearboxPos != null)
-            placeGearbox(world, plan, gearboxItem);
+        // 放置
+        BlockState shaftBase = shaftBlockState(shaftItem);
+        for (int i = 0; i < plan.shaftPositions.size(); i++) {
+            BlockPos p = plan.shaftPositions.get(i);
+            BlockState st = shaftBase.hasProperty(BlockStateProperties.AXIS)
+                ? shaftBase.setValue(BlockStateProperties.AXIS, plan.shaftAxes.get(i))
+                : shaftBase;
+            KineticBlockEntity.switchToBlockState(world, p, st);
+        }
+        for (GearboxPlace g : plan.gearboxes)
+            KineticBlockEntity.switchToBlockState(world, g.pos,
+                AllBlocks.GEARBOX.getDefaultState()
+                    .setValue(BlockStateProperties.AXIS, g.axis == null ? Axis.Y : g.axis));
 
         world.playSound(null, BlockPos.containing(
             net.createmod.catnip.math.VecHelper.getCenterOf(start.offset(end)).scale(.5f)),
             SoundEvents.WOOL_PLACE, SoundSource.BLOCKS, 0.5F, 1F);
 
-        // --- 扣料(creative 跳过) ---
+        // 扣料(creative 跳过)
         if (!player.isCreative()) {
-            if (shaftNeed > 0)
-                consumeItem(player, shaftItem, shaftNeed);
-            if (gearboxNeed > 0)
-                consumeItem(player, gearboxItem, gearboxNeed);
+            if (shaftCount > 0)
+                consumeItem(player, shaftItem, shaftCount);
+            if (horizontalCount > 0)
+                consumeItem(player, gearboxItem, horizontalCount);
+            if (verticalCount > 0)
+                consumeItem(player, verticalItem, verticalCount);
         }
 
         return Result.SUCCESS;
     }
 
-    private static void placeShafts(ServerLevel world, Plan plan, Item shaftItem) {
-        BlockState base = shaftBlockState(shaftItem);
-        for (int i = 0; i < plan.shafts.size(); i++) {
-            BlockPos pos = plan.shafts.get(i);
-            Axis axis = plan.shaftAxes.get(i);
-            BlockState state = base.hasProperty(BlockStateProperties.AXIS)
-                ? base.setValue(BlockStateProperties.AXIS, axis)
-                : base;
-            KineticBlockEntity.switchToBlockState(world, pos, state);
-        }
-    }
-
-    private static void placeGearbox(ServerLevel world, Plan plan, Item gearboxItem) {
-        BlockState state = AllBlocks.GEARBOX.getDefaultState()
-            .setValue(BlockStateProperties.AXIS, plan.gearboxAxis == null ? Axis.Y : plan.gearboxAxis);
-        KineticBlockEntity.switchToBlockState(world, plan.gearboxPos, state);
-    }
-
-    /** 轴块标称状态(带默认 AXIS, 后面逐格按轴向 override)。 */
     private static BlockState shaftBlockState(Item shaftItem) {
         if (shaftItem instanceof BlockItem bi) {
             BlockState s = bi.getBlock().defaultBlockState();
@@ -283,7 +409,6 @@ public final class ConnectLogic {
         return AllBlocks.SHAFT.getDefaultState();
     }
 
-    /** 副手若持"传动杆(轴变体)"则用副手物品, 否则用 create:shaft。 */
     private static Item resolveShaftItem(Player player) {
         Item off = player.getOffhandItem().getItem();
         if (off instanceof BlockItem bi && bi.getBlock() instanceof AbstractSimpleShaftBlock)
@@ -291,7 +416,6 @@ public final class ConnectLogic {
         return AllBlocks.SHAFT.asItem();
     }
 
-    /** 统计玩家主背包+副手中该物品的总数。 */
     private static int countItem(Player player, Item item) {
         int count = 0;
         for (ItemStack stack : player.getInventory().items)
@@ -303,7 +427,6 @@ public final class ConnectLogic {
         return count;
     }
 
-    /** 从主背包+副手中扣掉 count 个该物品(倒序, 不足则不扣 — 调用前已校验足量)。 */
     private static void consumeItem(Player player, Item item, int count) {
         int remain = count;
         for (int i = player.getInventory().items.size() - 1; i >= 0 && remain > 0; i--) {
@@ -322,41 +445,5 @@ public final class ConnectLogic {
                 remain -= take;
             }
         }
-    }
-
-    /** 双源方向安全校验: 两端各自网络已有转速且方向相反时, 连入会造成 Create 炸块, 拒连。 */
-    private static boolean conflicts(Level world, BlockPos start, BlockPos end) {
-        float s1 = speedAt(world, start);
-        float s2 = speedAt(world, end);
-        if (s1 == 0 || s2 == 0)
-            return false;
-        return Float.compare(Math.signum(s1), Math.signum(s2)) != 0 && Math.signum(s1) != 0;
-    }
-
-    private static float speedAt(Level world, BlockPos pos) {
-        if (!(world.getBlockEntity(pos) instanceof KineticBlockEntity kbe))
-            return 0;
-        return kbe.getTheoreticalSpeed();
-    }
-
-    /** 计算 a、b 之间的差异轴; 若两格不共轴(不严格对齐)或相同则返回 null。 */
-    private static Axis axisBetween(BlockPos a, BlockPos b) {
-        boolean dx = a.getX() != b.getX();
-        boolean dy = a.getY() != b.getY();
-        boolean dz = a.getZ() != b.getZ();
-        int n = (dx ? 1 : 0) + (dy ? 1 : 0) + (dz ? 1 : 0);
-        if (n != 1)
-            return null;
-        return dx ? Axis.X : dy ? Axis.Y : Axis.Z;
-    }
-
-    /** 沿 axis 从 a 指向 b 的单位方向。 */
-    private static Direction directionBetween(BlockPos a, BlockPos b) {
-        Axis axis = axisBetween(a, b);
-        if (axis == null)
-            return Direction.UP;
-        int delta = axis.choose(b.getX(), b.getY(), b.getZ()) - axis.choose(a.getX(), a.getY(), a.getZ());
-        return delta >= 0 ? Direction.get(AxisDirection.POSITIVE, axis)
-            : Direction.get(AxisDirection.NEGATIVE, axis);
     }
 }
