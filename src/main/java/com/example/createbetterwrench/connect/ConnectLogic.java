@@ -178,9 +178,8 @@ public final class ConnectLogic {
         for (int i = 0; i < legs.size() - 1; i++) {
             Leg cur = legs.get(i);
             Leg next = legs.get(i + 1);
-            BlockPos jp = cur.to; // 两块相邻轴段的共同节点
-            if (occupied(world, jp))
-                return new ResultOutcome(Result.PATH_BLOCKED, null);
+            BlockPos jp = cur.to; // 两块相邻轴段的共同节点(被点拐点 / 自动角点)
+            // 齿轮箱节点允许替换该处方块(即"普通方块→齿轮箱"), 不做遮挡判定
             Axis gax = junctionAxis(cur.axis, next.axis);
             plan.gearboxes.add(new GearboxPlace(jp, gax, gax != Axis.Y));
         }
@@ -194,7 +193,8 @@ public final class ConnectLogic {
             return Result.SAME_POS;
         if (n >= 3)
             return Result.NON_PLANAR;
-        return Result.AXIS_MISMATCH; // 1 或 2 维但轴口/其它不成立
+        // 1 或 2 维的 routeEdge 返回 null, 只可能是首段起点轴口不被满足 → 报"无法接轴"
+        return Result.NOT_KINETIC;
     }
 
     /** 路由一条边: 返回 1(直线)或 2(一次拐弯)个轴段; 无法路由返回 null。 */
@@ -213,8 +213,9 @@ public final class ConnectLogic {
         // n == 2 (同一平面): 两种 L 取向, 选一种
         Axis p = ds.get(0);
         Axis q = ds.get(1);
-        BlockPos cornerP = corner(b, a, p); // a 的 p 坐标换成 b 的
-        BlockPos cornerQ = corner(b, a, q);
+        // 拐点要"先沿 a 的轴"(首段)再转 b 的轴: 即拐点保留 a 的其它坐标、把首段轴坐标换成 b 的
+        BlockPos cornerP = corner(a, b, p); // 首段沿 p: a 的 p 坐标换成 b 的
+        BlockPos cornerQ = corner(a, b, q); // 首段沿 q: a 的 q 坐标换成 b 的
 
         boolean pOk = !first || portOpen(world, start, startState, p,
             directionBetween(start, cornerP));
