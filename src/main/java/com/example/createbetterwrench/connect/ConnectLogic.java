@@ -158,9 +158,9 @@ public final class ConnectLogic {
             directionBetween(lastLeg.from, end).getOpposite()))
             return new ResultOutcome(Result.NOT_KINETIC, null);
 
-        // 双源安全校验(防 Create 炸块)
-        if (conflicts(world, start, end))
-            return new ResultOutcome(Result.CONFLICTING_SOURCE, null);
+        // 【已移除】原先的"双源方向冲突"校验在此处拦截: 它比较两端 getTheoreticalSpeed() 的正负号,
+        // 但穿过我们要放置的齿轮箱/拐弯本来就会反转转向, 导致"明显可正常接入"却被误报冲突。
+        // 现改为: 不据此拒连, 让 Create 运行时按实际网络合并处理(极少数的真实炸块属边界情况, 由运行时提示)。
 
         // 汇总: 各轴段中间格铺轴 + 各内部节点(拐点/自动角点)放齿轮箱
         Plan plan = new Plan();
@@ -325,20 +325,6 @@ public final class ConnectLogic {
             && existing.hasProperty(BlockStateProperties.AXIS))
             return false; // 已有同型轴可复用
         return true;
-    }
-
-    private static boolean conflicts(Level world, BlockPos start, BlockPos end) {
-        float s1 = speedAt(world, start);
-        float s2 = speedAt(world, end);
-        if (s1 == 0 || s2 == 0)
-            return false;
-        return Math.signum(s1) != Math.signum(s2);
-    }
-
-    private static float speedAt(Level world, BlockPos pos) {
-        if (!(world.getBlockEntity(pos) instanceof KineticBlockEntity kbe))
-            return 0;
-        return kbe.getTheoreticalSpeed();
     }
 
     /** 真正执行连接: 校验材料足量后落块并扣料(creative 跳过扣料)。 */
