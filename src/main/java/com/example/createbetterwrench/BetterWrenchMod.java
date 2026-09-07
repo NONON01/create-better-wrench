@@ -54,5 +54,9 @@ public class BetterWrenchMod {
             com.example.createbetterwrench.network.DeconstructPayload.TYPE,
             com.example.createbetterwrench.network.DeconstructPayload.STREAM_CODEC,
             com.example.createbetterwrench.network.DeconstructPayload::handle);
+        registrar.playToServer(
+            com.example.createbetterwrench.network.ConnectPayload.TYPE,
+            com.example.createbetterwrench.network.ConnectPayload.STREAM_CODEC,
+            com.example.createbetterwrench.network.ConnectPayload::handle);
     }
 }
