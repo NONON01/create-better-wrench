@@ -1,6 +1,6 @@
 {
-  "item.create_better_wrench.better_wrench": "Precision Wrench",
-  "itemGroup.create_better_wrench": "Precision Wrench",
+  "item.create_better_wrench.better_wrench": "Universal Wrench",
+  "itemGroup.create_better_wrench": "Universal Wrench",
   "mode.create_better_wrench.connect": "Connect",
   "mode.create_better_wrench.deconstruct": "Deconstruct",
   "mode.create_better_wrench.logistics": "Logistics Network",
@@ -9,5 +9,5 @@
   "scope.create_better_wrench.deconstruct.create_only": "Create Only",
   "scope.create_better_wrench.deconstruct.redstone_only": "Redstone Only",
   "key.create_better_wrench.tools": "Focus Wrench Mode Bar",
-  "key.categories.create_better_wrench": "Precision Wrench"
+  "key.categories.create_better_wrench": "Universal Wrench"
 }

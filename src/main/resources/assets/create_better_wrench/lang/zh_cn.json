@@ -1,6 +1,6 @@
 {
-  "item.create_better_wrench.better_wrench": "精密扳手",
-  "itemGroup.create_better_wrench": "精密扳手",
+  "item.create_better_wrench.better_wrench": "万能扳手",
+  "itemGroup.create_better_wrench": "万能扳手",
   "mode.create_better_wrench.connect": "连接",
   "mode.create_better_wrench.deconstruct": "拆除",
   "mode.create_better_wrench.logistics": "物流网络",
@@ -9,5 +9,5 @@
   "scope.create_better_wrench.deconstruct.create_only": "仅机械动力",
   "scope.create_better_wrench.deconstruct.redstone_only": "仅红石",
   "key.create_better_wrench.tools": "呼出扳手模式工具条",
-  "key.categories.create_better_wrench": "精密扳手"
+  "key.categories.create_better_wrench": "万能扳手"
 }
