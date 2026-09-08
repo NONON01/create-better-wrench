@@ -23,6 +23,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -72,10 +73,18 @@ public final class ConnectSelectionHandler {
         if (!active(mc))
             return false;
         BlockHitResult bhr = rayTraceHit(mc);
-        if (bhr == null)
-            return true;
-        BlockPos hit = bhr.getBlockPos();
 
+        if (bhr == null) {
+            // 对准开阔空气: 直接选该空气格作拐点(需已选起点与已有拐点语义)
+            if (startPos != null) {
+                BlockPos air = airCellFromLook(mc);
+                if (air != null && !air.equals(startPos))
+                    corners.add(air);
+            }
+            return true;
+        }
+
+        BlockPos hit = bhr.getBlockPos();
         boolean kinetic = isKineticBlock(mc.level, hit);
 
         if (startPos == null) {
@@ -95,8 +104,7 @@ public final class ConnectSelectionHandler {
             return true;
         }
 
-        // 拐点 = 点击实体方块"旁边(准星所看那面的方向)的空气方块", 而非实体方块本身;
-        // 这样齿轮箱会放到空气格里, 不会放进/替换完整方块。
+        // 拐点 = 直接选中"空气格": 取点击方块命中面旁的空气格(不选中完整方块本身)
         corners.add(hit.relative(bhr.getDirection()));
         return true;
     }
@@ -114,6 +122,34 @@ public final class ConnectSelectionHandler {
         HitResult hit = mc.hitResult;
         if (hit != null && hit.getType() == HitResult.Type.BLOCK)
             return (BlockHitResult) hit;
+        return null;
+    }
+
+    /** 拐点应直接落在"空气格": 点到实体方块 → 取其命中面旁的空气格; 指向开阔空气 → 取准星所看的空气格。 */
+    private static BlockPos cornerTargetAirCell(Minecraft mc) {
+        BlockHitResult bhr = rayTraceHit(mc);
+        if (bhr != null)
+            return bhr.getBlockPos().relative(bhr.getDirection());
+        return airCellFromLook(mc);
+    }
+
+    /** 从玩家视线沿朝向步进, 取第一个非自身的空气格(用于直接点到开阔空气)。 */
+    private static BlockPos airCellFromLook(Minecraft mc) {
+        if (mc.player == null || mc.level == null)
+            return null;
+        Vec3 eye = mc.player.getEyePosition(1.0f);
+        Vec3 look = mc.player.getLookAngle();
+        BlockPos eyeBlock = BlockPos.containing(eye);
+        double range = 6.5;
+        double step = 0.25;
+        for (double t = step; t <= range; t += step) {
+            BlockPos p = BlockPos.containing(eye.x + look.x * t, eye.y + look.y * t, eye.z + look.z * t);
+            if (p.equals(eyeBlock))
+                continue;
+            BlockState st = mc.level.getBlockState(p);
+            if (st.isAir() || st.canBeReplaced())
+                return p.immutable();
+        }
         return null;
     }
 
@@ -183,23 +219,32 @@ public final class ConnectSelectionHandler {
                 .colored(GOLD).lineWidth(1 / 16f);
 
         // 悬停提示
-        if (hit == null || hit.equals(startPos)) {
-            Outliner.getInstance().remove(HOVER_KEY);
-            Outliner.getInstance().remove(GHOST_KEY);
-            return;
-        }
+        BlockPos aimBlock = hitResult != null ? hitResult.getBlockPos() : null;
+        boolean aimKinetic = aimBlock != null && isKineticBlock(mc.level, aimBlock);
 
-        if (isKineticBlock(mc.level, hit)) {
-            ConnectLogic.ResultOutcome oc = ConnectLogic.plan(mc.level, startPos, corners, hit);
+        if (aimKinetic) {
+            if (aimBlock.equals(startPos)) {
+                Outliner.getInstance().remove(HOVER_KEY);
+                Outliner.getInstance().remove(GHOST_KEY);
+                return;
+            }
+            ConnectLogic.ResultOutcome oc = ConnectLogic.plan(mc.level, startPos, corners, aimBlock);
             boolean ok = oc.result == ConnectLogic.Result.SUCCESS;
-            Outliner.getInstance().chaseAABB(HOVER_KEY, new AABB(hit))
+            Outliner.getInstance().chaseAABB(HOVER_KEY, new AABB(aimBlock))
                 .colored(ok ? GREEN : RED).lineWidth(1 / 16f);
             if (ok)
                 drawGhost(oc.plan);
             else
                 Outliner.getInstance().remove(GHOST_KEY);
         } else {
-            Outliner.getInstance().chaseAABB(HOVER_KEY, new AABB(hit))
+            // 拐点候选: 直接高亮"空气格"(点击方块命中面旁的空气格 / 开阔空气的准星格)
+            BlockPos cornerCell = cornerTargetAirCell(mc);
+            if (cornerCell == null) {
+                Outliner.getInstance().remove(HOVER_KEY);
+                Outliner.getInstance().remove(GHOST_KEY);
+                return;
+            }
+            Outliner.getInstance().chaseAABB(HOVER_KEY, new AABB(cornerCell))
                 .colored(GOLD).lineWidth(1 / 16f);
             Outliner.getInstance().remove(GHOST_KEY);
         }
