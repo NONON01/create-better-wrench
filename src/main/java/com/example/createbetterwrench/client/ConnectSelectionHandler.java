@@ -71,9 +71,10 @@ public final class ConnectSelectionHandler {
         Minecraft mc = Minecraft.getInstance();
         if (!active(mc))
             return false;
-        BlockPos hit = rayTraceBlock(mc);
-        if (hit == null)
+        BlockHitResult bhr = rayTraceHit(mc);
+        if (bhr == null)
             return true;
+        BlockPos hit = bhr.getBlockPos();
 
         boolean kinetic = isKineticBlock(mc.level, hit);
 
@@ -94,7 +95,9 @@ public final class ConnectSelectionHandler {
             return true;
         }
 
-        corners.add(hit); // 拐点(普通方块), 数量不限
+        // 拐点 = 点击实体方块"旁边(准星所看那面的方向)的空气方块", 而非实体方块本身;
+        // 这样齿轮箱会放到空气格里, 不会放进/替换完整方块。
+        corners.add(hit.relative(bhr.getDirection()));
         return true;
     }
 
@@ -107,10 +110,10 @@ public final class ConnectSelectionHandler {
         Outliner.getInstance().remove(GHOST_KEY);
     }
 
-    private static BlockPos rayTraceBlock(Minecraft mc) {
+    private static BlockHitResult rayTraceHit(Minecraft mc) {
         HitResult hit = mc.hitResult;
         if (hit != null && hit.getType() == HitResult.Type.BLOCK)
-            return ((BlockHitResult) hit).getBlockPos();
+            return (BlockHitResult) hit;
         return null;
     }
 
@@ -154,7 +157,8 @@ public final class ConnectSelectionHandler {
             return;
         }
 
-        BlockPos hit = rayTraceBlock(mc);
+        BlockHitResult hitResult = rayTraceHit(mc);
+        BlockPos hit = hitResult != null ? hitResult.getBlockPos() : null;
 
         if (startPos == null) {
             if (hit != null && isKineticBlock(mc.level, hit))
