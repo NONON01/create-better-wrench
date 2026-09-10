@@ -1,10 +1,13 @@
 {
   "item.create_better_wrench.better_wrench": "Universal Wrench",
   "itemGroup.create_better_wrench": "Universal Wrench",
+  "mode.create_better_wrench.wrench": "Wrench",
   "mode.create_better_wrench.connect": "Connect",
   "mode.create_better_wrench.deconstruct": "Deconstruct",
   "mode.create_better_wrench.logistics": "Logistics Network",
   "mode.create_better_wrench.coming_soon": "Mod Info",
+  "corner.create_better_wrench.gearbox": "Gearbox",
+  "corner.create_better_wrench.large_cog": "Large Cogwheel",
   "scope.create_better_wrench.deconstruct.all": "All",
   "scope.create_better_wrench.deconstruct.create_only": "Create Only",
   "scope.create_better_wrench.deconstruct.redstone_only": "Redstone Only",

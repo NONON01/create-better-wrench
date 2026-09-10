@@ -13,6 +13,8 @@ import net.minecraft.resources.ResourceLocation;
  * 拆除 用 Create 的垃圾桶图标({@link AllIcons#I_TRASH})。</p>
  */
 public enum WrenchMode {
+    WRENCH("wrench", ResourceLocation.fromNamespaceAndPath(
+        BetterWrenchMod.MODID, "textures/item/better_wrench.png")),
     CONNECT("connect", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_connect.png")),
     DECONSTRUCT("deconstruct", AllIcons.I_TRASH),
@@ -41,6 +43,7 @@ public enum WrenchMode {
     /** 该模式的中文描述(用于选择器 tooltip)。 */
     public String description() {
         return switch (this) {
+            case WRENCH -> "标准机械动力扳手功能";
             case CONNECT -> "连接两点: 自动生成传动结构";
             case DECONSTRUCT -> "框选区域: 批量拆除可拆方块并入背包";
             case LOGISTICS -> "敬请期待";

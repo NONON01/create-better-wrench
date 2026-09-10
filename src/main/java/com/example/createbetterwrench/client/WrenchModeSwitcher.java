@@ -3,6 +3,7 @@ package com.example.createbetterwrench.client;
 import org.lwjgl.glfw.GLFW;
 
 import com.example.createbetterwrench.BetterWrenchMod;
+import com.example.createbetterwrench.mode.ConnectCorner;
 import com.example.createbetterwrench.mode.DeconstructScope;
 import com.example.createbetterwrench.mode.WrenchMode;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -27,10 +28,13 @@ public final class WrenchModeSwitcher {
         "key.categories." + BetterWrenchMod.MODID);
 
     /** 当前选中的模式。 */
-    public static WrenchMode current = WrenchMode.CONNECT;
+    public static WrenchMode current = WrenchMode.WRENCH;
 
     /** 「拆除」模式当前的 Ctrl 范围过滤(全部/仅机械动力/仅红石)。 */
     public static DeconstructScope deconstructScope = DeconstructScope.ALL;
+
+    /** 「连接」模式当前的 Ctrl 拐角类型(齿轮箱/大齿轮)。 */
+    public static ConnectCorner connectCorner = ConnectCorner.GEARBOX;
 
     private WrenchModeSwitcher() {
     }
@@ -57,7 +61,7 @@ public final class WrenchModeSwitcher {
 
     /**
      * 循环切换"当前模式自己的 Ctrl 选项"。
-     * 拆除 → 拆除范围(全部/仅机械动力/仅红石); 其它模式暂返回 null(连接的后备逻辑待后续)。
+     * 拆除 → 拆除范围(全部/仅机械动力/仅红石); 连接 → 拐角类型(齿轮箱/大齿轮); 其它模式返回 null。
      */
     public static Object cycleCtrlOption(int direction) {
         if (current == WrenchMode.DECONSTRUCT) {
@@ -66,13 +70,21 @@ public final class WrenchModeSwitcher {
             deconstructScope = scopes[((idx % scopes.length) + scopes.length) % scopes.length];
             return deconstructScope;
         }
+        if (current == WrenchMode.CONNECT) {
+            ConnectCorner[] corners = ConnectCorner.values();
+            int idx = connectCorner.ordinal() + (direction < 0 ? -1 : 1);
+            connectCorner = corners[((idx % corners.length) + corners.length) % corners.length];
+            return connectCorner;
+        }
         return null;
     }
 
-    /** 当前模式 Ctrl 选项的完整展示串, 如"拆除模式:全部"; 无则为空串。 */
+    /** 当前模式 Ctrl 选项的完整展示串, 如"拆除模式:全部"、"拐角:齿轮箱"; 无则为空串。 */
     public static String ctrlOptionHint() {
         if (current == WrenchMode.DECONSTRUCT)
             return "拆除模式:" + deconstructScope.displayName().getString();
+        if (current == WrenchMode.CONNECT)
+            return "拐角:" + connectCorner.displayName().getString();
         return "";
     }
 }

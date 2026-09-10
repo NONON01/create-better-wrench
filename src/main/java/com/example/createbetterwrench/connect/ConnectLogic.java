@@ -3,6 +3,7 @@ package com.example.createbetterwrench.connect;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.example.createbetterwrench.mode.ConnectCorner;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllItems;
 import com.simibubi.create.content.kinetics.base.IRotate;
@@ -58,6 +59,7 @@ public final class ConnectLogic {
         NON_PLANAR,
         SAME_POS,
         PATH_BLOCKED,
+        CORNER_NO_ROOM,
         CONFLICTING_SOURCE,
         MATERIALS,
         TOO_LONG
@@ -87,11 +89,22 @@ public final class ConnectLogic {
         }
     }
 
+    /** 一个大齿轮放置点(用于「大齿轮」拐角: 两块斜对角换轴)。 */
+    public static final class CogPlace {
+        public final BlockPos pos;
+        public final Axis axis;
+        CogPlace(BlockPos pos, Axis axis) {
+            this.pos = pos;
+            this.axis = axis;
+        }
+    }
+
     /** 铺设计划(只读几何, 不含材料物品; 客户端可据此做幽灵预览)。 */
     public static final class Plan {
         public final List<BlockPos> shaftPositions = new ArrayList<>();
         public final List<Axis> shaftAxes = new ArrayList<>();
         public final List<GearboxPlace> gearboxes = new ArrayList<>();
+        public final List<CogPlace> cogs = new ArrayList<>();
     }
 
     public static final class ResultOutcome {
@@ -111,8 +124,9 @@ public final class ConnectLogic {
         return world.getBlockEntity(pos) instanceof KineticBlockEntity;
     }
 
-    /** 计算铺设计划(只读, 不改世界)。corners 为按序点击的拐点(可为空列表=直线直达)。 */
-    public static ResultOutcome plan(Level world, BlockPos start, List<BlockPos> corners, BlockPos end) {
+    /** 计算铺设计划(只读, 不改世界)。corners 为按序点击的拐点(可为空=直线直达); cornerType=拐角用齿轮箱还是大齿轮。 */
+    public static ResultOutcome plan(Level world, BlockPos start, List<BlockPos> corners, BlockPos end,
+                                     ConnectCorner cornerType) {
         if (!world.isLoaded(start) || !world.isLoaded(end))
             return new ResultOutcome(Result.UNLOADED, null);
         for (BlockPos c : corners)
@@ -158,30 +172,52 @@ public final class ConnectLogic {
             directionBetween(lastLeg.from, end).getOpposite()))
             return new ResultOutcome(Result.NOT_KINETIC, null);
 
-        // 【已移除】原先的"双源方向冲突"校验在此处拦截: 它比较两端 getTheoreticalSpeed() 的正负号,
-        // 但穿过我们要放置的齿轮箱/拐弯本来就会反转转向, 导致"明显可正常接入"却被误报冲突。
-        // 现改为: 不据此拒连, 让 Create 运行时按实际网络合并处理(极少数的真实炸块属边界情况, 由运行时提示)。
+        // 【已移除】原先的"双源方向冲突"校验: 穿过齿轮箱/拐弯本就会反转转向, 会误伤正常接入, 改由 Create 运行时合并。
 
-        // 汇总: 各轴段中间格铺轴 + 各内部节点(拐点/自动角点)放齿轮箱
-        Plan plan = new Plan();
+        // 每段轴段的中间格(先算出来, 大齿轮拐角会从两端"吃掉"格)
+        List<List<BlockPos>> legCells = new ArrayList<>();
         for (Leg leg : legs) {
             List<BlockPos> cells = interiorCells(leg.from, leg.to, leg.axis);
             if (cells == null)
-                return new ResultOutcome(Result.PATH_BLOCKED, null);
-            for (BlockPos p : cells) {
-                if (occupied(world, p))
-                    return new ResultOutcome(Result.PATH_BLOCKED, null);
-                plan.shaftPositions.add(p);
-                plan.shaftAxes.add(leg.axis);
-            }
+                return new ResultOutcome(Result.TOO_LONG, null);
+            legCells.add(cells);
         }
+
+        Plan plan = new Plan();
+
+        // 每个内部节点(被点拐点 / 自动角点): 按拐角类型放齿轮箱 或 两个大齿轮
         for (int i = 0; i < legs.size() - 1; i++) {
             Leg cur = legs.get(i);
             Leg next = legs.get(i + 1);
-            BlockPos jp = cur.to; // 两块相邻轴段的共同节点(被点拐点 / 自动角点)
-            // 齿轮箱节点允许替换该处方块(即"普通方块→齿轮箱"), 不做遮挡判定
-            Axis gax = junctionAxis(cur.axis, next.axis);
-            plan.gearboxes.add(new GearboxPlace(jp, gax, gax != Axis.Y));
+            BlockPos jp = cur.to;
+            boolean perpendicular = cur.axis != next.axis;
+            if (cornerType == ConnectCorner.LARGE_COG && perpendicular) {
+                // 大齿轮换轴: 两块斜对角(各自落在相邻两段轴上), 等速换向。
+                // L1 = 入段末格(轴=入轴), L2 = 出段首格(轴=出轴); 节点本身留空。
+                List<BlockPos> c1 = legCells.get(i);
+                List<BlockPos> c2 = legCells.get(i + 1);
+                if (c1.isEmpty() || c2.isEmpty())
+                    return new ResultOutcome(Result.CORNER_NO_ROOM, null);
+                BlockPos l1 = c1.remove(c1.size() - 1);
+                BlockPos l2 = c2.remove(0);
+                plan.cogs.add(new CogPlace(l1, cur.axis));
+                plan.cogs.add(new CogPlace(l2, next.axis));
+            } else {
+                // 齿轮箱节点允许替换该处方块(即"普通方块→齿轮箱"), 不做遮挡判定
+                Axis gax = junctionAxis(cur.axis, next.axis);
+                plan.gearboxes.add(new GearboxPlace(jp, gax, gax != Axis.Y));
+            }
+        }
+
+        // 各轴段剩余中间格铺轴
+        for (int i = 0; i < legCells.size(); i++) {
+            Axis ax = legs.get(i).axis;
+            for (BlockPos p : legCells.get(i)) {
+                if (occupied(world, p))
+                    return new ResultOutcome(Result.PATH_BLOCKED, null);
+                plan.shaftPositions.add(p);
+                plan.shaftAxes.add(ax);
+            }
         }
 
         return new ResultOutcome(Result.SUCCESS, plan);
@@ -223,26 +259,46 @@ public final class ConnectLogic {
             directionBetween(start, cornerQ));
 
         boolean useP;
-        if (first) {
-            if (pOk && qOk) {
-                // 都行: 优先沿起点旋转轴的那条, 否则取第一个差异轴
+        if (pOk != qOk) {
+            // 只有一种取向可用
+            useP = pOk;
+        } else if (!pOk) {
+            return null; // 两种都不可用
+        } else {
+            // 两种都可用: 优先避免拐点"紧贴端点"(尤其紧贴终点方块), 再兼顾起点旋转轴
+            int scoreP = orientationScore(a, b, cornerP);
+            int scoreQ = orientationScore(a, b, cornerQ);
+            if (scoreP != scoreQ) {
+                useP = scoreP > scoreQ;
+            } else if (first) {
                 Axis rax = ((IRotate) startState.getBlock()).getRotationAxis(startState);
                 useP = p == rax ? true : (q == rax ? false : true);
-            } else
-                useP = pOk;
-        } else {
-            useP = true; // 非起点的源(齿轮箱)均可沿两轴出, 取第一个差异轴(确定)
+            } else {
+                useP = true; // 取第一个差异轴(确定)
+            }
         }
-
-        if (useP && !pOk)
-            return null;
-        if (!useP && !qOk)
-            return null;
 
         Axis firstAxis = useP ? p : q;
         Axis secondAxis = useP ? q : p;
         BlockPos corner = useP ? cornerP : cornerQ;
         return new Leg[] { new Leg(firstAxis, a, corner), new Leg(secondAxis, corner, b) };
+    }
+
+    /**
+     * L 取向打分: 避免自动拐点紧贴端点(尤其紧贴终点方块)。
+     * 第二段(拐点→b)越长越优先(不在终点旁拐), 其次第一段(不在起点旁拐)。
+     */
+    private static int orientationScore(BlockPos a, BlockPos b, BlockPos corner) {
+        int score = 0;
+        if (manhattan(b, corner) >= 2)
+            score += 2;
+        if (manhattan(a, corner) >= 2)
+            score += 1;
+        return score;
+    }
+
+    private static int manhattan(BlockPos x, BlockPos y) {
+        return Math.abs(x.getX() - y.getX()) + Math.abs(x.getY() - y.getY()) + Math.abs(x.getZ() - y.getZ());
     }
 
     /** 把 posA 中 atAxis 的坐标替换成 posB 的值, 其余保持 posA。 */
@@ -329,8 +385,8 @@ public final class ConnectLogic {
 
     /** 真正执行连接: 校验材料足量后落块并扣料(creative 跳过扣料)。 */
     public static Result connect(ServerLevel world, Player player, BlockPos start, List<BlockPos> corners,
-                                 BlockPos end) {
-        ResultOutcome oc = plan(world, start, corners, end);
+                                 BlockPos end, ConnectCorner cornerType) {
+        ResultOutcome oc = plan(world, start, corners, end, cornerType);
         if (oc.result != Result.SUCCESS)
             return oc.result;
         Plan plan = oc.plan;
@@ -343,9 +399,11 @@ public final class ConnectLogic {
             if (g.vertical)
                 verticalCount++;
         int horizontalCount = gearboxCount - verticalCount;
+        int cogCount = plan.cogs.size();
 
         Item gearboxItem = AllBlocks.GEARBOX.asItem();
         Item verticalItem = AllItems.VERTICAL_GEARBOX.get();
+        Item cogItem = AllBlocks.LARGE_COGWHEEL.asItem();
 
         if (!player.isCreative()) {
             if (countItem(player, shaftItem) < shaftCount)
@@ -353,6 +411,8 @@ public final class ConnectLogic {
             if (horizontalCount > 0 && countItem(player, gearboxItem) < horizontalCount)
                 return Result.MATERIALS;
             if (verticalCount > 0 && countItem(player, verticalItem) < verticalCount)
+                return Result.MATERIALS;
+            if (cogCount > 0 && countItem(player, cogItem) < cogCount)
                 return Result.MATERIALS;
         }
 
@@ -369,6 +429,10 @@ public final class ConnectLogic {
             KineticBlockEntity.switchToBlockState(world, g.pos,
                 AllBlocks.GEARBOX.getDefaultState()
                     .setValue(BlockStateProperties.AXIS, g.axis == null ? Axis.Y : g.axis));
+        for (CogPlace c : plan.cogs)
+            KineticBlockEntity.switchToBlockState(world, c.pos,
+                AllBlocks.LARGE_COGWHEEL.getDefaultState()
+                    .setValue(BlockStateProperties.AXIS, c.axis));
 
         world.playSound(null, BlockPos.containing(
             net.createmod.catnip.math.VecHelper.getCenterOf(start.offset(end)).scale(.5f)),
@@ -382,6 +446,8 @@ public final class ConnectLogic {
                 consumeItem(player, gearboxItem, horizontalCount);
             if (verticalCount > 0)
                 consumeItem(player, verticalItem, verticalCount);
+            if (cogCount > 0)
+                consumeItem(player, cogItem, cogCount);
         }
 
         return Result.SUCCESS;

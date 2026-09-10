@@ -99,7 +99,8 @@ public final class ConnectSelectionHandler {
         if (kinetic) {
             ClientPacketListener conn = mc.getConnection();
             if (conn != null)
-                PacketDistributor.sendToServer(ConnectPayload.create(startPos, corners, hit));
+                PacketDistributor.sendToServer(
+                    ConnectPayload.create(startPos, corners, hit, WrenchModeSwitcher.connectCorner));
             resetSelection();
             return true;
         }
@@ -228,7 +229,8 @@ public final class ConnectSelectionHandler {
                 Outliner.getInstance().remove(GHOST_KEY);
                 return;
             }
-            ConnectLogic.ResultOutcome oc = ConnectLogic.plan(mc.level, startPos, corners, aimBlock);
+            ConnectLogic.ResultOutcome oc =
+                ConnectLogic.plan(mc.level, startPos, corners, aimBlock, WrenchModeSwitcher.connectCorner);
             boolean ok = oc.result == ConnectLogic.Result.SUCCESS;
             Outliner.getInstance().chaseAABB(HOVER_KEY, new AABB(aimBlock))
                 .colored(ok ? GREEN : RED).lineWidth(1 / 16f);
@@ -254,6 +256,8 @@ public final class ConnectSelectionHandler {
         Set<BlockPos> ghost = new LinkedHashSet<>(plan.shaftPositions);
         for (ConnectLogic.GearboxPlace g : plan.gearboxes)
             ghost.add(g.pos);
+        for (ConnectLogic.CogPlace c : plan.cogs)
+            ghost.add(c.pos);
         if (ghost.isEmpty()) {
             Outliner.getInstance().remove(GHOST_KEY);
             return;
