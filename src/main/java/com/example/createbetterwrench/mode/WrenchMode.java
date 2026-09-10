@@ -47,7 +47,7 @@ public enum WrenchMode {
             case CONNECT -> "连接两点: 自动生成传动结构";
             case DECONSTRUCT -> "框选区域: 批量拆除可拆方块并入背包";
             case LOGISTICS -> "敬请期待";
-            case COMING_SOON -> "mod内测版 v0.1.0";
+            case COMING_SOON -> "mod内测版 v6.0.10+0.2.0";
         };
     }
 }

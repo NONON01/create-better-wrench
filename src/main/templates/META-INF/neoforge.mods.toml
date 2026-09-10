@@ -7,8 +7,8 @@ modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
 description='''
-机械动力:更好的扳手(Create Better Wrench)。
-不新增方块,提供一把更好用的 Create 扳手:ALT 呼出底部工具条 + 滚轮切换多种功能模式(如"连接")。
+万能扳手(Universal Wrench)。
+纯机械动力(Create)扩展:提供一把更好用的扳手,ALT 呼出底部工具条 + 滚轮切换多种功能模式(扳手/连接/拆除/…)。
 '''
 
 # 依赖 NeoForge 与 Minecraft
