@@ -96,7 +96,7 @@ public final class WrenchModeSwitcher {
         if (current == WrenchMode.CONNECT)
             return "拐角:" + connectCorner.displayName().getString();
         if (current == WrenchMode.COMING_SOON)
-            return combatMode ? "彩蛋:战斗模式" : "彩蛋:正常模式";
+            return combatMode ? "战斗模式" : "正常模式";
         return "";
     }
 }
