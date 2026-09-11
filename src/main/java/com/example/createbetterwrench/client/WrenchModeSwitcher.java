@@ -36,6 +36,9 @@ public final class WrenchModeSwitcher {
     /** 「连接」模式当前的 Ctrl 拐角类型(齿轮箱/大齿轮)。 */
     public static ConnectCorner connectCorner = ConnectCorner.GEARBOX;
 
+    /** 「模组描述」里的彩蛋开关: false=正常模式, true=战斗模式(才应用伤害/攻速/取消无敌)。 */
+    public static boolean combatMode = false;
+
     private WrenchModeSwitcher() {
     }
 
@@ -61,7 +64,8 @@ public final class WrenchModeSwitcher {
 
     /**
      * 循环切换"当前模式自己的 Ctrl 选项"。
-     * 拆除 → 拆除范围(全部/仅机械动力/仅红石); 连接 → 拐角类型(齿轮箱/大齿轮); 其它模式返回 null。
+     * 拆除 → 拆除范围(全部/仅机械动力/仅红石); 连接 → 拐角类型(齿轮箱/大齿轮);
+     * 模组描述 → 彩蛋开关(正常/战斗); 其它模式返回 null。
      */
     public static Object cycleCtrlOption(int direction) {
         if (current == WrenchMode.DECONSTRUCT) {
@@ -76,6 +80,12 @@ public final class WrenchModeSwitcher {
             connectCorner = corners[((idx % corners.length) + corners.length) % corners.length];
             return connectCorner;
         }
+        if (current == WrenchMode.COMING_SOON) {
+            // 彩蛋: Ctrl 切换 正常模式 / 战斗模式, 并同步给服务端
+            combatMode = !combatMode;
+            WrenchCombatClient.sendCombatMode();
+            return combatMode;
+        }
         return null;
     }
 
@@ -85,6 +95,8 @@ public final class WrenchModeSwitcher {
             return "拆除模式:" + deconstructScope.displayName().getString();
         if (current == WrenchMode.CONNECT)
             return "拐角:" + connectCorner.displayName().getString();
+        if (current == WrenchMode.COMING_SOON)
+            return combatMode ? "彩蛋:战斗模式" : "彩蛋:正常模式";
         return "";
     }
 }
