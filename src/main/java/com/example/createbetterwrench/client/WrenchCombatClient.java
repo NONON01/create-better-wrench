@@ -45,4 +45,9 @@ public final class WrenchCombatClient {
         if (conn != null)
             PacketDistributor.sendToServer(new CombatModePayload(WrenchModeSwitcher.combatMode));
     }
+
+    /** 接收服务端回传的权威开关(例如因无 cbw.battlemode 权限被拒时, 把本地开关回正)。 */
+    public static void onBattleModeSync(boolean combat) {
+        WrenchModeSwitcher.combatMode = combat;
+    }
 }

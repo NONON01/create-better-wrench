@@ -62,5 +62,9 @@ public class BetterWrenchMod {
             com.example.createbetterwrench.network.CombatModePayload.TYPE,
             com.example.createbetterwrench.network.CombatModePayload.STREAM_CODEC,
             com.example.createbetterwrench.network.CombatModePayload::handle);
+        registrar.playToClient(
+            com.example.createbetterwrench.network.BattleModeSyncPayload.TYPE,
+            com.example.createbetterwrench.network.BattleModeSyncPayload.STREAM_CODEC,
+            com.example.createbetterwrench.network.BattleModeSyncPayload::handle);
     }
 }

@@ -77,8 +77,14 @@ public final class WrenchCombat {
         }
     }
 
-    /** 服务端每 tick: 依据该玩家开关 + 是否持扳手应用加成。 */
+    /** 服务端每 tick: 依据该玩家开关 + 是否持扳手应用加成; 若开关开着但已失去权限则强制关闭。 */
     public static void tickServer(Player player) {
-        apply(player, holdsWrench(player) && getServer(player.getUUID()));
+        boolean on = holdsWrench(player) && getServer(player.getUUID());
+        if (on && player instanceof net.minecraft.server.level.ServerPlayer sp
+            && !com.example.createbetterwrench.permission.WrenchPermissions.canUseBattleMode(sp)) {
+            on = false;
+            setServer(player.getUUID(), false);
+        }
+        apply(player, on);
     }
 }
