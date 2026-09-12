@@ -9,7 +9,7 @@
   "mode.create_better_wrench.wrench.desc": "像正常的扳手一样使用",
   "mode.create_better_wrench.connect.desc": "选择起点，终点和拐弯节点，然后生成相应的传动结构",
   "mode.create_better_wrench.deconstruct.desc": "框选区域: 批量拆除",
-  "mode.create_better_wrench.coming_soon.desc": "mod内测版 v6.0.10+0.2.0",
+  "mode.create_better_wrench.coming_soon.desc": "mod内测版 v6.0.10+0.2.1",
 
   "corner.create_better_wrench.gearbox": "齿轮箱",
   "corner.create_better_wrench.large_cog": "大齿轮",
