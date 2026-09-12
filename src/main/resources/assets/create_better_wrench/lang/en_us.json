@@ -5,10 +5,12 @@
   "mode.create_better_wrench.wrench": "Wrench",
   "mode.create_better_wrench.connect": "Connect",
   "mode.create_better_wrench.deconstruct": "Deconstruct",
+  "mode.create_better_wrench.assemble": "Assemble",
   "mode.create_better_wrench.coming_soon": "Mod Info",
   "mode.create_better_wrench.wrench.desc": "Use it just like a normal wrench",
   "mode.create_better_wrench.connect.desc": "Pick a start, an end and corner nodes, then the drivetrain is built",
   "mode.create_better_wrench.deconstruct.desc": "Box-select an area: mass removal",
+  "mode.create_better_wrench.assemble.desc": "Lock a depot: right-click with materials to run sequenced assembly",
   "mode.create_better_wrench.coming_soon.desc": "mod beta v0.2.1+create6.0.10",
 
   "corner.create_better_wrench.gearbox": "Gearbox",
@@ -37,6 +39,8 @@
   "msg.create_better_wrench.connect.materials": "Connect failed: not enough materials",
   "msg.create_better_wrench.connect.too_long": "Connect failed: a segment is too long",
   "msg.create_better_wrench.deconstruct.count": "Removed %s blocks",
+  "msg.create_better_wrench.assemble.locked": "Depot locked",
+  "msg.create_better_wrench.assemble.unlocked": "Depot unlocked",
   "msg.create_better_wrench.battle_no_permission": "No permission for Combat Mode (requires cbw.battlemode)",
 
   "key.create_better_wrench.tools": "Focus Wrench Mode Bar",

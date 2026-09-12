@@ -5,10 +5,12 @@
   "mode.create_better_wrench.wrench": "扳手",
   "mode.create_better_wrench.connect": "连接",
   "mode.create_better_wrench.deconstruct": "拆除",
+  "mode.create_better_wrench.assemble": "装配",
   "mode.create_better_wrench.coming_soon": "模组描述",
   "mode.create_better_wrench.wrench.desc": "像正常的扳手一样使用",
   "mode.create_better_wrench.connect.desc": "选择起点，终点和拐弯节点，然后生成相应的传动结构",
   "mode.create_better_wrench.deconstruct.desc": "框选区域: 批量拆除",
+  "mode.create_better_wrench.assemble.desc": "锁定置物台: 手持材料右击进行序列装配",
   "mode.create_better_wrench.coming_soon.desc": "mod内测版 v0.2.1+create6.0.10",
 
   "corner.create_better_wrench.gearbox": "齿轮箱",
@@ -37,6 +39,8 @@
   "msg.create_better_wrench.connect.materials": "连接失败:背包材料不足",
   "msg.create_better_wrench.connect.too_long": "连接失败:某段路径过长",
   "msg.create_better_wrench.deconstruct.count": "本次拆除了 %s 个方块",
+  "msg.create_better_wrench.assemble.locked": "置物台已锁定",
+  "msg.create_better_wrench.assemble.unlocked": "置物台已解锁",
   "msg.create_better_wrench.battle_no_permission": "无权限使用战斗模式(需要权限 cbw.battlemode)",
 
   "key.create_better_wrench.tools": "呼出扳手模式工具条",

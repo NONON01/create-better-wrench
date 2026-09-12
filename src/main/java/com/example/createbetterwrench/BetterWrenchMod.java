@@ -35,6 +35,8 @@ public class BetterWrenchMod {
 
     public BetterWrenchMod(IEventBus modEventBus) {
         ITEMS.register(modEventBus);
+        // 数据附件(置物台锁定态)
+        com.example.createbetterwrench.assemble.AssembleLock.ATTACHMENTS.register(modEventBus);
         modEventBus.addListener(BetterWrenchMod::registerPayloads);
         // BuildCreativeModeTabContentsEvent 是 IModBusEvent, 须注册在 mod 事件总线上(非 NeoForge.EVENT_BUS)
         modEventBus.addListener(BetterWrenchMod::addToCreateTab);
@@ -66,5 +68,9 @@ public class BetterWrenchMod {
             com.example.createbetterwrench.network.BattleModeSyncPayload.TYPE,
             com.example.createbetterwrench.network.BattleModeSyncPayload.STREAM_CODEC,
             com.example.createbetterwrench.network.BattleModeSyncPayload::handle);
+        registrar.playToServer(
+            com.example.createbetterwrench.network.AssemblePayload.TYPE,
+            com.example.createbetterwrench.network.AssemblePayload.STREAM_CODEC,
+            com.example.createbetterwrench.network.AssemblePayload::handle);
     }
 }

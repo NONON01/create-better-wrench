@@ -18,6 +18,7 @@ public enum WrenchMode {
     CONNECT("connect", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_connect.png")),
     DECONSTRUCT("deconstruct", AllIcons.I_TRASH),
+    ASSEMBLE("assemble", AllIcons.I_TOOL_DEPLOY),
     COMING_SOON("coming_soon", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_coming_soon.png"));
 
