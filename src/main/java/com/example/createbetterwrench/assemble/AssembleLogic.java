@@ -74,6 +74,9 @@ public final class AssembleLogic {
         // 结果放回置物台; 若有多余产出则掉落
         ItemStack out = results.isEmpty() ? ItemStack.EMPTY : results.get(0).copy();
         depot.setHeldItem(out);
+        // 关键: DepotBlockEntity.setHeldItem 不会自行同步客户端(Create 自己的调用方都会补 notifyUpdate),
+        // 不 notify 的话客户端会一直渲染旧物品(例如装配完仍显示金板)。
+        depot.notifyUpdate();
         for (int i = 1; i < results.size(); i++)
             if (!results.get(i).isEmpty())
                 Block.popResource(level, pos.above(), results.get(i));
