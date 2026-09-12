@@ -6,9 +6,9 @@
   "mode.create_better_wrench.connect": "连接",
   "mode.create_better_wrench.deconstruct": "拆除",
   "mode.create_better_wrench.coming_soon": "模组描述",
-  "mode.create_better_wrench.wrench.desc": "标准机械动力扳手功能",
-  "mode.create_better_wrench.connect.desc": "连接两点: 自动生成传动结构",
-  "mode.create_better_wrench.deconstruct.desc": "框选区域: 批量拆除可拆方块并入背包",
+  "mode.create_better_wrench.wrench.desc": "像正常的扳手一样使用",
+  "mode.create_better_wrench.connect.desc": "选择起点，终点和拐弯节点，然后生成相应的传动结构",
+  "mode.create_better_wrench.deconstruct.desc": "框选区域: 批量拆除",
   "mode.create_better_wrench.coming_soon.desc": "mod内测版 v6.0.10+0.2.0",
 
   "corner.create_better_wrench.gearbox": "齿轮箱",
