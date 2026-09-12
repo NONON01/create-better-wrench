@@ -6,9 +6,9 @@
   "mode.create_better_wrench.connect": "Connect",
   "mode.create_better_wrench.deconstruct": "Deconstruct",
   "mode.create_better_wrench.coming_soon": "Mod Info",
-  "mode.create_better_wrench.wrench.desc": "Standard Create wrench behavior",
-  "mode.create_better_wrench.connect.desc": "Connect two points: auto-build the drivetrain",
-  "mode.create_better_wrench.deconstruct.desc": "Box-select an area and mass-remove wrenchable blocks",
+  "mode.create_better_wrench.wrench.desc": "Use it just like a normal wrench",
+  "mode.create_better_wrench.connect.desc": "Pick a start, an end and corner nodes, then the drivetrain is built",
+  "mode.create_better_wrench.deconstruct.desc": "Box-select an area: mass removal",
   "mode.create_better_wrench.coming_soon.desc": "mod beta v6.0.10+0.2.0",
 
   "corner.create_better_wrench.gearbox": "Gearbox",
