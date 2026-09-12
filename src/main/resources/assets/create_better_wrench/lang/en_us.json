@@ -9,7 +9,7 @@
   "mode.create_better_wrench.wrench.desc": "Use it just like a normal wrench",
   "mode.create_better_wrench.connect.desc": "Pick a start, an end and corner nodes, then the drivetrain is built",
   "mode.create_better_wrench.deconstruct.desc": "Box-select an area: mass removal",
-  "mode.create_better_wrench.coming_soon.desc": "mod beta v6.0.10+0.2.1",
+  "mode.create_better_wrench.coming_soon.desc": "mod beta v0.2.1+create6.0.10",
 
   "corner.create_better_wrench.gearbox": "Gearbox",
   "corner.create_better_wrench.large_cog": "Large Cogwheel",
