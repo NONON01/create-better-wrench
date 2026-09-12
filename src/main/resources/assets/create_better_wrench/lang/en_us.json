@@ -1,15 +1,44 @@
 {
   "item.create_better_wrench.better_wrench": "Universal Wrench",
   "itemGroup.create_better_wrench": "Universal Wrench",
+
   "mode.create_better_wrench.wrench": "Wrench",
   "mode.create_better_wrench.connect": "Connect",
   "mode.create_better_wrench.deconstruct": "Deconstruct",
   "mode.create_better_wrench.coming_soon": "Mod Info",
+  "mode.create_better_wrench.wrench.desc": "Standard Create wrench behavior",
+  "mode.create_better_wrench.connect.desc": "Connect two points: auto-build the drivetrain",
+  "mode.create_better_wrench.deconstruct.desc": "Box-select an area and mass-remove wrenchable blocks",
+  "mode.create_better_wrench.coming_soon.desc": "mod beta v6.0.10+0.2.0",
+
   "corner.create_better_wrench.gearbox": "Gearbox",
   "corner.create_better_wrench.large_cog": "Large Cogwheel",
   "scope.create_better_wrench.deconstruct.all": "All",
   "scope.create_better_wrench.deconstruct.create_only": "Create Only",
   "scope.create_better_wrench.deconstruct.redstone_only": "Redstone Only",
+
+  "hint.create_better_wrench.deconstruct": "Deconstruct: %s",
+  "hint.create_better_wrench.corner": "Corner: %s",
+  "hint.create_better_wrench.combat.on": "Combat Mode",
+  "hint.create_better_wrench.combat.off": "Normal Mode",
+  "hint.create_better_wrench.toolbar.scroll": "[SCROLL] Cycle",
+  "hint.create_better_wrench.toolbar.focus": "Hold [%s] and scroll",
+
+  "msg.create_better_wrench.connect.success": "Connected: drivetrain placed",
+  "msg.create_better_wrench.connect.unloaded": "Connect failed: chunk not loaded",
+  "msg.create_better_wrench.connect.not_kinetic": "Connect failed: an endpoint cannot accept a shaft in this direction",
+  "msg.create_better_wrench.connect.axis_mismatch": "Connect failed: a segment is not aligned on a single axis/plane",
+  "msg.create_better_wrench.connect.bad_turn": "Connect failed: invalid turn",
+  "msg.create_better_wrench.connect.non_planar": "Connect failed: a segment needs 2+ turns; add a corner",
+  "msg.create_better_wrench.connect.same_pos": "Connect failed: start and end are the same block",
+  "msg.create_better_wrench.connect.path_blocked": "Connect failed: path is blocked",
+  "msg.create_better_wrench.connect.corner_no_room": "Connect failed: large-cogwheel turn needs >=1 shaft cell on each side",
+  "msg.create_better_wrench.connect.conflicting_source": "Connect failed: conflicting power directions",
+  "msg.create_better_wrench.connect.materials": "Connect failed: not enough materials",
+  "msg.create_better_wrench.connect.too_long": "Connect failed: a segment is too long",
+  "msg.create_better_wrench.deconstruct.count": "Removed %s blocks",
+  "msg.create_better_wrench.battle_no_permission": "No permission for Combat Mode (requires cbw.battlemode)",
+
   "key.create_better_wrench.tools": "Focus Wrench Mode Bar",
   "key.categories.create_better_wrench": "Universal Wrench"
 }

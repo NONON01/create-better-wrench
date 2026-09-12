@@ -55,9 +55,9 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
             }
             int removed = DeconstructLogic.deconstructRegion(
                 (net.minecraft.server.level.ServerLevel) sp.level(), cornerA, cornerB, scope, sp);
-            // 始终提示(含 0), 显示在 actionbar
+            // 始终提示(含 0), 显示在 actionbar; 文案在语言文件 msg.<modid>.deconstruct.count
             sp.displayClientMessage(net.minecraft.network.chat.Component
-                .literal("本次拆除了 " + removed + " 个方块"), true);
+                .translatable("msg." + BetterWrenchMod.MODID + ".deconstruct.count", removed), true);
         });
     }
 }

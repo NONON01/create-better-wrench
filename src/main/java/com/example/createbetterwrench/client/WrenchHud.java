@@ -87,9 +87,9 @@ public final class WrenchHud {
             && modeHasCtrlOption(WrenchModeSwitcher.current)) {
             Object opt = WrenchModeSwitcher.cycleCtrlOption(dir);
             if (opt != null) {
-                String hint = WrenchModeSwitcher.ctrlOptionHint();
-                if (!hint.isEmpty())
-                    mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(hint), true);
+                net.minecraft.network.chat.Component hint = WrenchModeSwitcher.ctrlOptionHint();
+                if (hint != null)
+                    mc.player.displayClientMessage(hint, true);
             }
             return true;
         }

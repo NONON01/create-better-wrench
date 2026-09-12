@@ -45,7 +45,7 @@ public record CombatModePayload(boolean combat) implements CustomPacketPayload {
             PacketDistributor.sendToPlayer(sp, new BattleModeSyncPayload(allowed));
             if (requested && !allowed)
                 sp.displayClientMessage(
-                    Component.literal("无权限使用战斗模式(需要权限 cbw.battlemode)"), true);
+                    Component.translatable("msg." + BetterWrenchMod.MODID + ".battle_no_permission"), true);
         });
     }
 }

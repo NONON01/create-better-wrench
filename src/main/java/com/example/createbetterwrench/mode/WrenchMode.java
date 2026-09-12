@@ -38,13 +38,8 @@ public enum WrenchMode {
         return icon;
     }
 
-    /** 该模式的中文描述(用于选择器 tooltip)。 */
-    public String description() {
-        return switch (this) {
-            case WRENCH -> "标准机械动力扳手功能";
-            case CONNECT -> "连接两点: 自动生成传动结构";
-            case DECONSTRUCT -> "框选区域: 批量拆除可拆方块并入背包";
-            case COMING_SOON -> "mod内测版 v6.0.10+0.2.0";
-        };
+    /** 该模式的描述(用于选择器 tooltip); 文案在语言文件: mode.<modid>.<id>.desc。 */
+    public Component description() {
+        return Component.translatable("mode." + BetterWrenchMod.MODID + "." + id + ".desc");
     }
 }

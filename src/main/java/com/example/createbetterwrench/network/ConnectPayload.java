@@ -77,21 +77,10 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
             ConnectLogic.Result result = ConnectLogic.connect(
                 (net.minecraft.server.level.ServerLevel) sp.level(), sp, start, corners, end, cornerType);
 
-            String msg = switch (result) {
-                case SUCCESS -> "连接成功:已铺设传动结构";
-                case UNLOADED -> "连接失败:区块未加载";
-                case NOT_KINETIC -> "连接失败:两端方块无法接入本方向的传动轴";
-                case AXIS_MISMATCH -> "连接失败:某段未沿同轴或同平面对齐";
-                case BAD_TURN -> "连接失败:拐弯无效";
-                case NON_PLANAR -> "连接失败:某段需≥2次拐弯(超出每段一次), 请加拐点";
-                case SAME_POS -> "连接失败:起点与终点相同";
-                case PATH_BLOCKED -> "连接失败:路径被方块阻挡";
-                case CORNER_NO_ROOM -> "连接失败:大齿轮拐弯需要拐点两侧各至少 1 格轴, 请调整拐点";
-                case CONFLICTING_SOURCE -> "连接失败:两端动力方向冲突,不能连入";
-                case MATERIALS -> "连接失败:背包材料不足";
-                case TOO_LONG -> "连接失败:某段路径过长";
-            };
-            sp.displayClientMessage(net.minecraft.network.chat.Component.literal(msg), true);
+            // 结果提示文案在语言文件: msg.<modid>.connect.<result 小写>。见 lang/*.json。
+            String key = "msg." + BetterWrenchMod.MODID + ".connect."
+                + result.name().toLowerCase(java.util.Locale.ROOT);
+            sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(key), true);
         });
     }
 }

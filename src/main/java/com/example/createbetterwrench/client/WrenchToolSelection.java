@@ -2,6 +2,7 @@ package com.example.createbetterwrench.client;
 
 import java.util.List;
 
+import com.example.createbetterwrench.BetterWrenchMod;
 import com.example.createbetterwrench.mode.WrenchMode;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -80,7 +81,7 @@ public final class WrenchToolSelection {
         // tooltip(描述)面板: 聚焦且 yOffset 起来后显示
         float toolTipAlpha = yOffset / 10;
         if (toolTipAlpha > 0.25f && focused) {
-            String desc = modes.get(selection).description();
+            Component desc = modes.get(selection).description();
             RenderSystem.setShaderColor(.7f, .7f, .8f, toolTipAlpha);
             graphics.blit(bg.location, x - 15, y + 33, bg.getStartX(), bg.getStartY(),
                 w, h + 22, bg.getWidth(), bg.getHeight());
@@ -89,9 +90,11 @@ public final class WrenchToolSelection {
         }
 
         RenderSystem.setShaderColor(1, 1, 1, 1);
-        // 顶部提示
-        String topHint = focused ? "[SCROLL] 循环"
-            : "按住 [" + WrenchModeSwitcher.TOOLS_KEY.getTranslatedKeyMessage().getString() + "] 鼠标滚轮选择";
+        // 顶部提示(文案在语言文件: hint.<modid>.toolbar.*)
+        Component topHint = focused
+            ? Component.translatable("hint." + BetterWrenchMod.MODID + ".toolbar.scroll")
+            : Component.translatable("hint." + BetterWrenchMod.MODID + ".toolbar.focus",
+                WrenchModeSwitcher.TOOLS_KEY.getTranslatedKeyMessage());
         graphics.drawCenteredString(mc.font, topHint, screenW / 2, y - 10, 0xCCDDFF);
 
         // 各模式图标

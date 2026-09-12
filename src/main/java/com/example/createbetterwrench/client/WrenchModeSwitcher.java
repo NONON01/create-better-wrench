@@ -89,14 +89,17 @@ public final class WrenchModeSwitcher {
         return null;
     }
 
-    /** 当前模式 Ctrl 选项的完整展示串, 如"拆除模式:全部"、"拐角:齿轮箱"; 无则为空串。 */
-    public static String ctrlOptionHint() {
+    /** 当前模式 Ctrl 选项的完整展示文案; 无 Ctrl 选项则返回 null。文案在语言文件: hint.<modid>.*。 */
+    public static net.minecraft.network.chat.Component ctrlOptionHint() {
         if (current == WrenchMode.DECONSTRUCT)
-            return "拆除模式:" + deconstructScope.displayName().getString();
+            return net.minecraft.network.chat.Component.translatable(
+                "hint." + BetterWrenchMod.MODID + ".deconstruct", deconstructScope.displayName());
         if (current == WrenchMode.CONNECT)
-            return "拐角:" + connectCorner.displayName().getString();
+            return net.minecraft.network.chat.Component.translatable(
+                "hint." + BetterWrenchMod.MODID + ".corner", connectCorner.displayName());
         if (current == WrenchMode.COMING_SOON)
-            return combatMode ? "战斗模式" : "正常模式";
-        return "";
+            return net.minecraft.network.chat.Component.translatable(
+                "hint." + BetterWrenchMod.MODID + (combatMode ? ".combat.on" : ".combat.off"));
+        return null;
     }
 }
