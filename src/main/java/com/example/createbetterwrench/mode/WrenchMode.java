@@ -18,8 +18,6 @@ public enum WrenchMode {
     CONNECT("connect", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_connect.png")),
     DECONSTRUCT("deconstruct", AllIcons.I_TRASH),
-    LOGISTICS("logistics", ResourceLocation.fromNamespaceAndPath(
-        BetterWrenchMod.MODID, "textures/gui/mode_logistics.png")),
     COMING_SOON("coming_soon", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_coming_soon.png"));
 
@@ -46,7 +44,6 @@ public enum WrenchMode {
             case WRENCH -> "标准机械动力扳手功能";
             case CONNECT -> "连接两点: 自动生成传动结构";
             case DECONSTRUCT -> "框选区域: 批量拆除可拆方块并入背包";
-            case LOGISTICS -> "敬请期待";
             case COMING_SOON -> "mod内测版 v6.0.10+0.2.0";
         };
     }
