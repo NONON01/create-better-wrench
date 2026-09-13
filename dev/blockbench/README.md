@@ -1,43 +1,60 @@
 # 用 Blockbench 做「万能扳手」的 3D 物品模型
 
-> 这份目录只在工程里做参考,**不参与打包**:只有 `src/main/resources/**` 下的文件才会进 jar。
+> 本目录只在工程里做参考,**不参与打包**:只有 `src/main/resources/**` 下的文件才会进 jar。
 
-## 一、为什么不需要写 Java 代码
+## 一、先看原版(Create)扳手是怎么拼的
 
-| 事实 | 说明 |
+我把 Create 6.0.10 jar 里的模型拆开看了(`assets/create/models/item/wrench.json` → `wrench/item.json` + `wrench/gear.json`),构造如下:
+
+| 部分 | 作用 |
 |---|---|
-| 模组里没有自定义物品渲染器 | `CustomRenderedItemModel` / `IClientItemExtensions` / `ItemModelProvider` 全部为 0 命中 |
-| 物品模型是手写资源 | `src/main/resources/assets/create_better_wrench/models/item/better_wrench.json`,没有 datagen 会覆盖它 |
-| 注册名 = 模型路径 | 物品注册名 `create_better_wrench:better_wrench` ⇒ 模型固定取 `models/item/better_wrench.json` |
+| `handle` ×2 | 手柄(下半段细、上半段粗) |
+| `axle` | 连接柄与头的**斜脖子**(绕 Y 轴 -45° 旋转的元素) |
+| `top thing` / `bottom thing` | **就是那两根爪**(上下两块,错开形成钳口) |
+| `gear case top` / `gear case` | 齿轮外壳(黄铜块) |
+| `wrench/gear.json` | 那个**会转的齿轮** —— 单独一个模型文件 |
 
-⇒ **把 Blockbench 导出的 JSON 覆盖到那个路径即可生效**,不用碰 Java。
+### 三个直接能省你半天的结论
 
-> ⚠️ 反面教材:早期试过「包一层 Create 的扳手渲染器」来做手持外观,结果 `CustomRenderedItemModel` 递归自调用 → StackOverflow,已回滚。
-> 原因是 Create 的扳手**不是普通 JSON 模型**,而是 `WrenchItemRenderer extends CustomRenderedItemModelRenderer` + `PartialModel.of("item/wrench/gear")` 的**拼装 + 动画(齿轮会转)**模型。
-> **静态 3D 模型走普通模型路径,天然绕开这个坑。**
+1. **模型是竖直的,不是斜的。**
+   物品栏里那个 45° 斜着的观感,**100% 来自 `display.gui` 的三轴旋转**,不是几何。
+   ⇒ 你在 Blockbench 里把扳手**正着竖起来建**即可,"斜着摆"放进 Display 面板调。这样几何好建、UV 好排。
+
+2. **父模型必须是 `minecraft:block/block`,不能用 `item/generated` / `item/handheld`。**
+   - `item/generated` 那系带 `gui_light: "front"` ⇒ 3D 方块在物品栏里是**正面平光**,看着又扁又假;
+   - `block/block` 是 `gui_light: "side"` ⇒ 有方向性明暗,**才有立体感**。
+   - 用 `block/block` 后 `display` 要**七个槽全写**,否则会继承方块那套默认值(手里会变成托着一块砖)。
+   - 起手模型 `better_wrench.starter.json` 已经按这个配好了。
+
+3. **被旋转过的元素必须加 `neoforge_data: { "calculate_normals": true }`。**
+   这是 NeoForge 扩展字段。元素一旦带 `rotation`,不写这个法线就是错的 ⇒ 光照诡异/发黑。Create 的 `axle`、`gear case`、齿轮模型全都带这个字段。
+   (Blockbench 原生不认识这个字段,它可能提示未知数据或直接丢弃 —— 导入后需要补回去。)
 
 ## 二、Blockbench 操作流程
 
 1. **Format 选 `Java Block/Item`**(不要选 Bedrock/Entity)。
-2. 打开纹理面板,新建一张 **32×32**(或 64×64)纹理。Blockbench 会自动维护 UV 图集。
-   - 贴图尺寸用 2 的幂更稳(16/32/64/128)。
-3. 建模:用 cube / mesh 把扳手搭出来。
-   - 坐标参考:一个方块 = 16 单位,物品模型常用 `0..16` 区间,原点在左下前角。
-4. **Display 面板必须设**,否则在 GUI / 手里会错位或巨大。
-   - 懒人做法:直接**导入本目录的 `better_wrench.starter.json`**(`File → Import → Java Block/Item Model`),显示参数已经按原版 `item/handheld` 配好了,你在它基础上改几何就行。
-   - 或者建完模型后手工填下面这套(等价于 `minecraft:item/handheld`):
+2. 纹理面板新建 **16×16**(和原版一致;要用更大就把 `texture_size` 一起改)。
+3. 建模:一个方块 = 16 单位,物品空间原点在左下前角,`x/z` 中心是 8,`y` 从 0(柄底)到 16(爪尖)。
+4. **Display 面板**照下面填(等价于起手模型里的值):
 
-     | 槽位 | rotation | translation | scale |
-     |---|---|---|---|
-     | thirdperson_righthand | `[0,-90,55]` | `[0,4,0.5]` | `[0.85,0.85,0.85]` |
-     | thirdperson_lefthand | `[0,90,-55]` | `[0,4,0.5]` | `[0.85,0.85,0.85]` |
-     | firstperson_righthand | `[0,-90,25]` | `[1.13,3.2,1.13]` | `[0.68,0.68,0.68]` |
-     | firstperson_lefthand | `[0,90,-25]` | `[1.13,3.2,1.13]` | `[0.68,0.68,0.68]` |
-     | ground | `[0,0,0]` | `[0,3,0]` | `[0.25,0.25,0.25]` |
-     | gui / fixed | `[0,0,0]` | `[0,0,0]` | `[1,1,1]` |
+   | 槽位 | rotation | translation | scale |
+   |---|---|---|---|
+   | thirdperson_righthand | `[0,-90,55]` | `[0,4,0.5]` | `[0.85,0.85,0.85]` |
+   | thirdperson_lefthand | `[0,90,-55]` | `[0,4,0.5]` | `[0.85,0.85,0.85]` |
+   | firstperson_righthand | `[0,-90,25]` | `[1.13,3.2,1.13]` | `[0.68,0.68,0.68]` |
+   | firstperson_lefthand | `[0,90,-25]` | `[1.13,3.2,1.13]` | `[0.68,0.68,0.68]` |
+   | ground | `[0,0,0]` | `[0,3,0]` | `[0.25,0.25,0.25]` |
+   | **gui** | **`[30,-135,45]`** | `[0,0,0]` | `[1,1,1]` |
+   | fixed | `[0,180,0]` | `[0,0,0]` | `[1,1,1]` |
 
-5. **导出**:`File → Export → Export Java Block/Item Model`。
-6. 另外把纹理导出成 PNG。
+   `gui` 那一行就是"物品栏里斜着躺"的来源:**Z 轴 ~45° 是翻滚(斜向)**,X 轴 ~30° 是俯角,Y 轴 -135° 是把侧面转向镜头。三个数随便调,试到你满意为止。
+
+5. **导出**:`File → Export → Export Java Block/Item Model`;纹理另外导出 PNG。
+6. 导出后**手工补两处**(Blockbench 不会写):
+   - 顶部加 `"parent": "minecraft:block/block",`
+   - 旋转过的元素补 `"neoforge_data": { "calculate_normals": true }`
+
+> 更省事的做法:直接 `File → Import → Java Block/Item Model` 导入本目录的 `better_wrench.starter.json`,它就是按上面配好的六件套骨架(柄 / 金属环 / 斜脖子 / 钳座 / 两根爪),你在它上面改形状和贴图。
 
 ## 三、放进工程的两个文件
 
@@ -46,15 +63,14 @@
 | 模型 JSON | `src/main/resources/assets/create_better_wrench/models/item/better_wrench.json` |
 | 纹理 PNG | `src/main/resources/assets/create_better_wrench/textures/item/better_wrench.png` |
 
-模型里 `textures` 应指向 `create_better_wrench:item/better_wrench`,和上表一致。
+模型里 `textures` 的键可以随便取(起手模型用 `"5"`,和原版一致),但**值**必须是 `create_better_wrench:item/better_wrench`。
 
 放好后告诉我,我负责 `gradle build` + 部署到测试客户端。
 
-## 四、两个可选的小尾巴
+## 四、要不要做会转的齿轮
 
-- **`display` 可以省掉**:在导出的 JSON 顶部加一行 `"parent": "minecraft:item/handheld",` 并删掉整个 `display` 块,效果等价(靠父模型继承)。两种写法留一种即可,别同时改得互相打架。
-- **`gui_light`**:建议保留 `"gui_light": "front"`,让物品栏里是正面打光,3D 模型在 GUI 里才不会发暗发灰。
-- 想要**会转的齿轮**(像 Create 原版那样),就必须写自定义渲染器了,那是另一条路,到时候再说。
+- **不要**:把齿轮当成一个**静态黄铜圆盘/方块**建在模型里就行,零代码,90% 的观感已经有了。
+- **要**:那就必须写自定义渲染器(`CustomRenderedItemModelRenderer` + `PartialModel`,像 Create 那样单独一个 `gear` 模型文件再叠加渲染)。⚠️ 早期我们试过"包一层 Create 的渲染器",因为递归自调用直接 StackOverflow —— 要做就**自己从零写**,不要去包装 Create 的。
 
 ## 五、之前画的 2D 图标怎么办
 
