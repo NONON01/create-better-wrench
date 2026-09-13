@@ -1,4 +1,8 @@
 {
-  "credit": "References Create's wrench body model by model inheritance (runtime lookup). Create's assets are All Rights Reserved and are NOT redistributed by this mod -- see THIRD_PARTY_NOTICES.md.",
-  "parent": "create:item/wrench/item"
+  "credit": "Geometry inherited by reference from Create's wrench body model; the texture is our own work. Create's assets are All Rights Reserved and are NOT redistributed by this mod -- see THIRD_PARTY_NOTICES.md.",
+  "parent": "create:item/wrench/item",
+  "textures": {
+    "5": "create_better_wrench:item/better_wrench",
+    "particle": "create_better_wrench:item/better_wrench"
+  }
 }
