@@ -1,8 +1,20 @@
 {
-  "credit": "Geometry inherited by reference from Create's wrench body model; the texture is our own work. Create's assets are All Rights Reserved and are NOT redistributed by this mod -- see THIRD_PARTY_NOTICES.md.",
+  "credit": "Create: Better Wrench -- composite item model. The body geometry is referenced from Create's own wrench model at runtime (no Create asset is redistributed); the texture and the static gear part are our own work. See THIRD_PARTY_NOTICES.md.",
+  "loader": "neoforge:composite",
   "parent": "create:item/wrench/item",
   "textures": {
-    "5": "create_better_wrench:item/better_wrench",
     "particle": "create_better_wrench:item/better_wrench"
+  },
+  "children": {
+    "body": {
+      "parent": "create:item/wrench/item",
+      "textures": {
+        "5": "create_better_wrench:item/better_wrench",
+        "particle": "create_better_wrench:item/better_wrench"
+      }
+    },
+    "gear": {
+      "parent": "create_better_wrench:item/wrench_gear"
+    }
   }
 }
