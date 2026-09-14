@@ -1,5 +1,5 @@
 {
-  "credit": "Create: Better Wrench -- static stand-in for the gear that Create's wrench renders on top of its body. Brass frame + small andesite hub, in the style of Create's precision mechanism. Our own geometry.",
+  "credit": "Create: Better Wrench -- static stand-in for the gear that Create's wrench renders on top of its body. Brass frame + small andesite block, in the style of Create's precision mechanism. Our own geometry.",
   "texture_size": [16, 16],
   "textures": {
     "0": "create_better_wrench:item/wrench_gear",
@@ -8,8 +8,8 @@
   "elements": [
     {
       "name": "ring_north",
-      "from": [7, 7, 6],
-      "to": [11, 8, 7.2],
+      "from": [7.5, 7, 6.5],
+      "to": [10.5, 8, 7.4],
       "faces": {
         "north": { "uv": [0, 0, 8, 8], "texture": "#0" },
         "east": { "uv": [0, 0, 8, 8], "texture": "#0" },
@@ -21,8 +21,8 @@
     },
     {
       "name": "ring_south",
-      "from": [7, 7, 8.8],
-      "to": [11, 8, 10],
+      "from": [7.5, 7, 8.6],
+      "to": [10.5, 8, 9.5],
       "faces": {
         "north": { "uv": [0, 0, 8, 8], "texture": "#0" },
         "east": { "uv": [0, 0, 8, 8], "texture": "#0" },
@@ -34,8 +34,8 @@
     },
     {
       "name": "ring_west",
-      "from": [7, 7, 7.2],
-      "to": [8.2, 8, 8.8],
+      "from": [7.5, 7, 7.4],
+      "to": [8.4, 8, 8.6],
       "faces": {
         "north": { "uv": [0, 0, 8, 8], "texture": "#0" },
         "east": { "uv": [0, 0, 8, 8], "texture": "#0" },
@@ -47,8 +47,8 @@
     },
     {
       "name": "ring_east",
-      "from": [9.8, 7, 7.2],
-      "to": [11, 8, 8.8],
+      "from": [9.6, 7, 7.4],
+      "to": [10.5, 8, 8.6],
       "faces": {
         "north": { "uv": [0, 0, 8, 8], "texture": "#0" },
         "east": { "uv": [0, 0, 8, 8], "texture": "#0" },
@@ -59,9 +59,9 @@
       }
     },
     {
-      "name": "hub_andesite",
-      "from": [8.2, 7, 7.2],
-      "to": [9.8, 8.3, 8.8],
+      "name": "andesite_block",
+      "from": [8.4, 6.9, 6.1],
+      "to": [9.6, 8.2, 7.5],
       "faces": {
         "north": { "uv": [8, 0, 16, 8], "texture": "#0" },
         "east": { "uv": [8, 0, 16, 8], "texture": "#0" },
