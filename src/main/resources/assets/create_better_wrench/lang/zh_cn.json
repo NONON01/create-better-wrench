@@ -11,7 +11,7 @@
   "mode.create_better_wrench.connect.desc": "选择起点，终点和拐弯节点，然后生成相应的传动结构",
   "mode.create_better_wrench.deconstruct.desc": "框选区域: 批量拆除",
   "mode.create_better_wrench.assemble.desc": "锁定置物台: 手持材料右击进行序列装配",
-  "mode.create_better_wrench.coming_soon.desc": "mod内测版 v0.2.1+create6.0.10",
+  "mode.create_better_wrench.coming_soon.desc": "mod内测版 v0.3.0+create6.0.10",
 
   "corner.create_better_wrench.gearbox": "齿轮箱",
   "corner.create_better_wrench.large_cog": "大齿轮",
