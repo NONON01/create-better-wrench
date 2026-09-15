@@ -16,9 +16,6 @@ import net.minecraft.resources.ResourceLocation;
  */
 public enum WrenchMode {
 
-    /** HUD 顶部提示与描述里"按键/可选项"提示共用的蓝色(与顶部 "[SCROLL] 循环" 那行同色)。 */
-    public static final int HINT_BLUE = 0xCCDDFF;
-
     WRENCH("wrench", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_wrench.png")),
     CONNECT("connect", ResourceLocation.fromNamespaceAndPath(
@@ -28,6 +25,9 @@ public enum WrenchMode {
         BetterWrenchMod.MODID, "textures/gui/mode_assemble.png")),
     COMING_SOON("coming_soon", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_coming_soon.png"));
+
+    /** HUD 顶部提示与描述里"按键/可选项"提示共用的蓝色(与顶部 "[SCROLL] 循环" 那行同色)。 */
+    public static final int HINT_BLUE = 0xCCDDFF;
 
     private final String id;
     private final Object icon; // ResourceLocation 或 AllIcons, 或 null(暂不放图标)
