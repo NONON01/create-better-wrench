@@ -9,8 +9,8 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * 扳手的"模式"(用 ALT 呼出底部工具条 + 滚轮循环切换)。
  *
- * <p>图标: 扳手/连接 用自绘 PNG(ResourceLocation, 机械动力风格);
- * 拆除/装配 用 Create 的蓝图小图标;模组描述 用自绘 PNG。</p>
+ * <p>图标: 扳手/连接/装配/模组描述 用自绘 PNG(ResourceLocation, 机械动力风格);
+ * 拆除 用 Create 的蓝图垃圾桶小图标({@link AllIcons#I_TRASH})。</p>
  */
 public enum WrenchMode {
     WRENCH("wrench", ResourceLocation.fromNamespaceAndPath(
@@ -18,7 +18,8 @@ public enum WrenchMode {
     CONNECT("connect", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_connect.png")),
     DECONSTRUCT("deconstruct", AllIcons.I_TRASH),
-    ASSEMBLE("assemble", AllIcons.I_TOOL_DEPLOY),
+    ASSEMBLE("assemble", ResourceLocation.fromNamespaceAndPath(
+        BetterWrenchMod.MODID, "textures/gui/mode_assemble.png")),
     COMING_SOON("coming_soon", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_coming_soon.png"));
 
