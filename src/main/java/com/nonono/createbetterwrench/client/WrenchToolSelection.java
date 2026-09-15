@@ -88,14 +88,16 @@ public final class WrenchToolSelection {
         float toolTipAlpha = yOffset / 10;
         if (toolTipAlpha > 0.25f && focused) {
             // 描述支持多行: 语言文件里写 \n 换行, 过长的行再由字体按面板宽度自动折行
-            List<FormattedCharSequence> lines = mc.font.split(modes.get(selection).description(), w - 24);
+            // 文本**左对齐**(两行居中会显得参差, 且 [右键]/[滚轮] 前缀对齐后更好读)
+            List<FormattedCharSequence> lines = mc.font.split(modes.get(selection).description(), w - 20);
             RenderSystem.setShaderColor(.7f, .7f, .8f, toolTipAlpha);
             graphics.blit(bg.location, x - 15, y + 33, bg.getStartX(), bg.getStartY(),
                 w, h + 6 + lines.size() * 12, bg.getWidth(), bg.getHeight());
             RenderSystem.setShaderColor(1, 1, 1, 1);
+            int textX = x - 15 + 10; // 面板左内边距
             int textY = y + 38;
             for (FormattedCharSequence line : lines) {
-                graphics.drawString(mc.font, line, screenW / 2 - mc.font.width(line) / 2, textY, 0xEEEEEE, false);
+                graphics.drawString(mc.font, line, textX, textY, 0xEEEEEE, false);
                 textY += 12;
             }
         }
