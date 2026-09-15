@@ -3,9 +3,9 @@ package com.nonono.createbetterwrench.mode;
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.simibubi.create.foundation.gui.AllIcons;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -15,6 +15,10 @@ import net.minecraft.resources.ResourceLocation;
  * 拆除 用 Create 的蓝图垃圾桶小图标({@link AllIcons#I_TRASH})。</p>
  */
 public enum WrenchMode {
+
+    /** HUD 顶部提示与描述里"按键/可选项"提示共用的蓝色(与顶部 "[SCROLL] 循环" 那行同色)。 */
+    public static final int HINT_BLUE = 0xCCDDFF;
+
     WRENCH("wrench", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_wrench.png")),
     CONNECT("connect", ResourceLocation.fromNamespaceAndPath(
@@ -48,10 +52,10 @@ public enum WrenchMode {
     }
 
     /**
-     * 把描述里被 {@code []} 或 {@code {}} 包起来的文字设为**加粗**, **括号本身不加粗**。
+     * 描述里被 {@code []} 或 {@code {}} 包起来的文字设为**加粗 + 蓝色**, **括号本身不加粗也不变色**。
      *
-     * <p>这些是"按键提示"与"可选项"提示(例如 {@code [右键]} / {@code [Ctrl+滚轮]} / {@code {齿轮箱/大齿轮}}),
-     * 加粗后更醒目。用组件样式实现而不是 {@code §l} 代码, 免得依赖渲染器对旧式格式码的解析。</p>
+     * <p>这些是"按键提示"与"可选项"提示(例如 {@code [右键]} / {@code [Ctrl+滚轮]} / {@code {齿轮箱/大齿轮}})。
+     * 用组件样式实现而不是 {@code §l}/{@code §b} 代码, 免得依赖渲染器对旧式格式码的解析。</p>
      */
     private static Component emphasizeBrackets(Component raw) {
         String text = raw.getString();
@@ -64,7 +68,8 @@ public enum WrenchMode {
                 int end = text.indexOf(close, i + 1);
                 if (end > i) {
                     out.append(Component.literal(String.valueOf(c)));
-                    out.append(Component.literal(text.substring(i + 1, end)).withStyle(ChatFormatting.BOLD));
+                    out.append(Component.literal(text.substring(i + 1, end))
+                        .withStyle(Style.EMPTY.withBold(true).withColor(HINT_BLUE)));
                     out.append(Component.literal(String.valueOf(close)));
                     i = end + 1;
                     continue;

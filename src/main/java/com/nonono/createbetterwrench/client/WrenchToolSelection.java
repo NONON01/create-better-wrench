@@ -111,7 +111,7 @@ public final class WrenchToolSelection {
             ? Component.translatable("hint." + BetterWrenchMod.MODID + ".toolbar.scroll")
             : Component.translatable("hint." + BetterWrenchMod.MODID + ".toolbar.focus",
                 WrenchModeSwitcher.TOOLS_KEY.getTranslatedKeyMessage());
-        graphics.drawCenteredString(mc.font, topHint, screenW / 2, y - 10, 0xCCDDFF);
+        graphics.drawCenteredString(mc.font, topHint, screenW / 2, y - 10, WrenchMode.HINT_BLUE);
 
         // 各模式图标
         for (int i = 0; i < n; i++) {
