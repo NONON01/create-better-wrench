@@ -11,7 +11,7 @@
   "mode.create_better_wrench.connect.desc": "[右键]选择起点，拐点和终点，自动生成传动结构\n[Ctrl+滚轮]切换拐弯节点的实现方式{齿轮箱/大齿轮}",
   "mode.create_better_wrench.deconstruct.desc": "[右键]选择区域，拆除其中可以被扳手拆除的东西\n[Ctrl+滚轮]切换过滤器{全部/仅机械动力/仅红石}",
   "mode.create_better_wrench.assemble.desc": "[右键]锁定置物台，对置物台上的东西实现加工\n若有多个物品，它们会以不可拾取的掉落物样式在旁边等待",
-  "mode.create_better_wrench.coming_soon.desc": "mod内测版 v0.3.0+create6.0.10",
+  "mode.create_better_wrench.coming_soon.desc": "mod内测版 v0.4.0+create6.0.10",
 
   "corner.create_better_wrench.gearbox": "齿轮箱",
   "corner.create_better_wrench.large_cog": "大齿轮",
