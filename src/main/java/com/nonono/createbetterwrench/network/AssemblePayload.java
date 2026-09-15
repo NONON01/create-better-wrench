@@ -2,6 +2,7 @@ package com.nonono.createbetterwrench.network;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.assemble.AssembleLock;
+import com.nonono.createbetterwrench.assemble.DepotPiles;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 
 import io.netty.buffer.ByteBuf;
@@ -41,6 +42,10 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
                 return;
             boolean now = !AssembleLock.isLocked(depot);
             AssembleLock.setLocked(depot, now);
+            if (!now) {
+                // 解锁: 把原料堆/成品堆都释放成普通掉落物, 让玩家把东西收回去
+                DepotPiles.releaseAll(sp.level(), pos);
+            }
             sp.displayClientMessage(Component.translatable("msg." + BetterWrenchMod.MODID
                 + (now ? ".assemble.locked" : ".assemble.unlocked")), true);
         });

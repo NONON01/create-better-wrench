@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.AllRecipeTypes;
 import com.simibubi.create.content.fluids.spout.FillingBySpout;
 import com.simibubi.create.content.fluids.transfer.GenericItemEmptying;
@@ -11,10 +12,12 @@ import com.simibubi.create.content.kinetics.deployer.DeployerApplicationRecipe;
 import com.simibubi.create.content.kinetics.deployer.ItemApplicationRecipe;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 import com.simibubi.create.content.processing.sequenced.SequencedAssemblyRecipe;
+import com.simibubi.create.content.processing.sequenced.SequencedAssemblyRecipe.SequencedAssembly;
 import com.simibubi.create.foundation.recipe.RecipeApplier;
 
 import net.createmod.catnip.data.Pair;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.ItemTags;
@@ -38,43 +41,45 @@ import net.neoforged.neoforge.items.wrapper.RecipeWrapper;
  * 用手代替机器, 依次尝试四种原版机制(全部走 Create 自己的配方体系, 不硬编码具体配方):
  *
  * <ol>
- *   <li><b>序列装配</b> —— {@code create:sequenced_assembly}, 等价于发射器(Deployer)推进装配。
- *       例: 金板 + 小齿轮/大齿轮/铁粒 ×5 轮 → 精密构件。</li>
- *   <li><b>机械手式施加</b> —— {@code create:deploying} 与 {@code create:item_application},
- *       把手上物品施加到台面物品上。例: 蜂蜜/斧子给铜块上蜡去蜡、皮革包 cardboard 等。
+ *   <li><b>序列装配</b> —— {@code create:sequenced_assembly}, 等价于发射器(Deployer)推进装配。</li>
+ *   <li><b>机械手式施加</b> —— {@code create:deploying} 与 {@code create:item_application}。
  *       查找顺序与优先级完全照搬 {@code DeployerBlockEntity#getRecipe}。</li>
- *   <li><b>原木去皮</b> —— 原版 {@link AxeItem} 机制(原版里斧子右键原木方块即去皮)。
- *       Create 自己只在 JEI 里展示这条"隐式配方"({@code LogStrippingFakeRecipes}),
- *       并未生成真实配方, 所以这里直接按原版机制实现。</li>
- *   <li><b>注液</b> —— {@code create:filling}, 等价于注液器(Spout):
- *       从**手持容器**里取出流体注入台面物品。例: 岩浆桶 → 烈焰蛋糕。</li>
+ *   <li><b>原木去皮</b> —— 原版 {@link AxeItem} 机制(Create 只在 JEI 里展示这条"隐式配方")。</li>
+ *   <li><b>注液</b> —— {@code create:filling}, 等价于注液器(Spout)。</li>
  * </ol>
  *
- * <p>四者按上述顺序短路: 任一成功即返回, 不再尝试后面的。</p>
+ * <h2>三个位置</h2>
+ * 一个置物台只能渲染一个物品堆, 所以台面**只放"正在加工"的那一个**, 另外两个位置由
+ * {@link DepotPiles} 用掉落物实体摆在**置物台的两个对角**:
+ * <pre>
+ *   原料堆(RAW, 西北角, 锁定期间不可拿)   ←  台面中央(正在加工)  →  成品堆(DONE, 东南角, 可拿)
+ * </pre>
+ * 消耗掉台面那一个之后会自动从原料堆续上下一个; 装配**失败**的产物直接弹成普通掉落物(不是进货堆)。
  */
 public final class AssembleLogic {
 
     private AssembleLogic() {
     }
 
-    /**
-     * 尝试把 held 施加到置物台物品上。成功(真正推进了一步)返回 true; 否则 false(调用方应保持原状、不取走物品)。
-     */
     public static boolean tryAssemble(Level level, BlockPos pos, DepotBlockEntity depot,
                                       Player player, ItemStack held, InteractionHand hand) {
         if (held.isEmpty() || held.is(BetterWrenchMod.BETTER_WRENCH))
             return false; // 空手/扳手不参与工作模式(扳手用于锁定/解锁)
-        ItemStack onDepot = depot.getHeldItem();
-        if (onDepot.isEmpty())
+
+        // 台面空了就先从原料堆续一个上来
+        if (depot.getHeldItem().isEmpty())
+            feedNext(level, pos, depot);
+        ItemStack current = depot.getHeldItem();
+        if (current.isEmpty())
             return false;
 
-        if (trySequencedAssembly(level, pos, depot, player, held, hand, onDepot))
+        if (trySequencedAssembly(level, pos, depot, player, held, hand, current))
             return true;
-        if (tryApplyingRecipe(level, pos, depot, player, held, hand, onDepot))
+        if (tryApplyingRecipe(level, pos, depot, player, held, hand, current))
             return true;
-        if (tryStrippingLog(level, pos, depot, player, held, hand, onDepot))
+        if (tryStrippingLog(level, pos, depot, player, held, hand, current))
             return true;
-        if (trySpoutFilling(level, pos, depot, player, held, hand, onDepot))
+        if (trySpoutFilling(level, pos, depot, player, held, hand, current))
             return true;
         return false;
     }
@@ -83,55 +88,82 @@ public final class AssembleLogic {
 
     private static boolean trySequencedAssembly(Level level, BlockPos pos, DepotBlockEntity depot,
                                                 Player player, ItemStack held, InteractionHand hand,
-                                                ItemStack onDepot) {
-        // 找到"当前物品 + 下一步施加配方"; 该调用已把 advance() 接到 enforceNextResult 上
+                                                ItemStack current) {
         Optional<RecipeHolder<DeployerApplicationRecipe>> found = SequencedAssemblyRecipe.getRecipe(
-            level, onDepot, AllRecipeTypes.DEPLOYING.getType(), DeployerApplicationRecipe.class);
+            level, current, AllRecipeTypes.DEPLOYING.getType(), DeployerApplicationRecipe.class);
         if (found.isEmpty())
             return false;
-
         DeployerApplicationRecipe recipe = found.get().value();
         if (!recipe.getRequiredHeldItem().test(held))
-            return false; // 手上物品不是当前这一步需要的
+            return false;
 
-        List<ItemStack> results = RecipeApplier.applyRecipeOn(level, onDepot.copyWithCount(1), recipe, true);
+        // 中间产物身上带着所属装配的 id; 用它查出"这批装配的目标成品"以便区分成品/失败品
+        ItemStack target = resolveAssemblyTarget(level, current);
+
+        ItemStack working = current.copyWithCount(1);
+        splitExtras(level, pos, depot); // 多余的先挪到原料堆, 台面只留正在加工的那一个
+
+        List<ItemStack> results = RecipeApplier.applyRecipeOn(level, working, recipe, true);
         consumeHeld(player, held, hand, recipe.shouldKeepHeldItem());
-        placeResults(level, pos, depot, results);
+        dropExtras(level, pos, results);
+
+        ItemStack out = results.isEmpty() ? ItemStack.EMPTY : results.get(0).copy();
+        if (out.isEmpty()) {
+            clearDepot(depot);
+            return true;
+        }
+
+        // 还能继续推进 => 仍是中间产物, 留在中间
+        boolean canContinue = SequencedAssemblyRecipe
+            .getRecipe(level, out, AllRecipeTypes.DEPLOYING.getType(), DeployerApplicationRecipe.class)
+            .isPresent();
+        if (canContinue) {
+            setDepot(depot, out);
+            playPickup(level, pos);
+            return true;
+        }
+
+        // 序列结束: 结果是按权重从 result 池里抽的 —— 命中目标成品进货堆, 否则算失败品直接弹出
+        if (!target.isEmpty() && ItemStack.isSameItemSameComponents(out, target)) {
+            finishTo(level, pos, depot, out);
+        } else {
+            DepotPiles.eject(level, pos, out);
+            clearDepot(depot);
+        }
+        playPickup(level, pos);
         return true;
     }
 
     // ---------------------------------------------------------------- 2. 机械手式施加
 
-    /**
-     * 与 {@code DeployerBlockEntity#getRecipe} 同源的查找: 输入槽 0 = 台面物品, 槽 1 = 手持物品。
-     * 依次尝试 {@code create:deploying} 与 {@code create:item_application}, 并过滤掉
-     * {@code *_manual_only}(Create 约定: 这类配方只能由玩家在世界里手动对**方块**使用)。
-     */
     private static boolean tryApplyingRecipe(Level level, BlockPos pos, DepotBlockEntity depot,
                                              Player player, ItemStack held, InteractionHand hand,
-                                             ItemStack onDepot) {
+                                             ItemStack current) {
         ItemStackHandler inv = new ItemStackHandler(2);
-        inv.setStackInSlot(0, onDepot.copyWithCount(1));
+        inv.setStackInSlot(0, current.copyWithCount(1));
         inv.setStackInSlot(1, held.copyWithCount(1));
         RecipeWrapper wrapper = new RecipeWrapper(inv);
 
         Optional<RecipeHolder<Recipe<RecipeWrapper>>> found =
-            AllRecipeTypes.DEPLOYING.find(wrapper, level)
-                .filter(AllRecipeTypes.CAN_BE_AUTOMATED);
+            AllRecipeTypes.DEPLOYING.find(wrapper, level).filter(AllRecipeTypes.CAN_BE_AUTOMATED);
         if (found.isEmpty())
-            found = AllRecipeTypes.ITEM_APPLICATION.find(wrapper, level)
-                .filter(AllRecipeTypes.CAN_BE_AUTOMATED);
+            found = AllRecipeTypes.ITEM_APPLICATION.find(wrapper, level).filter(AllRecipeTypes.CAN_BE_AUTOMATED);
         if (found.isEmpty())
             return false;
 
         Recipe<RecipeWrapper> recipe = found.get().value();
-        List<ItemStack> results = RecipeApplier.applyRecipeOn(level, onDepot.copyWithCount(1), recipe, true);
-        if (results.isEmpty())
+        ItemStack working = current.copyWithCount(1);
+        List<ItemStack> results = RecipeApplier.applyRecipeOn(level, working, recipe, true);
+        if (results.isEmpty() || results.get(0).isEmpty())
             return false;
 
         boolean keepHeld = recipe instanceof ItemApplicationRecipe application && application.shouldKeepHeldItem();
         consumeHeld(player, held, hand, keepHeld);
-        placeResults(level, pos, depot, results);
+        splitExtras(level, pos, depot);
+        dropExtras(level, pos, results);
+
+        finishTo(level, pos, depot, results.get(0).copy());
+        playPickup(level, pos);
         return true;
     }
 
@@ -139,10 +171,10 @@ public final class AssembleLogic {
 
     private static boolean tryStrippingLog(Level level, BlockPos pos, DepotBlockEntity depot,
                                            Player player, ItemStack held, InteractionHand hand,
-                                           ItemStack onDepot) {
+                                           ItemStack current) {
         if (!held.is(ItemTags.AXES))
             return false;
-        if (!(onDepot.getItem() instanceof BlockItem blockItem))
+        if (!(current.getItem() instanceof BlockItem blockItem))
             return false;
 
         BlockState stripped = AxeItem.getAxeStrippingState(blockItem.getBlock().defaultBlockState());
@@ -155,8 +187,8 @@ public final class AssembleLogic {
         if (!player.isCreative() && held.getMaxDamage() > 0)
             held.hurtAndBreak(1, player, handSlot(hand));
 
-        depot.setHeldItem(out);
-        depot.notifyUpdate();
+        splitExtras(level, pos, depot);
+        finishTo(level, pos, depot, out);
         level.playSound(null, pos, SoundEvents.AXE_STRIP, SoundSource.BLOCKS, 1f, 1f);
         return true;
     }
@@ -164,32 +196,57 @@ public final class AssembleLogic {
     // ---------------------------------------------------------------- 4. 注液
 
     /**
-     * 等价于注液器: 从**手持容器**中抽出流体, 注入台面物品。
-     * 流体来源用 Create 的 {@link GenericItemEmptying#emptyItem} —— 它同时覆盖
-     * {@code create:emptying} 配方与 NeoForge 的 {@code Capabilities.FluidHandler.ITEM}(桶、Create 流体罐等)。
+     * 等价于注液器, 但**按流体实量批量注**:
+     * 一份配方可能只吃 25mB(例如发光石), 而玩家手里一个桶是 1000mB,
+     * 所以一次操作会把 `1000 / 单份用量` 个物品一起注满(不超过实际可用的输入数量)。
      */
     private static boolean trySpoutFilling(Level level, BlockPos pos, DepotBlockEntity depot,
                                            Player player, ItemStack held, InteractionHand hand,
-                                           ItemStack onDepot) {
+                                           ItemStack current) {
         if (!GenericItemEmptying.canItemBeEmptied(level, held))
             return false;
 
-        // 先空跑一次, 只为拿到"这一格容器里到底是什么流体"
         FluidStack available = GenericItemEmptying.emptyItem(level, held.copy(), true).getFirst();
         if (available.isEmpty())
             return false;
-        if (!FillingBySpout.canItemBeFilled(level, onDepot))
+
+        ItemStack probe = current.copyWithCount(1);
+        if (!FillingBySpout.canItemBeFilled(level, probe))
+            return false;
+        int perItem = FillingBySpout.getRequiredAmountForItem(level, probe, available);
+        if (perItem <= 0)
             return false;
 
-        int amount = FillingBySpout.getRequiredAmountForItem(level, onDepot, available);
-        if (amount <= 0 || available.getAmount() < amount)
+        // 桶里这 1000mB 够注几份
+        int units = available.getAmount() / perItem;
+        if (units <= 0)
             return false;
 
-        ItemStack filled = FillingBySpout.fillItem(level, amount, onDepot.copyWithCount(1), available.copy());
-        if (filled.isEmpty())
+        // 输入 = 台面现有的 + 从原料堆续上来的, 最多凑到 units 个
+        int onDepot = current.getCount();
+        int wanted = Math.min(units, onDepot + (int) Math.min(Integer.MAX_VALUE, countRaw(level, pos)));
+        ItemStack combined = current.copy();
+        if (wanted > onDepot) {
+            ItemStack extra = DepotPiles.take(level, pos, DepotPiles.RAW, wanted - onDepot);
+            if (!extra.isEmpty())
+                combined.grow(extra.getCount());
+        }
+        int toFill = Math.min(units, combined.getCount());
+        if (toFill <= 0)
             return false;
 
-        // 真正抽掉玩家手里的流体, 并把空容器还给他
+        int made = 0;
+        for (int i = 0; i < toFill; i++) {
+            ItemStack filled = FillingBySpout.fillItem(level, perItem, combined.copyWithCount(1), available.copy());
+            if (filled.isEmpty())
+                break;
+            DepotPiles.deposit(level, pos, DepotPiles.DONE, filled);
+            made++;
+        }
+        if (made <= 0)
+            return false;
+
+        // 真正抽掉玩家手里那份流体, 并把空容器还给他
         if (!player.isCreative()) {
             Pair<FluidStack, ItemStack> drained = GenericItemEmptying.emptyItem(level, held.copy(), false);
             ItemStack container = drained.getSecond();
@@ -202,15 +259,83 @@ public final class AssembleLogic {
             }
         }
 
-        depot.setHeldItem(filled);
-        depot.notifyUpdate();
+        // 没注到的输入退回原料堆, 台面清空后续下一个
+        int leftover = combined.getCount() - made;
+        if (leftover > 0)
+            DepotPiles.deposit(level, pos, DepotPiles.RAW, combined.copyWithCount(leftover));
+        clearDepot(depot);
         level.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1f, 1f);
         return true;
     }
 
-    // ---------------------------------------------------------------- 公共
+    private static long countRaw(Level level, BlockPos pos) {
+        // 只要一个上界; 真正的取出由 DepotPiles.take 完成
+        return DepotPiles.hasAny(level, pos, DepotPiles.RAW) ? 64L : 0L;
+    }
 
-    /** 消耗/损耗手持物品(支持"工具不消耗"、耐久、余留物;创造模式不消耗)。 */
+    // ---------------------------------------------------------------- 台面 / 料堆
+
+    /** 台面物品多于 1 个时, 把多余的挪到原料堆; 台面只留 1 个(正在加工的那个)。 */
+    private static void splitExtras(Level level, BlockPos pos, DepotBlockEntity depot) {
+        ItemStack current = depot.getHeldItem();
+        if (current.getCount() <= 1)
+            return;
+        ItemStack extras = current.copyWithCount(current.getCount() - 1);
+        setDepot(depot, current.copyWithCount(1));
+        DepotPiles.deposit(level, pos, DepotPiles.RAW, extras);
+    }
+
+    /** 成品进货堆, 台面清空后自动从原料堆续上下一个。 */
+    private static void finishTo(Level level, BlockPos pos, DepotBlockEntity depot, ItemStack product) {
+        DepotPiles.deposit(level, pos, DepotPiles.DONE, product);
+        clearDepot(depot);
+    }
+
+    private static void feedNext(Level level, BlockPos pos, DepotBlockEntity depot) {
+        if (!depot.getHeldItem().isEmpty())
+            return;
+        ItemStack next = DepotPiles.take(level, pos, DepotPiles.RAW, 1);
+        if (next.isEmpty())
+            return;
+        setDepot(depot, next);
+    }
+
+    private static void setDepot(DepotBlockEntity depot, ItemStack stack) {
+        depot.setHeldItem(stack);
+        // 关键: DepotBlockEntity.setHeldItem 不会自行同步客户端(Create 自己的调用方都会补 notifyUpdate),
+        // 不 notify 的话客户端会一直渲染旧物品。
+        depot.notifyUpdate();
+    }
+
+    private static void clearDepot(DepotBlockEntity depot) {
+        setDepot(depot, ItemStack.EMPTY);
+    }
+
+    private static void dropExtras(Level level, BlockPos pos, List<ItemStack> results) {
+        for (int i = 1; i < results.size(); i++)
+            if (!results.get(i).isEmpty())
+                Block.popResource(level, pos.above(), results.get(i));
+    }
+
+    private static void playPickup(Level level, BlockPos pos) {
+        level.playSound(null, pos, SoundEvents.ITEM_PICKUP, SoundSource.BLOCKS, 0.25f, 0.75f);
+    }
+
+    /** 由中间产物身上携带的 sequenced_assembly 组件查出这批装配的目标成品。 */
+    private static ItemStack resolveAssemblyTarget(Level level, ItemStack transitional) {
+        SequencedAssembly seq = transitional.get(AllDataComponents.SEQUENCED_ASSEMBLY);
+        if (seq == null)
+            return ItemStack.EMPTY;
+        ResourceLocation id = seq.id();
+        return level.getRecipeManager()
+            .byKey(id)
+            .filter(holder -> holder.value() instanceof SequencedAssemblyRecipe)
+            .map(holder -> ((SequencedAssemblyRecipe) holder.value()).resultPool.getFirst().getStack())
+            .orElse(ItemStack.EMPTY);
+    }
+
+    // ---------------------------------------------------------------- 手持物品处理
+
     private static void consumeHeld(Player player, ItemStack held, InteractionHand hand, boolean keepHeld) {
         if (player.isCreative() || keepHeld)
             return;
@@ -224,20 +349,6 @@ public final class AssembleLogic {
             player.setItemInHand(hand, leftover);
         else if (!leftover.isEmpty() && !player.getInventory().add(leftover))
             player.drop(leftover, false);
-    }
-
-    /** 结果放回置物台; 第 2 个起的多余产出掉落在台面上方。 */
-    private static void placeResults(Level level, BlockPos pos, DepotBlockEntity depot, List<ItemStack> results) {
-        ItemStack out = results.isEmpty() ? ItemStack.EMPTY : results.get(0).copy();
-        depot.setHeldItem(out);
-        // 关键: DepotBlockEntity.setHeldItem 不会自行同步客户端(Create 自己的调用方都会补 notifyUpdate),
-        // 不 notify 的话客户端会一直渲染旧物品(例如装配完仍显示金板)。
-        depot.notifyUpdate();
-        for (int i = 1; i < results.size(); i++)
-            if (!results.get(i).isEmpty())
-                Block.popResource(level, pos.above(), results.get(i));
-
-        level.playSound(null, pos, SoundEvents.ITEM_PICKUP, SoundSource.BLOCKS, 0.25f, 0.75f);
     }
 
     private static EquipmentSlot handSlot(InteractionHand hand) {
