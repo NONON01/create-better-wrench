@@ -13,7 +13,8 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 /**
- * 服务端: 已锁定的置物台被右键时 —— 先尝试「装配」(把手上物品施加到台面物品上推进序列装配),
+ * 服务端: 已锁定的置物台被右键时 —— 先尝试「工作」模式的各种施加
+ * (序列装配 / 机械手式施加 / 原木去皮 / 注液, 见 {@link AssembleLogic}),
  * 无论成功与否都**吃掉这次交互**, 从而不会把台面上的物品取下来。
  */
 @EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME)
