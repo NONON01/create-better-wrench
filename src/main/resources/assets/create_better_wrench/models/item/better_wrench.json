@@ -1,5 +1,5 @@
 {
-  "credit": "Create: Better Wrench -- composite item model. The body geometry is referenced from Create's own wrench model at runtime (no Create asset is redistributed); the texture and the static gear part are our own work. See THIRD_PARTY_NOTICES.md.",
+  "credit": "Universal Wrench -- composite item model. The body geometry is referenced from Create's own wrench model at runtime (no Create asset is redistributed); the texture and the static gear part are our own work. See THIRD_PARTY_NOTICES.md.",
   "loader": "neoforge:composite",
   "parent": "create:item/wrench/item",
   "textures": {

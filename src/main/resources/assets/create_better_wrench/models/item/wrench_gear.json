@@ -1,5 +1,5 @@
 {
-  "credit": "Create: Better Wrench -- static stand-in for the gear that Create's wrench renders on top of its body. Brass frame + small andesite block, in the style of Create's precision mechanism. Our own geometry.",
+  "credit": "Universal Wrench -- static stand-in for the gear that Create's wrench renders on top of its body. Brass frame + small andesite block, in the style of Create's precision mechanism. Our own geometry.",
   "texture_size": [16, 16],
   "textures": {
     "0": "create_better_wrench:item/wrench_gear",

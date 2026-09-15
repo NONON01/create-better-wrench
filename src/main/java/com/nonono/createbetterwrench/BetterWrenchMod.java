@@ -15,9 +15,9 @@ import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
- * 精密扳手(Create Better Wrench / Precision Wrench)主类。
+ * 万能扳手(Universal Wrench)主类。
  *
- * <p>纯 Create addon:不新增方块, 提供一把更强力的 Create 扳手「精密扳手」。
+ * <p>纯 Create addon:不新增方块, 提供一把更好用的 Create 扳手「万能扳手」。
  * 物品注册在 {@link #BETTER_WRENCH}; 它加入 {@code c:tools/wrench} 标签使 Create 把它当扳手,
  * 并用 ALT 呼出底部工具条切换多种功能模式(连接/拆除)。物品放进 Create 的 BASE 创造标签。</p>
  */
