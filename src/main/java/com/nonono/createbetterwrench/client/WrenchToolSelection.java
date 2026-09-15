@@ -14,6 +14,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 
 /**
  * 底部"模式选择器" —— 从 Create 的 ToolSelectionScreen 复刻(基于 MIT, 已替换工具→我们的模式,
@@ -86,12 +87,17 @@ public final class WrenchToolSelection {
         // tooltip(描述)面板: 聚焦且 yOffset 起来后显示
         float toolTipAlpha = yOffset / 10;
         if (toolTipAlpha > 0.25f && focused) {
-            Component desc = modes.get(selection).description();
+            // 描述支持多行: 语言文件里写 \n 换行, 过长的行再由字体按面板宽度自动折行
+            List<FormattedCharSequence> lines = mc.font.split(modes.get(selection).description(), w - 24);
             RenderSystem.setShaderColor(.7f, .7f, .8f, toolTipAlpha);
             graphics.blit(bg.location, x - 15, y + 33, bg.getStartX(), bg.getStartY(),
-                w, h + 22, bg.getWidth(), bg.getHeight());
+                w, h + 6 + lines.size() * 12, bg.getWidth(), bg.getHeight());
             RenderSystem.setShaderColor(1, 1, 1, 1);
-            graphics.drawCenteredString(mc.font, desc, screenW / 2, y + 38, 0xEEEEEE);
+            int textY = y + 38;
+            for (FormattedCharSequence line : lines) {
+                graphics.drawString(mc.font, line, screenW / 2 - mc.font.width(line) / 2, textY, 0xEEEEEE, false);
+                textY += 12;
+            }
         }
 
         RenderSystem.setShaderColor(1, 1, 1, 1);
