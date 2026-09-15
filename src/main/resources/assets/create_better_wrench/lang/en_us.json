@@ -8,8 +8,8 @@
   "mode.create_better_wrench.assemble": "Process",
   "mode.create_better_wrench.coming_soon": "Mod Info",
   "mode.create_better_wrench.wrench.desc": "The standard Create wrench experience",
-  "mode.create_better_wrench.connect.desc": "[RMB] Pick a start, corner and end point; the drivetrain is built for you\n[Scroll] Switch how corner nodes are built {Gearbox/Large Cogwheel}",
-  "mode.create_better_wrench.deconstruct.desc": "[RMB] Select an area; remove everything a wrench can remove\n[Scroll] Switch the filter {All/Create only/Redstone only}",
+  "mode.create_better_wrench.connect.desc": "[RMB] Pick a start, corner and end point; the drivetrain is built for you\n[Ctrl+Scroll] Switch how corner nodes are built {Gearbox/Large Cogwheel}",
+  "mode.create_better_wrench.deconstruct.desc": "[RMB] Select an area; remove everything a wrench can remove\n[Ctrl+Scroll] Switch the filter {All/Create only/Redstone only}",
   "mode.create_better_wrench.assemble.desc": "[RMB] Lock a depot to process whatever sits on it\nWith several items, the extras wait nearby as unpickable drops",
   "mode.create_better_wrench.coming_soon.desc": "mod beta v0.3.0+create6.0.10",
 

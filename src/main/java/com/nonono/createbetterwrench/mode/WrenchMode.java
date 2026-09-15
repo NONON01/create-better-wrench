@@ -3,7 +3,9 @@ package com.nonono.createbetterwrench.mode;
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.simibubi.create.foundation.gui.AllIcons;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -42,6 +44,38 @@ public enum WrenchMode {
 
     /** 该模式的描述(用于选择器 tooltip); 文案在语言文件: mode.<modid>.<id>.desc。 */
     public Component description() {
-        return Component.translatable("mode." + BetterWrenchMod.MODID + "." + id + ".desc");
+        return emphasizeBrackets(Component.translatable("mode." + BetterWrenchMod.MODID + "." + id + ".desc"));
+    }
+
+    /**
+     * 把描述里被 {@code []} 或 {@code {}} 包起来的文字设为**加粗**, **括号本身不加粗**。
+     *
+     * <p>这些是"按键提示"与"可选项"提示(例如 {@code [右键]} / {@code [Ctrl+滚轮]} / {@code {齿轮箱/大齿轮}}),
+     * 加粗后更醒目。用组件样式实现而不是 {@code §l} 代码, 免得依赖渲染器对旧式格式码的解析。</p>
+     */
+    private static Component emphasizeBrackets(Component raw) {
+        String text = raw.getString();
+        MutableComponent out = Component.empty();
+        int i = 0;
+        while (i < text.length()) {
+            char c = text.charAt(i);
+            char close = c == '[' ? ']' : (c == '{' ? '}' : (char) 0);
+            if (close != 0) {
+                int end = text.indexOf(close, i + 1);
+                if (end > i) {
+                    out.append(Component.literal(String.valueOf(c)));
+                    out.append(Component.literal(text.substring(i + 1, end)).withStyle(ChatFormatting.BOLD));
+                    out.append(Component.literal(String.valueOf(close)));
+                    i = end + 1;
+                    continue;
+                }
+            }
+            int next = i + 1;
+            while (next < text.length() && text.charAt(next) != '[' && text.charAt(next) != '{')
+                next++;
+            out.append(Component.literal(text.substring(i, next)));
+            i = next;
+        }
+        return out;
     }
 }
