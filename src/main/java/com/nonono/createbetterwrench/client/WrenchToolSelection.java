@@ -99,8 +99,10 @@ public final class WrenchToolSelection {
             //           **单行居中**(视觉上更平衡)。
             List<FormattedCharSequence> lines = mc.font.split(modes.get(selection).description(), w - 20);
             RenderSystem.setShaderColor(.7f, .7f, .8f, toolTipAlpha);
+            // 面板高度与原版一致写死为 h + 22(不随行数增长!)—— 早先按行数加高会把面板往下撑,
+            // 底部压到物品栏上。原版面板 y+33 起、高 52, 底边在 y+85; 聚焦上浮 10 后底边 = screenH-30, 正好让开物品栏。
             graphics.blit(bg.location, x - 15, y + 33, bg.getStartX(), bg.getStartY(),
-                w, h + 6 + lines.size() * 12, bg.getWidth(), bg.getHeight());
+                w, h + 22, bg.getWidth(), bg.getHeight());
             RenderSystem.setShaderColor(1, 1, 1, 1);
 
             // 文字自身也带 alpha(与 Create 一样把 alpha 编进颜色), 否则面板在淡入而字是硬邦邦蹦出来的

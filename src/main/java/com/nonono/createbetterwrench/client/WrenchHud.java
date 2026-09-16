@@ -45,23 +45,46 @@ public final class WrenchHud {
         event.registerAboveAll(LAYER_ID, WrenchHud::renderLayer);
     }
 
+    /**
+     * 状态推进: **每客户端刻一次(20Hz)**, 与原版一致 —— 原版是在 {@code ClientTickEvent.Post} 里调
+     * {@code SchematicHandler.tick()} 再调 {@code ToolSelectionScreen.update()}。
+     * 早先我们把它放在每帧渲染里, 帧率 60~200 ⇒ 动画快了 3~10 倍。
+     */
+    public static void tick() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.screen != null)
+            return;
+
+        boolean holding = isHoldingOurWrench(mc);
+        boolean focused = holding && WrenchModeSwitcher.TOOLS_KEY.isDown();
+        float target = focused ? 1f : 0f;
+        focusAmount += (target - focusAmount) * 0.15f;
+
+        WrenchToolSelection sel = getSelection();
+        sel.focused = focused;
+        sel.update(); // yOffset 插值(上浮 / 落回)
+    }
+
+    /** 渲染层: 只负责画, 不再推进状态。 */
     private static void renderLayer(GuiGraphics g, DeltaTracker deltaTracker) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen != null)
             return;
-        boolean holding = isHoldingOurWrench(mc);
-        boolean focused = holding && WrenchModeSwitcher.TOOLS_KEY.isDown();
-
-        // 淡入淡出由 selection.update() 内部(yOffset)处理; 未持扳手时若完全淡出则不画
-        float target = focused ? 1f : 0f;
-        focusAmount += (target - focusAmount) * 0.15f;
-        if (!holding && focusAmount < 0.02f)
+        if (!isHoldingOurWrench(mc) && focusAmount < 0.02f)
             return;
+        getSelection().render(g, deltaTracker.getGameTimeDeltaPartialTick(false));
+    }
 
-        WrenchToolSelection sel = getSelection();
-        sel.focused = focused;
-        sel.update();
-        sel.render(g, deltaTracker.getGameTimeDeltaPartialTick(false));
+    /** GAME 总线: 每客户端刻推进动画状态(与原版 SchematicHandler 同一节奏)。 */
+    @EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+    public static final class Tick {
+        private Tick() {
+        }
+
+        @SubscribeEvent
+        public static void onClientTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+            WrenchHud.tick();
+        }
     }
 
     private static boolean isHoldingOurWrench(Minecraft mc) {
