@@ -4,14 +4,20 @@ import com.nonono.createbetterwrench.mode.DeconstructScope;
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * 「拆除」的服务端核心: 判定一个方块是否"可用扳手拆下"、是否落在某 Ctrl 档过滤内,
@@ -71,18 +77,35 @@ public final class DeconstructLogic {
     }
 
     /**
-     * 拆除指定(已裁剪好的)方块, 并入背包; 背包满则物品掉落在玩家处。
-     * 复用 MC: Block.getDrops + player.getInventory().placeItemBackInInventory(自带"满则掉脚下")。
+     * 拆除指定的一个方块, 产物进背包(满则掉落脚下)。
      *
-     * @return 是否实际拆掉了(用于计数)
+     * <p><b>关键</b>: 只要方块是 {@link IWrenchable}, 就把拆除**交还给 Create 自己的
+     * {@link IWrenchable#onSneakWrenched}**, 而不是自己 {@code destroyBlock}。
+     * 因为多方块结构的连带拆除正是写在各个子类的覆盖实现里 —— 例如
+     * {@code WaterWheelStructuralBlock} 会把点击位置**重定向到主方块**再整体拆掉
+     * (大型水车/大水泵)。自己 destroy 只能拆掉一半, 留下孤儿方块。
+     * 走这条路还顺带获得了 {@code BlockEvent.BreakEvent}(领地保护插件)与创造模式不掉落的正确行为。</p>
+     *
+     * @return 是否真的把这个位置的方块拆掉了(用于计数)
      */
     public static boolean deconstructBlock(ServerLevel level, BlockPos pos, ServerPlayer player) {
         BlockState state = level.getBlockState(pos);
         if (!isWrenchRemovable(state))
             return false;
+
+        if (state.getBlock() instanceof IWrenchable wrenchable) {
+            UseOnContext context = new UseOnContext(level, player, InteractionHand.MAIN_HAND,
+                player.getMainHandItem(),
+                new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
+            wrenchable.onSneakWrenched(state, context);
+            // 被 BreakEvent 取消时方块还在 -> 计为未拆
+            return level.getBlockState(pos).isAir();
+        }
+
+        // 只靠 create:wrench_pickup tag 被纳入的普通方块: 它没有 IWrenchable 逻辑, 沿用简单路径
         Block.getDrops(state, level, pos, level.getBlockEntity(pos), player, player.getMainHandItem())
             .forEach(stack -> player.getInventory().placeItemBackInInventory(stack));
-        state.spawnAfterBreak(level, pos, net.minecraft.world.item.ItemStack.EMPTY, true);
+        state.spawnAfterBreak(level, pos, ItemStack.EMPTY, true);
         level.destroyBlock(pos, false);
         return true;
     }

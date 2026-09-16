@@ -18,10 +18,19 @@ import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * 客户端「装配」模式: 手持扳手 + 模式=ASSEMBLE 时, 右击置物台 → 发包切换锁定状态并吃掉本次点击。
+ * 客户端: 手持扳手且处于**[加工] / [模组描述]** 模式时, 吃掉右键点击。
  *
- * <p>注意: 只有"手持扳手"时才会被本处理器接管(用于锁定/解锁); 当玩家手持装配用的物品(如小齿轮)时
- * 不拦截, 右键会正常发到服务端, 由 {@code AssembleInteractionHandler} 在"已锁定"的置物台上执行装配。</p>
+ * <ul>
+ *   <li><b>[加工]</b>: 对着置物台右键 → 发包切换锁定状态; 对着**其它方块**右键 → 只吃掉, 不做事。</li>
+ *   <li><b>[模组描述]</b>: 右键一律吃掉。</li>
+ * </ul>
+ *
+ * <p><b>为什么必须吃掉</b>: 不吃掉的话, 这次右键会正常发到服务端, 于是 Create 的扳手逻辑照常生效
+ * (扭方块 / 拆方块 / 开界面) —— 也就是说这两个模式里右键还带着"扳手"语义, 这与模式设计冲突。</p>
+ *
+ * <p>吃掉 {@code MouseButton.Pre} 会让 {@code keyUse} 不被置为按下, MC 也就不会再连发右键, 正好符合需要。
+ * 手持**加工材料**(如小齿轮)时本处理器不管, 交互照常发给服务端, 由
+ * {@code AssembleInteractionHandler} 在已锁定的置物台上执行加工。</p>
  */
 @EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
 public final class AssembleSelectionHandler {
@@ -30,10 +39,13 @@ public final class AssembleSelectionHandler {
     }
 
     private static boolean active(Minecraft mc) {
-        return mc.player != null
-            && (mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
-                || mc.player.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH))
-            && WrenchModeSwitcher.current == WrenchMode.ASSEMBLE;
+        if (mc.player == null)
+            return false;
+        if (!mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
+            && !mc.player.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH))
+            return false;
+        WrenchMode mode = WrenchModeSwitcher.current;
+        return mode == WrenchMode.ASSEMBLE || mode == WrenchMode.COMING_SOON;
     }
 
     @SubscribeEvent(priority = EventPriority.HIGH)
@@ -48,13 +60,18 @@ public final class AssembleSelectionHandler {
         HitResult hit = mc.hitResult;
         if (hit == null || hit.getType() != HitResult.Type.BLOCK)
             return;
-        BlockPos pos = ((BlockHitResult) hit).getBlockPos();
-        if (!(mc.level.getBlockState(pos).getBlock() instanceof DepotBlock))
-            return;
 
-        ClientPacketListener conn = mc.getConnection();
-        if (conn != null)
-            PacketDistributor.sendToServer(new AssemblePayload(pos));
+        // [加工] 且目标是置物台 -> 请求切换锁定
+        if (WrenchModeSwitcher.current == WrenchMode.ASSEMBLE) {
+            BlockPos pos = ((BlockHitResult) hit).getBlockPos();
+            if (mc.level.getBlockState(pos).getBlock() instanceof DepotBlock) {
+                ClientPacketListener conn = mc.getConnection();
+                if (conn != null)
+                    PacketDistributor.sendToServer(new AssemblePayload(pos));
+            }
+        }
+
+        // 无论目标是哪种方块都吃掉本次点击, 避免右键落到扳手语义上
         event.setCanceled(true);
     }
 }
