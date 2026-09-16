@@ -39,9 +39,6 @@ public final class WrenchModeSwitcher {
     /** 「模组描述」里的彩蛋开关: false=正常模式, true=战斗模式(才应用伤害/攻速/取消无敌)。 */
     public static boolean combatMode = false;
 
-    /** 「曲柄」模式当前转速(rpm, 1-256 无级调节, 默认 16)。 */
-    public static int crankRpm = WrenchMode.CRANK_RPM_DEFAULT;
-
     private WrenchModeSwitcher() {
     }
 
@@ -89,12 +86,6 @@ public final class WrenchModeSwitcher {
             WrenchCombatClient.sendCombatMode();
             return combatMode;
         }
-        if (current == WrenchMode.CRANK) {
-            // 无级调节: 每格 ±1 rpm
-            crankRpm = Math.max(WrenchMode.CRANK_RPM_MIN,
-                Math.min(WrenchMode.CRANK_RPM_MAX, crankRpm + (direction < 0 ? -1 : 1)));
-            return crankRpm;
-        }
         return null;
     }
 
@@ -109,9 +100,6 @@ public final class WrenchModeSwitcher {
         if (current == WrenchMode.COMING_SOON)
             return net.minecraft.network.chat.Component.translatable(
                 "hint." + BetterWrenchMod.MODID + (combatMode ? ".combat.on" : ".combat.off"));
-        if (current == WrenchMode.CRANK)
-            return net.minecraft.network.chat.Component.translatable(
-                "hint." + BetterWrenchMod.MODID + ".crank", crankRpm);
         return null;
     }
 }

@@ -11,7 +11,7 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * 扳手的"模式"(用 ALT 呼出底部工具条 + 滚轮循环切换)。
  *
- * <p>图标: 扳手/连接/加工/曲柄/模组描述 用自绘 PNG(ResourceLocation, 机械动力风格);
+ * <p>图标: 扳手/连接/加工/模组描述 用自绘 PNG(ResourceLocation, 机械动力风格);
  * 拆除 用 Create 的蓝图垃圾桶小图标({@link AllIcons#I_TRASH})。</p>
  */
 public enum WrenchMode {
@@ -23,20 +23,11 @@ public enum WrenchMode {
     DECONSTRUCT("deconstruct", AllIcons.I_TRASH),
     ASSEMBLE("assemble", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_assemble.png")),
-    /** 曲柄: 自绘图标(由 images/曲柄.png 处理而来: 黑→透明, 蓝→黑)。 */
-    CRANK("crank", ResourceLocation.fromNamespaceAndPath(
-        BetterWrenchMod.MODID, "textures/gui/mode_crank.png")),
     COMING_SOON("coming_soon", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_coming_soon.png"));
 
     /** HUD 顶部提示与描述里"按键/可选项"提示共用的蓝色(与顶部 "[SCROLL] 循环" 那行同色)。 */
     public static final int HINT_BLUE = 0xCCDDFF;
-
-    /** 「曲柄」模式: 转速范围(无级调节)、默认转速, 以及注入网络的应力容量(SU)。 */
-    public static final int CRANK_RPM_MIN = 1;
-    public static final int CRANK_RPM_MAX = 256;
-    public static final int CRANK_RPM_DEFAULT = 16;
-    public static final float CRANK_CAPACITY = 512f;
 
     private final String id;
     private final Object icon; // ResourceLocation 或 AllIcons, 或 null(暂不放图标)

@@ -6,13 +6,11 @@
   "mode.create_better_wrench.connect": "Connect",
   "mode.create_better_wrench.deconstruct": "Deconstruct",
   "mode.create_better_wrench.assemble": "Process",
-  "mode.create_better_wrench.crank": "Crank",
   "mode.create_better_wrench.coming_soon": "Mod Info",
   "mode.create_better_wrench.wrench.desc": "The standard Create wrench experience",
   "mode.create_better_wrench.connect.desc": "[RMB] Pick a start, corner and end point; the drivetrain is built for you\n[Ctrl+Scroll] Switch how corner nodes are built {Gearbox/Large Cogwheel}",
   "mode.create_better_wrench.deconstruct.desc": "[RMB] Select an area; remove everything a wrench can remove\n[Ctrl+Scroll] Switch the filter {All/Create only/Redstone only}",
   "mode.create_better_wrench.assemble.desc": "[RMB] Lock a depot to process whatever sits on it\nWith several items, the extras wait nearby as unpickable drops",
-  "mode.create_better_wrench.crank.desc": "[RMB] Supply stress to the Create block you are pointing at\n[Ctrl+Scroll] Adjust the rotation speed\n[Shift] Reverse the rotation (clockwise by default)",
   "mode.create_better_wrench.coming_soon.desc": "mod beta v0.4.0+create6.0.10",
 
   "corner.create_better_wrench.gearbox": "Gearbox",
@@ -23,7 +21,6 @@
 
   "hint.create_better_wrench.deconstruct": "Deconstruct: %s",
   "hint.create_better_wrench.corner": "Corner: %s",
-  "hint.create_better_wrench.crank": "Speed %s rpm",
   "hint.create_better_wrench.combat.on": "Combat Mode",
   "hint.create_better_wrench.combat.off": "Normal Mode",
   "hint.create_better_wrench.toolbar.scroll": "[SCROLL] Cycle",
@@ -44,9 +41,6 @@
   "msg.create_better_wrench.deconstruct.count": "Removed %s blocks",
   "msg.create_better_wrench.assemble.locked": "Depot locked",
   "msg.create_better_wrench.assemble.unlocked": "Depot unlocked",
-  "msg.create_better_wrench.crank.not_kinetic": "Crank: that block is not a Create kinetic component",
-  "msg.create_better_wrench.crank.bad_face": "Crank: that block has several shaft faces -- aim at a valid one",
-  "msg.create_better_wrench.crank.powered": "Crank: that block is already powered",
   "msg.create_better_wrench.battle_no_permission": "No permission for Combat Mode (requires cbw.battlemode)",
 
   "key.create_better_wrench.tools": "Focus Wrench Mode Bar",
