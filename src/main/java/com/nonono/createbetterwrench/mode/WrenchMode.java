@@ -23,11 +23,19 @@ public enum WrenchMode {
     DECONSTRUCT("deconstruct", AllIcons.I_TRASH),
     ASSEMBLE("assemble", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_assemble.png")),
+    /** 曲柄: 图标暂借 Create 的旋转图标(用户可随时给自绘图, 走同一套 gen_mode_wrench_icon.ps1 流程)。 */
+    CRANK("crank", AllIcons.I_ROTATE_PLACE),
     COMING_SOON("coming_soon", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_coming_soon.png"));
 
     /** HUD 顶部提示与描述里"按键/可选项"提示共用的蓝色(与顶部 "[SCROLL] 循环" 那行同色)。 */
     public static final int HINT_BLUE = 0xCCDDFF;
+
+    /** 「曲柄」模式: 转速范围(无级调节)、默认转速, 以及注入网络的应力容量(SU)。 */
+    public static final int CRANK_RPM_MIN = 1;
+    public static final int CRANK_RPM_MAX = 256;
+    public static final int CRANK_RPM_DEFAULT = 16;
+    public static final float CRANK_CAPACITY = 512f;
 
     private final String id;
     private final Object icon; // ResourceLocation 或 AllIcons, 或 null(暂不放图标)
