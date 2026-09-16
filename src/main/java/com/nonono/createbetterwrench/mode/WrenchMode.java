@@ -1,7 +1,6 @@
 package com.nonono.createbetterwrench.mode;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
-import com.simibubi.create.foundation.gui.AllIcons;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -11,8 +10,8 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * 扳手的"模式"(用 ALT 呼出底部工具条 + 滚轮循环切换)。
  *
- * <p>图标: 扳手/连接/加工/模组描述 用自绘 PNG(ResourceLocation, 机械动力风格);
- * 拆除 用 Create 的蓝图垃圾桶小图标({@link AllIcons#I_TRASH})。</p>
+ * <p>图标: **全部 5 个模式都用自绘 PNG**(ResourceLocation) —— 不再引用 Create 的任何蓝图图标,
+ * 因此本模组对 Create 资源的运行时引用只剩 HUD 底纹 {@code AllGuiTextures.HUD_BACKGROUND} 一处。</p>
  */
 public enum WrenchMode {
 
@@ -20,7 +19,8 @@ public enum WrenchMode {
         BetterWrenchMod.MODID, "textures/gui/mode_wrench.png")),
     CONNECT("connect", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_connect.png")),
-    DECONSTRUCT("deconstruct", AllIcons.I_TRASH),
+    DECONSTRUCT("deconstruct", ResourceLocation.fromNamespaceAndPath(
+        BetterWrenchMod.MODID, "textures/gui/mode_deconstruct.png")),
     ASSEMBLE("assemble", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_assemble.png")),
     COMING_SOON("coming_soon", ResourceLocation.fromNamespaceAndPath(
