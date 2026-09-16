@@ -11,7 +11,7 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * 扳手的"模式"(用 ALT 呼出底部工具条 + 滚轮循环切换)。
  *
- * <p>图标: 扳手/连接/装配/模组描述 用自绘 PNG(ResourceLocation, 机械动力风格);
+ * <p>图标: 扳手/连接/加工/曲柄/模组描述 用自绘 PNG(ResourceLocation, 机械动力风格);
  * 拆除 用 Create 的蓝图垃圾桶小图标({@link AllIcons#I_TRASH})。</p>
  */
 public enum WrenchMode {
@@ -23,8 +23,9 @@ public enum WrenchMode {
     DECONSTRUCT("deconstruct", AllIcons.I_TRASH),
     ASSEMBLE("assemble", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_assemble.png")),
-    /** 曲柄: 图标暂借 Create 的旋转图标(用户可随时给自绘图, 走同一套 gen_mode_wrench_icon.ps1 流程)。 */
-    CRANK("crank", AllIcons.I_ROTATE_PLACE),
+    /** 曲柄: 自绘图标(由 images/曲柄.png 处理而来: 黑→透明, 蓝→黑)。 */
+    CRANK("crank", ResourceLocation.fromNamespaceAndPath(
+        BetterWrenchMod.MODID, "textures/gui/mode_crank.png")),
     COMING_SOON("coming_soon", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_coming_soon.png"));
 
