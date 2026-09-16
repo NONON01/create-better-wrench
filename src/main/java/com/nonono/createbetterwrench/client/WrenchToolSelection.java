@@ -79,14 +79,21 @@ public final class WrenchToolSelection {
         int y = screenH - h - 75;
 
         AllGuiTextures bg = AllGuiTextures.HUD_BACKGROUND;
+
+        // 与原版蓝图工具条完全一致: 整块随 yOffset **上浮**, 聚焦时再抬到 z=100 盖在其它 GUI 之上。
+        // (Create: matrixStack.translate(0, -yOffset, focused ? 100 : 0))
+        PoseStack pose = graphics.pose();
+        pose.pushPose();
+        pose.translate(0, -yOffset, focused ? 100 : 0);
+
         RenderSystem.enableBlend();
         RenderSystem.setShaderColor(1, 1, 1, focused ? 7 / 8f : 1 / 2f);
         graphics.blit(bg.location, x - 15, y, bg.getStartX(), bg.getStartY(),
             w, h, bg.getWidth(), bg.getHeight());
 
-        // tooltip(描述)面板: 聚焦且 yOffset 起来后显示
+        // 下方 tooltip(描述)面板: 面板与**文字**一起淡入(yOffset 越大越不透明)
         float toolTipAlpha = yOffset / 10;
-        if (toolTipAlpha > 0.25f && focused) {
+        if (toolTipAlpha > 0.25f) {
             // 描述支持多行: 语言文件里写 \n 换行, 过长的行再由字体按面板宽度自动折行
             // 对齐规则: **多行左对齐**(两行居中会参差, 且 [右键]/[滚轮] 前缀左对齐更好读);
             //           **单行居中**(视觉上更平衡)。
@@ -95,12 +102,15 @@ public final class WrenchToolSelection {
             graphics.blit(bg.location, x - 15, y + 33, bg.getStartX(), bg.getStartY(),
                 w, h + 6 + lines.size() * 12, bg.getWidth(), bg.getHeight());
             RenderSystem.setShaderColor(1, 1, 1, 1);
+
+            // 文字自身也带 alpha(与 Create 一样把 alpha 编进颜色), 否则面板在淡入而字是硬邦邦蹦出来的
+            int textAlpha = ((int) (toolTipAlpha * 0xFF)) << 24;
             boolean multiLine = lines.size() > 1;
             int leftX = x - 15 + 10; // 面板左内边距
             int textY = y + 38;
             for (FormattedCharSequence line : lines) {
                 int lineX = multiLine ? leftX : screenW / 2 - mc.font.width(line) / 2;
-                graphics.drawString(mc.font, line, lineX, textY, 0xEEEEEE, false);
+                graphics.drawString(mc.font, line, lineX, textY, 0xEEEEEE + textAlpha, false);
                 textY += 12;
             }
         }
@@ -131,6 +141,7 @@ public final class WrenchToolSelection {
         }
         RenderSystem.setShaderColor(1, 1, 1, 1);
         RenderSystem.disableBlend();
+        pose.popPose();
     }
 
     private void renderIcon(GuiGraphics graphics, WrenchMode mode, int ix, int iy, float alpha) {
