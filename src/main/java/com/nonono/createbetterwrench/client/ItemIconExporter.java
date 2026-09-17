@@ -63,8 +63,13 @@ public final class ItemIconExporter {
     /** 物品占屏幕短边的比例。 */
     private static final double ITEM_FRACTION = 0.72;
 
-    /** 截图文件名前缀; 原版会再拼上时间戳。 */
-    private static final String FILE_PREFIX = "cbw_wrench_icon";
+    /**
+     * 截图文件名前缀。
+     *
+     * <p>⚠️ 实测: 传给 {@code Screenshot.grab} 的名字会被**原样当作文件名**, 原版**不会**再补时间戳或 {@code .png}
+     * (第一次导出就得到了一个没有后缀、叫 {@code cbw_wrench_icon} 的文件)。所以这里自己拼上时间戳与后缀。</p>
+     */
+    private static final String FILE_PREFIX = "cbw_wrench_icon_";
 
     /**
      * 剩余需要绘制的帧数。0 = 空闲。
@@ -148,7 +153,9 @@ public final class ItemIconExporter {
         // 3) 最后一帧触发原版截图(它在帧末执行 -> 抓到的就是上面这一屏)
         framesLeft--;
         if (framesLeft == 0) {
-            Screenshot.grab(mc.gameDirectory, FILE_PREFIX, mc.getMainRenderTarget(),
+            String fileName = FILE_PREFIX
+                + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date()) + ".png";
+            Screenshot.grab(mc.gameDirectory, fileName, mc.getMainRenderTarget(),
                 message -> {
                     if (mc.player != null)
                         mc.player.displayClientMessage(message, false);
