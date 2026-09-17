@@ -42,6 +42,20 @@ public final class WrenchModeSwitcher {
     private WrenchModeSwitcher() {
     }
 
+    /**
+     * 断开连接(退出世界 / 换服务器)时把客户端状态恢复成**出厂默认**。
+     *
+     * <p>审计发现: 这些静态字段没有登出清理 ⇒ 换到一个新服务器后会出现
+     * 「本地显示已开战斗模式、服务端却完全没收到」这类假象(进入世界时的同步包只在新世界建立时发,
+     * 而旧值一直留着)。所以登出时统一归零, 与"出厂默认 = 扳手模式"的设计一致。</p>
+     */
+    public static void reset() {
+        current = WrenchMode.WRENCH;
+        deconstructScope = DeconstructScope.ALL;
+        connectCorner = ConnectCorner.GEARBOX;
+        combatMode = false;
+    }
+
     @EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static final class Register {
         private Register() {

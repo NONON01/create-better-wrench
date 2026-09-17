@@ -1,6 +1,7 @@
 package com.nonono.createbetterwrench.client;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.combat.BattleModeState;
 import com.nonono.createbetterwrench.combat.WrenchCombat;
 import com.nonono.createbetterwrench.network.CombatModePayload;
 
@@ -31,6 +32,12 @@ public final class WrenchCombatClient {
         Player player = event.getEntity();
         if (player != mc.player)
             return;
+        // 先落地服务端回传的权威开关(例如因无 cbw.battlemode 权限被拒时, 把本地开关回正)。
+        // 状态由通用类 BattleModeState 中转 —— 这样 network/ 里就不会出现任何客户端类引用(审计 #6)。
+        Boolean synced = BattleModeState.poll();
+        if (synced != null)
+            WrenchModeSwitcher.combatMode = synced;
+
         WrenchCombat.apply(player, WrenchCombat.holdsWrench(player) && WrenchModeSwitcher.combatMode);
     }
 
@@ -44,10 +51,5 @@ public final class WrenchCombatClient {
         ClientPacketListener conn = Minecraft.getInstance().getConnection();
         if (conn != null)
             PacketDistributor.sendToServer(new CombatModePayload(WrenchModeSwitcher.combatMode));
-    }
-
-    /** 接收服务端回传的权威开关(例如因无 cbw.battlemode 权限被拒时, 把本地开关回正)。 */
-    public static void onBattleModeSync(boolean combat) {
-        WrenchModeSwitcher.combatMode = combat;
     }
 }

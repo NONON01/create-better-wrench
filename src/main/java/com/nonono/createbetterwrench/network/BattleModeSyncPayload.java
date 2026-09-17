@@ -28,7 +28,11 @@ public record BattleModeSyncPayload(boolean combat) implements CustomPacketPaylo
     }
 
     public void handle(IPayloadContext ctx) {
-        // 仅在客户端执行: 用服务端权威状态覆盖本地开关
-        ctx.enqueueWork(() -> com.nonono.createbetterwrench.client.WrenchCombatClient.onBattleModeSync(combat));
+        // ⚠️ 审计发现 #6: 这里**绝对不能**直接引用 client/ 下的类(它们标了 @OnlyIn(Dist.CLIENT))。
+        //    本类在通用包 network/ 里, 专用服务器同样会加载它; 一旦执行到指向客户端类的指令,
+        //    就会抛 NoClassDefFoundError(Error 不是 Exception, 无法恢复)。
+        //    所以只把状态丢给通用的 BattleModeState, 由客户端自己的 WrenchCombatClient 取用 ——
+        //    通用包因此做到"零客户端类引用"。
+        ctx.enqueueWork(() -> com.nonono.createbetterwrench.combat.BattleModeState.push(combat));
     }
 }

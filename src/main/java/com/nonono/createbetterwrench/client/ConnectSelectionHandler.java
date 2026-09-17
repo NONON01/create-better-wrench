@@ -119,6 +119,16 @@ public final class ConnectSelectionHandler {
         Outliner.getInstance().remove(GHOST_KEY);
     }
 
+    /**
+     * 丢弃当前未完成的连接选择(起点 + 全部拐点 + 预览框)。
+     *
+     * <p>供登出清理使用: 否则玩家在世界 A 选了一半起点、退出后进世界 B,
+     * 那些**属于旧世界坐标**的静态状态仍在, 下一次右键会拿旧坐标去做连接。</p>
+     */
+    public static void cancel() {
+        resetSelection();
+    }
+
     private static BlockHitResult rayTraceHit(Minecraft mc) {
         HitResult hit = mc.hitResult;
         if (hit != null && hit.getType() == HitResult.Type.BLOCK)
