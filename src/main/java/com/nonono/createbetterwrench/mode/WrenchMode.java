@@ -10,8 +10,9 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * 扳手的"模式"(用 ALT 呼出底部工具条 + 滚轮循环切换)。
  *
- * <p>图标: **全部 5 个模式都用自绘 PNG**(ResourceLocation) —— 不再引用 Create 的任何蓝图图标,
- * 因此本模组对 Create 资源的运行时引用只剩 HUD 底纹 {@code AllGuiTextures.HUD_BACKGROUND} 一处。</p>
+ * <p>图标: **全部 5 个模式都用自绘 PNG**(ResourceLocation) —— 本类**不再持有** Create 的
+ * {@code AllIcons} 之类的蓝图图标(2026-09-17 已彻底移除该分支), 因此本模组对 Create 资源的
+ * 运行时引用只剩 HUD 底纹 {@code AllGuiTextures.HUD_BACKGROUND} 一处。</p>
  */
 public enum WrenchMode {
 
@@ -30,9 +31,9 @@ public enum WrenchMode {
     public static final int HINT_BLUE = 0xCCDDFF;
 
     private final String id;
-    private final Object icon; // ResourceLocation 或 AllIcons, 或 null(暂不放图标)
+    private final ResourceLocation icon;
 
-    WrenchMode(String id, Object icon) {
+    WrenchMode(String id, ResourceLocation icon) {
         this.id = id;
         this.icon = icon;
     }
@@ -41,8 +42,8 @@ public enum WrenchMode {
         return Component.translatable("mode." + BetterWrenchMod.MODID + "." + id);
     }
 
-    /** 该模式小图标(ResourceLocation=自绘 PNG, AllIcons=蓝图白色小图标, null=暂未放)。 */
-    public Object icon() {
+    /** 该模式小图标 —— 一律是我们自绘的 PNG。 */
+    public ResourceLocation icon() {
         return icon;
     }
 

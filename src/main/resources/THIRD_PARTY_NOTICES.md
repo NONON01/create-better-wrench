@@ -14,11 +14,15 @@
      ⚠️ 该文件（及其衍生的展示部分）**仍受 MIT 许可约束**，本模组的 All Rights Reserved 声明不覆盖这部分。
 
   2. **运行时引用 Create 的资源（不再分发）**：
-     - `client/WrenchHud.java` 与 `client/WrenchToolSelection.java` 引用
+     - `client/WrenchToolSelection.java` 引用
        `com.simibubi.create.foundation.gui.AllGuiTextures.HUD_BACKGROUND`（工具条底纹）。
-     该纹理由**玩家自行安装的 Create 模组自己的 JAR** 提供；本模组的 JAR 内**不包含**、
-     也**不再分发**任何 Create 的资源文件。
-     （模式图标现已**全部自绘**，不再引用 Create 的 `AllIcons`。）
+       该纹理由**玩家自行安装的 Create 模组自己的 JAR** 提供；本模组的 JAR 内**不包含**、
+       也**不再分发**任何 Create 的资源文件。
+     - 模式图标与物品贴图**全部自绘**。`WrenchMode.icon()` 的类型是 `ResourceLocation`，
+       `WrenchToolSelection` 里**已没有任何 `AllIcons` 分支**（2026-09-17 删除死分支），
+       所以本模组对 Create 资源的运行时引用**只剩上面这一处 HUD 底纹**。
+       （`client/WrenchHud.java` **不**引用 Create 的任何资源；早前它有一个未使用的
+       `AllGuiTextures` import，已删除。）
 
   3. **运行时按引用继承 Create 的模型**：`models/item/better_wrench.json` 是 `neoforge:composite` 物品模型，
      其 `body` 子模型的 `parent` 指向 `create:item/wrench/item`。

@@ -147,17 +147,12 @@ public final class WrenchToolSelection {
     }
 
     private void renderIcon(GuiGraphics graphics, WrenchMode mode, int ix, int iy, float alpha) {
-        Object icon = mode.icon();
+        // 图标全部是**我们自绘的 PNG**(ResourceLocation)—— 不再有任何 Create 蓝图图标(AllIcons)分支。
+        // 这样 THIRD_PARTY_NOTICES.md 里"不再引用 Create 的 AllIcons"才是**代码上可核实**的。
+        ResourceLocation icon = mode.icon();
         if (icon == null)
-            return; // 图标暂未放: 不绘制
-        if (icon instanceof com.simibubi.create.foundation.gui.AllIcons ai) {
-            RenderSystem.setShaderColor(0, 0, 0, alpha);
-            ai.render(graphics, ix, iy);
-            RenderSystem.setShaderColor(1, 1, 1, alpha);
-            ai.render(graphics, ix, iy - 1);
-        } else if (icon instanceof ResourceLocation rl) {
-            RenderSystem.setShaderColor(1, 1, 1, alpha);
-            graphics.blit(rl, ix, iy, 0, 0, 16, 16, 16, 16);
-        }
+            return;
+        RenderSystem.setShaderColor(1, 1, 1, alpha);
+        graphics.blit(icon, ix, iy, 0, 0, 16, 16, 16, 16);
     }
 }

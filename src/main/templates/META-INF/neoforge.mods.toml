@@ -2,15 +2,29 @@ modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
 
+# ⚠️ 发布前必须替换: 下面 2 个 REPLACE_ME 需要真实的仓库 / 项目页地址(见 docs/10 §5.1)。
+#    ⚠️ 本模板由 Groovy expand 处理, **正文里不要出现反斜杠**(会被当转义符导致构建失败), 路径一律用正斜杠。
+#    自检: 搜本文件里的 REPLACE_ME
+issueTrackerURL="https://github.com/REPLACE_ME/create-better-wrench/issues"
+
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
+authors="nonono"
 # 署名/合规(见 jar 内 THIRD_PARTY_NOTICES.md 与 licenses/Create-MIT.txt)
 credits="'Universal Wrench' is an unofficial addon for Create. Its mode-selection HUD is adapted from Create's ToolSelectionScreen (MIT License, Copyright (c) The Create Team / The Creators of Create). Not affiliated with or endorsed by the Create team."
+displayURL="https://modrinth.com/mod/REPLACE_ME"
 description='''
-万能扳手(Universal Wrench)。
-纯机械动力(Create)扩展:提供一把更好用的扳手,ALT 呼出底部工具条 + 滚轮切换多种功能模式(扳手/连接/拆除/装配/…)。
+Universal Wrench - a Better Wrench for Create.
+
+An unofficial Create addon that adds a more convenient wrench: hold ALT to open a bottom
+tool-select bar, then scroll to switch between modes (Wrench / Connect / Remove / Process / Mod Info).
+Requires Create 6.0.10+ on Minecraft 1.21.1 (NeoForge).
+
+万能扳手(Universal Wrench)。纯机械动力(Create)扩展:提供一把更好用的扳手,
+ALT 呼出底部工具条 + 滚轮切换多种功能模式(扳手/连接/拆除/加工/模组描述)。
+需要 Create 6.0.10+ / Minecraft 1.21.1 / NeoForge。
 非官方 Create 扩展, 与 Create 团队无隶属关系。
 '''
 
@@ -30,9 +44,11 @@ description='''
     side="BOTH"
 
 # 依赖机械动力 Create(本 mod 是纯 Create addon, 必装)
+# ⚠️ ordering 用 NONE(不是 AFTER): 我们只在运行时调用 Create 的公开 API, 不需要强制加载顺序;
+#    用 AFTER 会让 NeoForge 强制把 Create 排在我们前面, 属于不必要的强约束(docs/10 §5.1)。
 [[dependencies.${mod_id}]]
     modId="create"
     type="required"
     versionRange="[6.0.10,6.1.0)"
-    ordering="AFTER"
+    ordering="NONE"
     side="BOTH"

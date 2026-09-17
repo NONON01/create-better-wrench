@@ -4,7 +4,6 @@ import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.mode.WrenchMode;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.simibubi.create.foundation.gui.AllGuiTextures;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
