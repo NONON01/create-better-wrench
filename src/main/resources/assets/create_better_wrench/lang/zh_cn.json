@@ -48,7 +48,9 @@
   "msg.create_better_wrench.assemble.locked": "置物台已锁定",
   "msg.create_better_wrench.assemble.unlocked": "置物台已解锁",
   "msg.create_better_wrench.battle_no_permission": "无权限使用战斗模式(需要权限 cbw.battlemode)",
+  "msg.create_better_wrench.icon_export.running": "正在导出扳手图标渲染…",
 
   "key.create_better_wrench.tools": "呼出扳手模式工具条",
+  "key.create_better_wrench.export_icon": "导出扳手图标渲染(制作素材用)",
   "key.categories.create_better_wrench": "万能扳手"
 }

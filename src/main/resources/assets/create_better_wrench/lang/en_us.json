@@ -48,7 +48,9 @@
   "msg.create_better_wrench.assemble.locked": "Depot locked",
   "msg.create_better_wrench.assemble.unlocked": "Depot unlocked",
   "msg.create_better_wrench.battle_no_permission": "No permission for Combat Mode (requires cbw.battlemode)",
+  "msg.create_better_wrench.icon_export.running": "Exporting wrench icon render...",
 
   "key.create_better_wrench.tools": "Focus Wrench Mode Bar",
+  "key.create_better_wrench.export_icon": "Export wrench icon render (asset tool)",
   "key.categories.create_better_wrench": "Universal Wrench"
 }
