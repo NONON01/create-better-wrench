@@ -2,6 +2,7 @@ package com.nonono.createbetterwrench.network;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.assemble.AssembleLock;
+import com.nonono.createbetterwrench.assemble.AssembleLogic;
 import com.nonono.createbetterwrench.assemble.DepotPiles;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 
@@ -70,6 +71,9 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
             if (!now) {
                 // 解锁: 把原料堆/成品堆都释放成普通掉落物, 让玩家把东西收回去
                 DepotPiles.releaseAll(sp.level(), pos);
+            } else {
+                // 刚锁定: 台面若空而原料堆还有货, 自动续一个上去(「自动续料」)
+                AssembleLogic.refillIfEmpty(sp.level(), pos, depot);
             }
             sp.displayClientMessage(Component.translatable("msg." + BetterWrenchMod.MODID
                 + (now ? ".assemble.locked" : ".assemble.unlocked")), true);

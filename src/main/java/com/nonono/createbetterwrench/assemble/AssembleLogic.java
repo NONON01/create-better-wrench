@@ -50,11 +50,14 @@ import net.neoforged.neoforge.items.wrapper.RecipeWrapper;
  *
  * <h2>三个位置</h2>
  * 一个置物台只能渲染一个物品堆, 所以台面**只放"正在加工"的那一个**, 另外两个位置由
- * {@link DepotPiles} 用掉落物实体摆在**置物台的两个对角**:
+ * {@link DepotPiles} 用掉落物实体摆在**置物台的两个对角**(带正常重力, 会自己落在台面上):
  * <pre>
  *   原料堆(RAW, 西北角, 锁定期间不可拿)   ←  台面中央(正在加工)  →  成品堆(DONE, 东南角, 可拿)
  * </pre>
- * 消耗掉台面那一个之后会自动从原料堆续上下一个; 装配**失败**的产物直接弹成普通掉落物(不是进货堆)。
+ *
+ * <p><b>自动续料</b>: 每加工完一件, {@link #consumeAndRefill} 会在**同一个 tick 内**把原料堆的下一个
+ * 顶上台面, 所以台面在原料堆还有货时不会空着, 玩家加工完一件就能直接接着下一件
+ * (不需要先"右键放料"再"右键加工")。装配**失败**的产物直接弹成普通掉落物, 不进成品堆。</p>
  */
 public final class AssembleLogic {
 
@@ -66,9 +69,10 @@ public final class AssembleLogic {
         if (held.isEmpty() || held.is(BetterWrenchMod.BETTER_WRENCH))
             return false; // 空手/扳手不参与工作模式(扳手用于锁定/解锁)
 
-        // 台面空了就先从原料堆续一个上来
-        if (depot.getHeldItem().isEmpty())
-            feedNext(level, pos, depot);
+        // 台面空了就先从原料堆续一个上来。
+        // 正常情况下 consumeAndRefill 已经在每次加工结束时续好了, 这里只是兜底
+        // (服务器重启/存档读入后台面可能是空的, 而原料堆还在)。
+        refillIfEmpty(level, pos, depot);
         ItemStack current = depot.getHeldItem();
         if (current.isEmpty())
             return false;
@@ -109,7 +113,7 @@ public final class AssembleLogic {
 
         ItemStack out = results.isEmpty() ? ItemStack.EMPTY : results.get(0).copy();
         if (out.isEmpty()) {
-            clearDepot(depot);
+            consumeAndRefill(level, pos, depot);
             return true;
         }
 
@@ -128,7 +132,7 @@ public final class AssembleLogic {
             finishTo(level, pos, depot, out);
         } else {
             DepotPiles.eject(level, pos, out);
-            clearDepot(depot);
+            consumeAndRefill(level, pos, depot);
         }
         playPickup(level, pos);
         return true;
@@ -263,7 +267,7 @@ public final class AssembleLogic {
         int leftover = combined.getCount() - made;
         if (leftover > 0)
             DepotPiles.deposit(level, pos, DepotPiles.RAW, combined.copyWithCount(leftover));
-        clearDepot(depot);
+        consumeAndRefill(level, pos, depot);
         level.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1f, 1f);
         return true;
     }
@@ -288,15 +292,43 @@ public final class AssembleLogic {
     /** 成品进货堆, 台面清空后自动从原料堆续上下一个。 */
     private static void finishTo(Level level, BlockPos pos, DepotBlockEntity depot, ItemStack product) {
         DepotPiles.deposit(level, pos, DepotPiles.DONE, product);
-        clearDepot(depot);
+        consumeAndRefill(level, pos, depot);
     }
 
-    private static void feedNext(Level level, BlockPos pos, DepotBlockEntity depot) {
+    /**
+     * 「自动续料」: 台面若空就从原料堆补 1 个上去。
+     *
+     * <p>供外部时机调用(例如刚刚锁定置物台时、以及每次加工入口兜底)。</p>
+     *
+     * @return 是否真的续上了
+     */
+    public static boolean refillIfEmpty(Level level, BlockPos pos, DepotBlockEntity depot) {
         if (!depot.getHeldItem().isEmpty())
-            return;
+            return false;
         ItemStack next = DepotPiles.take(level, pos, DepotPiles.RAW, 1);
         if (next.isEmpty())
-            return;
+            return false;
+        setDepot(depot, next);
+        return true;
+    }
+
+    /**
+     * 消耗掉台面正在加工的那一个, 并**在同一 tick 内立刻续上原料堆的下一个**。
+     *
+     * <p>这就是「[加工] 的物品堆会自动回落到置物台上」的实现点: 台面一空就补料,
+     * 于是玩家加工完一件就能直接接着下一件, 不用先"右键放料"再"右键加工"。</p>
+     *
+     * <p><b>⚠️ 续料还顺手解决了一个顺序问题, 别把这两步拆开:</b>
+     * 刚完成的成品是以掉落物实体形式在台面上方生成的, 要过几 tick 才落地。
+     * 如果此时台面是空的, 它落地就会被置物台收进去(成品堆从此不再积累);
+     * 而本方法先把下一个原料顶上台面, 落地时台面是**占用**状态,
+     * 普通置物台在占用时拒收掉落物({@link com.simibubi.create.content.logistics.depot.DepotBehaviour}
+     * 的 `isOccupied()`) ⇒ 成品会稳稳停在台面上成为成品堆。
+     * 只有原料堆也空了(一个批次加工完)才会被收进去, 那时正好也该收工了。</p>
+     */
+    private static void consumeAndRefill(Level level, BlockPos pos, DepotBlockEntity depot) {
+        ItemStack next = DepotPiles.take(level, pos, DepotPiles.RAW, 1);
+        // next 可能为空: 那就是单纯把台面清空
         setDepot(depot, next);
     }
 
@@ -305,10 +337,6 @@ public final class AssembleLogic {
         // 关键: DepotBlockEntity.setHeldItem 不会自行同步客户端(Create 自己的调用方都会补 notifyUpdate),
         // 不 notify 的话客户端会一直渲染旧物品。
         depot.notifyUpdate();
-    }
-
-    private static void clearDepot(DepotBlockEntity depot) {
-        setDepot(depot, ItemStack.EMPTY);
     }
 
     private static void dropExtras(Level level, BlockPos pos, List<ItemStack> results) {

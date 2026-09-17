@@ -25,11 +25,12 @@ import net.minecraft.world.phys.Vec3;
  * <p>通过实体自身的持久化数据打标记(置物台坐标 + 料堆种类)来识别与自己配对的那两个实体,
  * 不需要额外注册实体类型, 也不占用区块外的存储。</p>
  *
- * <h2>⚠️ 两个必须按"多实体 / 悬空"来理解的前提(2026-09-17 审计修复)</h2>
+ * <h2>⚠️ 两个必须理解的前提</h2>
  * <ol>
  *   <li><b>同一种料堆可以同时存在多个实体</b>, 所以本类所有操作都必须遍历**全部**匹配实体,
  *       绝不能像早期版本那样用 {@code findFirst()} 只认第一个 —— 见 {@link #deposit} 的详细说明。</li>
- *   <li><b>料堆必须关掉重力悬停在台面侧上方</b>, 否则会落到置物台台面上被 Create 直接吸走 —— 见 {@link #createAt}。</li>
+ *   <li><b>料堆带正常重力, 会自己落到置物台台面上停住</b>。
+ *       它**不会**被置物台吸走, 因为普通置物台的合并是关闭的 —— 详见 {@link #createAt} 的说明。</li>
  * </ol>
  */
 public final class DepotPiles {
@@ -141,8 +142,14 @@ public final class DepotPiles {
      * 解锁置物台(或置物台被破坏/炸毁)时调用: 把**全部**料堆都释放成普通掉落物。
      *
      * <p>做三件事: ①清掉配对标记(之后不再与这个置物台关联); ②解除"不可拾取"并把寿命从
-     * "永生"(-32768)恢复到会正常消失; ③**沿对角推出一格并恢复重力**, 让它落在置物台旁边而不是
-     * 又掉回台面上被吸走。</p>
+     * "永生"(-32768)恢复到会正常消失; ③**沿对角推出一格**。</p>
+     *
+     * <p>③ 是必要的: 释放后它就变成普通掉落物了, 如果还停在置物台台面上, 那么等台面下一次空着时
+     * （例如玩家把东西取走)它就会被 `onLanded` 顺手收进置物台里 —— 那才是真的会丢东西。
+     * 推到对角相邻格之后它落在**旁边**, 与置物台再无关系。</p>
+     *
+     * <p>{@code setNoGravity(false)} 现在只是兼容性保险: 2026-09-17 的中间版本曾把料堆设成无重力,
+     * 存档里可能还留着那种实体。</p>
      */
     public static void releaseAll(Level level, BlockPos pos) {
         if (level.isClientSide)
@@ -161,13 +168,15 @@ public final class DepotPiles {
         }
     }
 
-    /** 直接把物品弹成普通掉落物(装配失败时用)。 */
+    /**
+     * 直接把物品弹成普通掉落物(装配失败时用)。
+     *
+     * <p>弹到成品堆那一侧的**对角相邻格**而不是 `pos.above()`: 台面正上方落下来的东西会停在置物台上,
+     * 而失败品按设计应该"掉在一边让玩家自己捡", 不该混进台面的加工区。</p>
+     */
     public static void eject(Level level, BlockPos pos, ItemStack stack) {
         if (level.isClientSide || stack.isEmpty())
             return;
-        // ⚠️ 不能弹在置物台正上方(pos.above()): 那样它会落到台面上, 被
-        //    DepotBlock.updateEntityAfterFallOn → SharedDepotBlockMethods.onLanded 吸进去。
-        //    改弹到成品堆那一侧的对角相邻格。
         Vec3 out = releasePos(pos, DONE);
         Block.popResource(level, BlockPos.containing(out.x, out.y, out.z), stack);
     }
@@ -197,15 +206,16 @@ public final class DepotPiles {
         if (RAW.equals(kind))
             pile.setNeverPickUp(); // 原料堆在锁定期间不允许玩家直接拿走
 
-        // ⚠️ 审计发现 #4: 必须关掉重力, 否则料堆会落到置物台台面上并**被直接吸进置物台**。
-        //    调用链: Entity.move() 只在"竖直方向被挡住"时回调(pos.y != vec3.y)
-        //    → DepotBlock.updateEntityAfterFallOn → SharedDepotBlockMethods.onLanded
-        //    → DirectBeltInputBehaviour.handleInsertion, 把掉落物塞进置物台。
-        //    置物台只存 1 个物品, 被吸走的会卡在已锁定的台面上取不出来, feedNext 就此停摆(加工模式卡死)。
-        //    原版契约: Entity.getGravity() 返回 `isNoGravity() ? 0.0 : getDefaultGravity()`,
-        //    且 Entity.applyGravity() 在重力为 0 时完全不改 deltaMovement ⇒ 永不落地 ⇒ 永不触发 onLanded。
-        //    (Create 的 centerPackage() 对普通 ItemEntity 直接返回 true, 拦不住, 所以只能靠不落地来防。)
-        pile.setNoGravity(true);
+        // 料堆带**正常重力**: 从锚点自然落到置物台台面上停住(置物台碰撞高度 = 13/16 格)。
+        //
+        // ⚠️ 这里曾经为避免"被置物台吸走"而 setNoGravity(true) 悬在半空, 那是**过度修改**:
+        //    落地确实会走 DepotBlock.updateEntityAfterFallOn → SharedDepotBlockMethods.onLanded
+        //    → DirectBeltInputBehaviour.handleInsertion, 但普通置物台**合并是关闭的**
+        //    (DepotBehaviour.canMergeItems() = allowMerge, 而 enableMerging() 只有 EjectorBlockEntity 调),
+        //    所以 DepotBehaviour.isOccupied() 里 `!getHeldItemStack().isEmpty() && !canMergeItems()`
+        //    **只要台面有东西就成立** ⇒ tryInsertingFromSide 直接拒收, 掉落物只是停在台面上。
+        //    只有"台面恰好空着的那一刻"落下的才会被收进去, 而且那也不是死锁(解锁即可取回)。
+        //    详见 docs/03-operations.md 中本条修复的更正记录。
         pile.setDeltaMovement(Vec3.ZERO);
         return pile;
     }
