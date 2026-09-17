@@ -130,7 +130,7 @@ public final class AssembleLogic {
         //    (SequencedAssemblyRecipe.rollResult, 132-144 行), 不存在唯一成品 —— 那个判断本身就不成立,
         //    于是成品会被误判成废料弹出。用户明确说"所有成品都被弹出"这个效果非常好、要保留,
         //    所以现在一律走弹出, 反而变成确定性的了。
-        holdThenEject(level, pos, depot, out);
+        holdThenEject(level, pos, depot, out, player);
         playPickup(level, pos);
         return true;
     }
@@ -163,7 +163,7 @@ public final class AssembleLogic {
         splitExtras(level, pos, depot);
         dropExtras(level, pos, results);
 
-        holdThenEject(level, pos, depot, results.get(0).copy());
+        holdThenEject(level, pos, depot, results.get(0).copy(), player);
         playPickup(level, pos);
         return true;
     }
@@ -189,7 +189,7 @@ public final class AssembleLogic {
             held.hurtAndBreak(1, player, handSlot(hand));
 
         splitExtras(level, pos, depot);
-        holdThenEject(level, pos, depot, out);
+        holdThenEject(level, pos, depot, out, player);
         level.playSound(null, pos, SoundEvents.AXE_STRIP, SoundSource.BLOCKS, 1f, 1f);
         return true;
     }
@@ -287,18 +287,24 @@ public final class AssembleLogic {
     }
 
     /**
-     * 「成品先在台面上停留 {@link DepotProductEjector#STAY_TICKS} tick、然后弹出」的入口(用户 2026-09-17 指定)。
+     * 「成品先在台面上停留若干 tick、然后弹出」的入口。
+     *
+     * <p>停留时长由**该玩家**在「加工」模式里 Ctrl+滚轮选的档位决定
+     * ({@link com.nonono.createbetterwrench.mode.AssembleStay} → {@link DepotStayState},
+     * 客户端发包同步;没同步过就用默认档「中」= 4 tick)。</p>
      *
      * <p>先把成品摆上台面({@code notifyUpdate} 过, 客户端真的看得见), 再由
-     * {@link DepotProductEjector} 在 {@link DepotProductEjector#STAY_TICKS} 个服务端刻之后
-     * 调 {@link #ejectHeldAndRefill} 把它弹出去、并清空台面 + 自动续料。</p>
+     * {@link DepotProductEjector} 在停留时间到点后调 {@link #ejectHeldAndRefill}
+     * 把它弹出去、并清空台面 + 自动续料。</p>
      *
      * <p>⚠️ 这里**不**立刻续料 —— 续料发生在弹出那一刻, 为的就是让成品在台面上"停一下"。</p>
      */
-    private static void holdThenEject(Level level, BlockPos pos, DepotBlockEntity depot, ItemStack product) {
+    private static void holdThenEject(Level level, BlockPos pos, DepotBlockEntity depot,
+                                      ItemStack product, Player player) {
         if (!(level instanceof ServerLevel serverLevel))
             return;
-        DepotProductEjector.holdThenEject(serverLevel, pos, depot, product);
+        DepotProductEjector.holdThenEject(serverLevel, pos, depot, product,
+            DepotStayState.get(player.getUUID()));
     }
 
     /**

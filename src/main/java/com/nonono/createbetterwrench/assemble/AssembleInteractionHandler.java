@@ -4,12 +4,14 @@ import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
@@ -76,5 +78,12 @@ public final class AssembleInteractionHandler {
         for (BlockPos pos : event.getAffectedBlocks())
             if (level.getBlockEntity(pos) instanceof DepotBlockEntity)
                 DepotPiles.releaseAll(level, pos);
+    }
+
+    /** 玩家登出: 清掉该玩家的「成品停留时间」记录, 避免长年运行的服务端无上限累积 UUID。 */
+    @SubscribeEvent
+    public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer sp)
+            DepotStayState.clear(sp.getUUID());
     }
 }

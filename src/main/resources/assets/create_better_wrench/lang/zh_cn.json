@@ -10,7 +10,7 @@
   "mode.create_better_wrench.wrench.desc": "标准的《机械动力》扳手体验",
   "mode.create_better_wrench.connect.desc": "[右键]选择起点，拐点和终点，自动生成传动结构\n[Ctrl+滚轮]切换拐弯节点的实现方式{齿轮箱/大齿轮}",
   "mode.create_better_wrench.deconstruct.desc": "[右键]选择区域，拆除其中可以被扳手拆除的东西\n[Ctrl+滚轮]切换过滤器{全部/仅机械动力/仅红石}",
-  "mode.create_better_wrench.assemble.desc": "[右键]锁定置物台，对置物台上的东西实现加工\n若有多个物品，它们会以不可拾取的掉落物样式在旁边等待",
+  "mode.create_better_wrench.assemble.desc": "[右键]锁定置物台，对置物台上的东西实现加工\n若有多个物品，它们会以不可拾取的掉落物样式在旁边等待\n[Ctrl+滚轮]调节成品停留时间",
   "mode.create_better_wrench.coming_soon.desc": "mod内测版 v0.4.0+create6.0.10",
 
   "corner.create_better_wrench.gearbox": "齿轮箱",
@@ -18,9 +18,14 @@
   "scope.create_better_wrench.deconstruct.all": "全部",
   "scope.create_better_wrench.deconstruct.create_only": "仅机械动力",
   "scope.create_better_wrench.deconstruct.redstone_only": "仅红石",
+  "stay.create_better_wrench.none": "不停留",
+  "stay.create_better_wrench.short": "短",
+  "stay.create_better_wrench.medium": "中",
+  "stay.create_better_wrench.long": "长",
 
   "hint.create_better_wrench.deconstruct": "拆除模式:%s",
   "hint.create_better_wrench.corner": "拐角:%s",
+  "hint.create_better_wrench.stay": "成品停留:%s",
   "hint.create_better_wrench.combat.on": "战斗模式",
   "hint.create_better_wrench.combat.off": "正常模式",
   "hint.create_better_wrench.toolbar.scroll": "[SCROLL] 循环",

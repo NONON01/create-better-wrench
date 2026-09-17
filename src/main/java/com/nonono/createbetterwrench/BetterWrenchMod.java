@@ -72,5 +72,9 @@ public class BetterWrenchMod {
             com.nonono.createbetterwrench.network.AssemblePayload.TYPE,
             com.nonono.createbetterwrench.network.AssemblePayload.STREAM_CODEC,
             com.nonono.createbetterwrench.network.AssemblePayload::handle);
+        registrar.playToServer(
+            com.nonono.createbetterwrench.network.AssembleStayPayload.TYPE,
+            com.nonono.createbetterwrench.network.AssembleStayPayload.STREAM_CODEC,
+            com.nonono.createbetterwrench.network.AssembleStayPayload::handle);
     }
 }

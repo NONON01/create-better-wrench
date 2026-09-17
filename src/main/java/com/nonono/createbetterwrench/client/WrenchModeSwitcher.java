@@ -3,6 +3,7 @@ package com.nonono.createbetterwrench.client;
 import org.lwjgl.glfw.GLFW;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.mode.AssembleStay;
 import com.nonono.createbetterwrench.mode.ConnectCorner;
 import com.nonono.createbetterwrench.mode.DeconstructScope;
 import com.nonono.createbetterwrench.mode.WrenchMode;
@@ -36,6 +37,9 @@ public final class WrenchModeSwitcher {
     /** 「连接」模式当前的 Ctrl 拐角类型(齿轮箱/大齿轮)。 */
     public static ConnectCorner connectCorner = ConnectCorner.GEARBOX;
 
+    /** 「加工」模式当前的 Ctrl 成品停留时间(不停留/短/中/长 = 0/2/4/8 tick)。 */
+    public static AssembleStay assembleStay = AssembleStay.DEFAULT;
+
     /** 「模组描述」里的彩蛋开关: false=正常模式, true=战斗模式(才应用伤害/攻速/取消无敌)。 */
     public static boolean combatMode = false;
 
@@ -53,6 +57,7 @@ public final class WrenchModeSwitcher {
         current = WrenchMode.WRENCH;
         deconstructScope = DeconstructScope.ALL;
         connectCorner = ConnectCorner.GEARBOX;
+        assembleStay = AssembleStay.DEFAULT;
         combatMode = false;
     }
 
@@ -79,7 +84,7 @@ public final class WrenchModeSwitcher {
     /**
      * 循环切换"当前模式自己的 Ctrl 选项"。
      * 拆除 → 拆除范围(全部/仅机械动力/仅红石); 连接 → 拐角类型(齿轮箱/大齿轮);
-     * 模组描述 → 彩蛋开关(正常/战斗); 其它模式返回 null。
+     * 加工 → 成品停留时间(不停留/短/中/长); 模组描述 → 彩蛋开关(正常/战斗); 其它模式返回 null。
      */
     public static Object cycleCtrlOption(int direction) {
         if (current == WrenchMode.DECONSTRUCT) {
@@ -93,6 +98,12 @@ public final class WrenchModeSwitcher {
             int idx = connectCorner.ordinal() + (direction < 0 ? -1 : 1);
             connectCorner = corners[((idx % corners.length) + corners.length) % corners.length];
             return connectCorner;
+        }
+        if (current == WrenchMode.ASSEMBLE) {
+            assembleStay = assembleStay.cycle(direction);
+            // 停留时间由**服务端**执行(弹出延时), 所以切换后必须同步过去
+            AssembleStayClient.send();
+            return assembleStay;
         }
         if (current == WrenchMode.COMING_SOON) {
             // 彩蛋: Ctrl 切换 正常模式 / 战斗模式, 并同步给服务端
@@ -111,6 +122,9 @@ public final class WrenchModeSwitcher {
         if (current == WrenchMode.CONNECT)
             return net.minecraft.network.chat.Component.translatable(
                 "hint." + BetterWrenchMod.MODID + ".corner", connectCorner.displayName());
+        if (current == WrenchMode.ASSEMBLE)
+            return net.minecraft.network.chat.Component.translatable(
+                "hint." + BetterWrenchMod.MODID + ".stay", assembleStay.displayName());
         if (current == WrenchMode.COMING_SOON)
             return net.minecraft.network.chat.Component.translatable(
                 "hint." + BetterWrenchMod.MODID + (combatMode ? ".combat.on" : ".combat.off"));

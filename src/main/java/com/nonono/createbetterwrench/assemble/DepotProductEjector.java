@@ -17,9 +17,10 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 /**
  * 「**成品先在台面上停留若干 tick, 然后弹出**」的延时弹出器。
  *
- * <p>用户要求(2026-09-17): 加工产出的成品不要立刻消失, 先在置物台台面上停一下
- * ({@link #STAY_TICKS}), 再作为掉落物弹出去。
- * 先定 2 tick, 随后用户改为 **4 tick**。</p>
+ * <p>加工产出的成品不要立刻消失, 先在置物台台面上停一下, 再作为掉落物弹出去。
+ * 停留时长由玩家在「加工」模式里 **Ctrl+滚轮**选择(不停留/短/中/长 = 0/2/4/8 tick),
+ * 档位定义见 {@link com.nonono.createbetterwrench.mode.AssembleStay};
+ * 服务端侧的值来自 {@link DepotStayState}(客户端发包同步), 由 {@link AssembleLogic} 取用后传进来。</p>
  *
  * <p>用户同时明确说"所有成品都被弹出"这个效果**非常好, 要保留** ——
  * 所以 {@link AssembleLogic} 里已经**刻意不再区分**成品与废料, 一律走这条弹出路径
@@ -29,9 +30,6 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * <p>实现方式是「服务端刻 + 到期时间」, 不依赖每 tick 的方块实体逻辑, 因此**不需要 Mixin**。</p>
  */
 public final class DepotProductEjector {
-
-    /** 成品在台面上的停留时长(用户指定: 4 tick)。想调观感改这一个常量即可。 */
-    public static final int STAY_TICKS = 4;
 
     /** 一条待弹出的成品: 哪个世界的哪个置物台、到什么时候弹。 */
     private record Pending(ServerLevel level, BlockPos pos, long dueTick) {
@@ -43,13 +41,18 @@ public final class DepotProductEjector {
     }
 
     /**
-     * 把成品摆上台面, 并安排 {@link #STAY_TICKS} tick 之后把它弹出。
+     * 把成品摆上台面, 并安排 {@code stayTicks} 个服务端刻之后把它弹出。
      *
-     * <p>摆上去时会 {@code notifyUpdate()}, 所以客户端**真的看得见**它停在台面上这一下。</p>
+     * <p>摆上去时会 {@code notifyUpdate()}, 所以客户端**真的看得见**它停在台面上这一下。
+     * {@code stayTicks == 0}(用户档位「不停留」)时, {@code ServerTickEvent.Post} 会在**同一个服务端刻**
+     * 就把它弹出去, 即"立刻弹出"。</p>
+     *
+     * @param stayTicks 停留的服务端 tick 数(由玩家 Ctrl+滚轮选的档位决定, 见 {@code mode.AssembleStay})
      */
-    public static void holdThenEject(ServerLevel level, BlockPos pos, DepotBlockEntity depot, ItemStack product) {
+    public static void holdThenEject(ServerLevel level, BlockPos pos, DepotBlockEntity depot,
+                                     ItemStack product, int stayTicks) {
         AssembleLogic.setDepot(depot, product.copy());
-        PENDING.add(new Pending(level, pos.immutable(), level.getGameTime() + STAY_TICKS));
+        PENDING.add(new Pending(level, pos.immutable(), level.getGameTime() + stayTicks));
     }
 
     /** 每服务端刻检查一次有没有到期的成品要弹出。 */

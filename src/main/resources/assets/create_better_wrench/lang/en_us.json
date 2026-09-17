@@ -10,7 +10,7 @@
   "mode.create_better_wrench.wrench.desc": "The standard Create wrench experience",
   "mode.create_better_wrench.connect.desc": "[RMB] Pick a start, corner and end point; the drivetrain is built for you\n[Ctrl+Scroll] Switch how corner nodes are built {Gearbox/Large Cogwheel}",
   "mode.create_better_wrench.deconstruct.desc": "[RMB] Select an area; remove everything a wrench can remove\n[Ctrl+Scroll] Switch the filter {All/Create only/Redstone only}",
-  "mode.create_better_wrench.assemble.desc": "[RMB] Lock a depot to process whatever sits on it\nWith several items, the extras wait nearby as unpickable drops",
+  "mode.create_better_wrench.assemble.desc": "[RMB] Lock a depot to process whatever sits on it\nWith several items, the extras wait nearby as unpickable drops\n[Ctrl+Scroll] Adjust how long the product stays",
   "mode.create_better_wrench.coming_soon.desc": "mod beta v0.4.0+create6.0.10",
 
   "corner.create_better_wrench.gearbox": "Gearbox",
@@ -18,9 +18,14 @@
   "scope.create_better_wrench.deconstruct.all": "All",
   "scope.create_better_wrench.deconstruct.create_only": "Create Only",
   "scope.create_better_wrench.deconstruct.redstone_only": "Redstone Only",
+  "stay.create_better_wrench.none": "No Stay",
+  "stay.create_better_wrench.short": "Short",
+  "stay.create_better_wrench.medium": "Medium",
+  "stay.create_better_wrench.long": "Long",
 
   "hint.create_better_wrench.deconstruct": "Deconstruct: %s",
   "hint.create_better_wrench.corner": "Corner: %s",
+  "hint.create_better_wrench.stay": "Product stay: %s",
   "hint.create_better_wrench.combat.on": "Combat Mode",
   "hint.create_better_wrench.combat.off": "Normal Mode",
   "hint.create_better_wrench.toolbar.scroll": "[SCROLL] Cycle",
