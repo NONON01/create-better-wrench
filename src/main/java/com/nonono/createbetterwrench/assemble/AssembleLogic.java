@@ -123,7 +123,7 @@ public final class AssembleLogic {
             return true;
         }
 
-        // 序列结束: **成品先在台面上停留 2 tick, 然后弹出**(用户指定的观感)。
+        // 序列结束: **成品先在台面上停留若干 tick(见 DepotProductEjector.STAY_TICKS), 然后弹出**(用户指定的观感)。
         //
         // ℹ️ 这里**刻意不再区分**成品与废料。旧代码拿 SequencedAssemblyRecipe.resultPool.getFirst()
         //    当"唯一的目标成品"去比对 out, 但结果池实际上是**按权重随机抽取**的
@@ -287,7 +287,7 @@ public final class AssembleLogic {
     }
 
     /**
-     * 「成品先在台面上停留 2 tick、然后弹出」的入口(用户 2026-09-17 指定)。
+     * 「成品先在台面上停留 {@link DepotProductEjector#STAY_TICKS} tick、然后弹出」的入口(用户 2026-09-17 指定)。
      *
      * <p>先把成品摆上台面({@code notifyUpdate} 过, 客户端真的看得见), 再由
      * {@link DepotProductEjector} 在 {@link DepotProductEjector#STAY_TICKS} 个服务端刻之后

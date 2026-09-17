@@ -15,10 +15,11 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
- * 「**成品先在台面上停留 2 tick, 然后弹出**」的延时弹出器。
+ * 「**成品先在台面上停留若干 tick, 然后弹出**」的延时弹出器。
  *
  * <p>用户要求(2026-09-17): 加工产出的成品不要立刻消失, 先在置物台台面上停一下
- * ({@link #STAY_TICKS} = 2 tick), 再作为掉落物弹出去。</p>
+ * ({@link #STAY_TICKS}), 再作为掉落物弹出去。
+ * 先定 2 tick, 随后用户改为 **4 tick**。</p>
  *
  * <p>用户同时明确说"所有成品都被弹出"这个效果**非常好, 要保留** ——
  * 所以 {@link AssembleLogic} 里已经**刻意不再区分**成品与废料, 一律走这条弹出路径
@@ -29,8 +30,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  */
 public final class DepotProductEjector {
 
-    /** 成品在台面上的停留时长(用户指定: 2 tick)。 */
-    public static final int STAY_TICKS = 2;
+    /** 成品在台面上的停留时长(用户指定: 4 tick)。想调观感改这一个常量即可。 */
+    public static final int STAY_TICKS = 4;
 
     /** 一条待弹出的成品: 哪个世界的哪个置物台、到什么时候弹。 */
     private record Pending(ServerLevel level, BlockPos pos, long dueTick) {
