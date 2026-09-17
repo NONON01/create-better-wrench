@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Optional;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
-import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.AllRecipeTypes;
 import com.simibubi.create.content.fluids.spout.FillingBySpout;
 import com.simibubi.create.content.fluids.transfer.GenericItemEmptying;
@@ -12,12 +11,12 @@ import com.simibubi.create.content.kinetics.deployer.DeployerApplicationRecipe;
 import com.simibubi.create.content.kinetics.deployer.ItemApplicationRecipe;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 import com.simibubi.create.content.processing.sequenced.SequencedAssemblyRecipe;
-import com.simibubi.create.content.processing.sequenced.SequencedAssemblyRecipe.SequencedAssembly;
 import com.simibubi.create.foundation.recipe.RecipeApplier;
 
 import net.createmod.catnip.data.Pair;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.ItemTags;
@@ -101,9 +100,6 @@ public final class AssembleLogic {
         if (!recipe.getRequiredHeldItem().test(held))
             return false;
 
-        // 中间产物身上带着所属装配的 id; 用它查出"这批装配的目标成品"以便区分成品/失败品
-        ItemStack target = resolveAssemblyTarget(level, current);
-
         ItemStack working = current.copyWithCount(1);
         splitExtras(level, pos, depot); // 多余的先挪到原料堆, 台面只留正在加工的那一个
 
@@ -127,13 +123,14 @@ public final class AssembleLogic {
             return true;
         }
 
-        // 序列结束: 结果是按权重从 result 池里抽的 —— 命中目标成品进货堆, 否则算失败品直接弹出
-        if (!target.isEmpty() && ItemStack.isSameItemSameComponents(out, target)) {
-            finishTo(level, pos, depot, out);
-        } else {
-            DepotPiles.eject(level, pos, out);
-            consumeAndRefill(level, pos, depot);
-        }
+        // 序列结束: **成品先在台面上停留 2 tick, 然后弹出**(用户指定的观感)。
+        //
+        // ℹ️ 这里**刻意不再区分**成品与废料。旧代码拿 SequencedAssemblyRecipe.resultPool.getFirst()
+        //    当"唯一的目标成品"去比对 out, 但结果池实际上是**按权重随机抽取**的
+        //    (SequencedAssemblyRecipe.rollResult, 132-144 行), 不存在唯一成品 —— 那个判断本身就不成立,
+        //    于是成品会被误判成废料弹出。用户明确说"所有成品都被弹出"这个效果非常好、要保留,
+        //    所以现在一律走弹出, 反而变成确定性的了。
+        holdThenEject(level, pos, depot, out);
         playPickup(level, pos);
         return true;
     }
@@ -166,7 +163,7 @@ public final class AssembleLogic {
         splitExtras(level, pos, depot);
         dropExtras(level, pos, results);
 
-        finishTo(level, pos, depot, results.get(0).copy());
+        holdThenEject(level, pos, depot, results.get(0).copy());
         playPickup(level, pos);
         return true;
     }
@@ -192,7 +189,7 @@ public final class AssembleLogic {
             held.hurtAndBreak(1, player, handSlot(hand));
 
         splitExtras(level, pos, depot);
-        finishTo(level, pos, depot, out);
+        holdThenEject(level, pos, depot, out);
         level.playSound(null, pos, SoundEvents.AXE_STRIP, SoundSource.BLOCKS, 1f, 1f);
         return true;
     }
@@ -289,10 +286,58 @@ public final class AssembleLogic {
         DepotPiles.deposit(level, pos, DepotPiles.RAW, extras);
     }
 
-    /** 成品进货堆, 台面清空后自动从原料堆续上下一个。 */
-    private static void finishTo(Level level, BlockPos pos, DepotBlockEntity depot, ItemStack product) {
-        DepotPiles.deposit(level, pos, DepotPiles.DONE, product);
-        consumeAndRefill(level, pos, depot);
+    /**
+     * 「成品先在台面上停留 2 tick、然后弹出」的入口(用户 2026-09-17 指定)。
+     *
+     * <p>先把成品摆上台面({@code notifyUpdate} 过, 客户端真的看得见), 再由
+     * {@link DepotProductEjector} 在 {@link DepotProductEjector#STAY_TICKS} 个服务端刻之后
+     * 调 {@link #ejectHeldAndRefill} 把它弹出去、并清空台面 + 自动续料。</p>
+     *
+     * <p>⚠️ 这里**不**立刻续料 —— 续料发生在弹出那一刻, 为的就是让成品在台面上"停一下"。</p>
+     */
+    private static void holdThenEject(Level level, BlockPos pos, DepotBlockEntity depot, ItemStack product) {
+        if (!(level instanceof ServerLevel serverLevel))
+            return;
+        DepotProductEjector.holdThenEject(serverLevel, pos, depot, product);
+    }
+
+    /**
+     * 停留时间到: 把台面上那件成品**弹出**, 然后自动续上原料堆的下一个。
+     * 只由 {@link DepotProductEjector} 调用。
+     */
+    static void ejectHeldAndRefill(ServerLevel level, BlockPos pos, DepotBlockEntity depot) {
+        ItemStack held = depot.getHeldItem();
+        if (held.isEmpty())
+            return;
+        DepotPiles.eject(level, pos, held.copy()); // 弹出去(带向上初速的成品堆掉落物)
+        consumeAndRefill(level, pos, depot);       // 台面清空 + 立刻续下一个原料
+    }
+
+    /**
+     * 解锁置物台时: 把**台面上正在加工的那一个**和**两个料堆(原料堆 + 成品堆, 含被弹出去的那些)**
+     * 全部**返还到玩家背包**。
+     *
+     * <p>用户要求(2026-09-17):「在解锁置物台后, 把所有置物台上面的东西都返还到玩家背包(包括掉落物堆)」。</p>
+     *
+     * <p>装不下的部分由原版 {@code Inventory.placeItemBackInInventory} 负责掉在玩家脚下, **不会凭空消失**。</p>
+     */
+    public static void returnHeldAndPiles(ServerLevel level, BlockPos pos, DepotBlockEntity depot, ServerPlayer player) {
+        // ① 台面上的那一个
+        ItemStack held = depot.getHeldItem();
+        if (!held.isEmpty()) {
+            setDepot(depot, ItemStack.EMPTY);
+            give(player, held);
+        }
+        // ② 两个料堆(原料堆 + 成品堆)
+        for (ItemStack stack : DepotPiles.drainAll(level, pos))
+            give(player, stack);
+    }
+
+    /** 塞进背包; 装不下的由 placeItemBackInInventory 掉在玩家脚下。 */
+    private static void give(ServerPlayer player, ItemStack stack) {
+        if (stack.isEmpty())
+            return;
+        player.getInventory().placeItemBackInInventory(stack.copy());
     }
 
     /**
@@ -315,12 +360,12 @@ public final class AssembleLogic {
     /**
      * 消耗掉台面正在加工的那一个, 并**在同一 tick 内立刻续上原料堆的下一个**。
      *
-     * <p>这就是「[加工] 的物品堆会自动回落到置物台上」的实现点: 台面一空就补料,
+     * <p>这就是「[加工] 的台面不会空着」的实现点: 台面一空就补料,
      * 于是玩家加工完一件就能直接接着下一件, 不用先"右键放料"再"右键加工"。</p>
      *
      * <p><b>⚠️ 续料还顺手解决了一个顺序问题, 别把这两步拆开:</b>
-     * 刚完成的成品是以掉落物实体形式在台面上方生成的, 要过几 tick 才落地。
-     * 如果此时台面是空的, 它落地就会被置物台收进去(成品堆从此不再积累);
+     * 被弹出的成品是以掉落物实体形式在台面上方生成的, 要过几 tick 才落地。
+     * 如果此时台面是空的, 它落地就会被置物台收进去;
      * 而本方法先把下一个原料顶上台面, 落地时台面是**占用**状态,
      * 普通置物台在占用时拒收掉落物({@link com.simibubi.create.content.logistics.depot.DepotBehaviour}
      * 的 `isOccupied()`) ⇒ 成品会稳稳停在台面上成为成品堆。
@@ -332,7 +377,8 @@ public final class AssembleLogic {
         setDepot(depot, next);
     }
 
-    private static void setDepot(DepotBlockEntity depot, ItemStack stack) {
+    /** 把某件物品摆上台面(会 notifyUpdate, 客户端才看得见)。包内共享给 {@link DepotProductEjector}。 */
+    static void setDepot(DepotBlockEntity depot, ItemStack stack) {
         depot.setHeldItem(stack);
         // 关键: DepotBlockEntity.setHeldItem 不会自行同步客户端(Create 自己的调用方都会补 notifyUpdate),
         // 不 notify 的话客户端会一直渲染旧物品。
@@ -347,19 +393,6 @@ public final class AssembleLogic {
 
     private static void playPickup(Level level, BlockPos pos) {
         level.playSound(null, pos, SoundEvents.ITEM_PICKUP, SoundSource.BLOCKS, 0.25f, 0.75f);
-    }
-
-    /** 由中间产物身上携带的 sequenced_assembly 组件查出这批装配的目标成品。 */
-    private static ItemStack resolveAssemblyTarget(Level level, ItemStack transitional) {
-        SequencedAssembly seq = transitional.get(AllDataComponents.SEQUENCED_ASSEMBLY);
-        if (seq == null)
-            return ItemStack.EMPTY;
-        ResourceLocation id = seq.id();
-        return level.getRecipeManager()
-            .byKey(id)
-            .filter(holder -> holder.value() instanceof SequencedAssemblyRecipe)
-            .map(holder -> ((SequencedAssemblyRecipe) holder.value()).resultPool.getFirst().getStack())
-            .orElse(ItemStack.EMPTY);
     }
 
     // ---------------------------------------------------------------- 手持物品处理

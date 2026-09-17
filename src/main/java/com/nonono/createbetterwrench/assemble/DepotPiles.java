@@ -8,7 +8,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -169,16 +168,44 @@ public final class DepotPiles {
     }
 
     /**
-     * 直接把物品弹成普通掉落物(装配失败时用)。
+     * 把物品从置物台上「**弹出**」: 生成一个从台面正上方飞出、带向上初速的**成品堆**掉落物。
      *
-     * <p>弹到成品堆那一侧的**对角相邻格**而不是 `pos.above()`: 台面正上方落下来的东西会停在置物台上,
-     * 而失败品按设计应该"掉在一边让玩家自己捡", 不该混进台面的加工区。</p>
+     * <p>与 {@link #deposit} 的唯一区别就是"弹出"这个观感(用户明确说喜欢);它**同样打成品堆标记**,
+     * 因此①会被 {@link #findAll} 当成品堆看待;②解锁置物台时会被一起返还给玩家
+     * (见 {@code AssembleLogic#returnHeldAndPiles})。</p>
      */
     public static void eject(Level level, BlockPos pos, ItemStack stack) {
         if (level.isClientSide || stack.isEmpty())
             return;
-        Vec3 out = releasePos(pos, DONE);
-        Block.popResource(level, BlockPos.containing(out.x, out.y, out.z), stack);
+        ItemEntity pile = createAt(level, pos, DONE, stack.copy());
+        // createAt 默认把成品堆放在东南角, 弹出改到**台面正中央**, 让它真的"从台面上弹出来"
+        pile.setPos(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
+        pile.setDeltaMovement(
+            (level.random.nextDouble() - 0.5) * 0.12,
+            0.22,
+            (level.random.nextDouble() - 0.5) * 0.12);
+        level.addFreshEntity(pile);
+    }
+
+    /**
+     * 取出该置物台配对的**全部**料堆内容, 并**移除**这些实体。
+     *
+     * <p>供「解锁置物台时把东西返还到玩家背包」使用 —— 与 {@link #releaseAll} 不同,
+     * 这里不把它们留在世界上, 而是把内容交回调用方。</p>
+     */
+    public static List<ItemStack> drainAll(Level level, BlockPos pos) {
+        List<ItemStack> out = new ArrayList<>();
+        if (level.isClientSide)
+            return out;
+        for (String kind : new String[] { RAW, DONE }) {
+            for (ItemEntity pile : findAll(level, pos, kind)) {
+                ItemStack stack = pile.getItem();
+                if (!stack.isEmpty())
+                    out.add(stack.copy());
+                pile.discard();
+            }
+        }
+        return out;
     }
 
     // ---------------------------------------------------------------- 内部

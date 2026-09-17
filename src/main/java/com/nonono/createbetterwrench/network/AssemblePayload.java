@@ -3,7 +3,6 @@ package com.nonono.createbetterwrench.network;
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.assemble.AssembleLock;
 import com.nonono.createbetterwrench.assemble.AssembleLogic;
-import com.nonono.createbetterwrench.assemble.DepotPiles;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 
 import io.netty.buffer.ByteBuf;
@@ -12,6 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -69,8 +69,9 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
             boolean now = !AssembleLock.isLocked(depot);
             AssembleLock.setLocked(depot, now);
             if (!now) {
-                // 解锁: 把原料堆/成品堆都释放成普通掉落物, 让玩家把东西收回去
-                DepotPiles.releaseAll(sp.level(), pos);
+                // 解锁: 把台面上的物品 + 两个料堆(含被弹出的成品)全部**返还到玩家背包**
+                // (用户 2026-09-17 要求; 装不下的会由原版逻辑掉在玩家脚下, 不会丢)
+                AssembleLogic.returnHeldAndPiles((ServerLevel) sp.level(), pos, depot, sp);
             } else {
                 // 刚锁定: 台面若空而原料堆还有货, 自动续一个上去(「自动续料」)
                 AssembleLogic.refillIfEmpty(sp.level(), pos, depot);
