@@ -1,6 +1,7 @@
 package com.nonono.createbetterwrench.network;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.deconstruct.DeconstructJob;
 import com.nonono.createbetterwrench.deconstruct.DeconstructLogic;
 import com.nonono.createbetterwrench.mode.DeconstructScope;
 
@@ -41,8 +42,8 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
         return TYPE;
     }
 
-    /** 单个轴向上的最大边长(用户指定: 选区最大 128×128×128)。 */
-    private static final int MAX_EDGE = 128;
+    /** 单个轴向上的最大边长(用户指定: 选区最大 64×64×64)。超过则拒绝, 不再进入任何循环。 */
+    private static final int MAX_EDGE = 64;
 
     public void handle(IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
@@ -72,11 +73,10 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
             } catch (Exception e) {
                 scope = DeconstructScope.ALL;
             }
-            int removed = DeconstructLogic.deconstructRegion(
-                (net.minecraft.server.level.ServerLevel) sp.level(), cornerA, cornerB, scope, sp);
-            // 始终提示(含 0), 显示在 actionbar; 文案在语言文件 msg.<modid>.deconstruct.count
-            sp.displayClientMessage(net.minecraft.network.chat.Component
-                .translatable("msg." + BetterWrenchMod.MODID + ".deconstruct.count", removed), true);
+            // 交给分帧执行器: 小选区当场完成;大选区切成 16³ 子块, 每刻一块, 避免卡服。
+            // 拆除数量由执行器统一回报(actionbar), 文案见 msg.<modid>.deconstruct.count / .batching
+            DeconstructJob.start((net.minecraft.server.level.ServerLevel) sp.level(),
+                sp, cornerA, cornerB, scope);
         });
     }
 }
