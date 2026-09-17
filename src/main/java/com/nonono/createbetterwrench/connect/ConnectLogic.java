@@ -124,6 +124,9 @@ public final class ConnectLogic {
         return world.getBlockEntity(pos) instanceof KineticBlockEntity;
     }
 
+    /** 单次连接最多允许铺设的方块总数(轴+齿轮箱+大齿轮), 服务端安全上限。 */
+    public static final int MAX_TOTAL_BLOCKS = 256;
+
     /** 计算铺设计划(只读, 不改世界)。corners 为按序点击的拐点(可为空=直线直达); cornerType=拐角用齿轮箱还是大齿轮。 */
     public static ResultOutcome plan(Level world, BlockPos start, List<BlockPos> corners, BlockPos end,
                                      ConnectCorner cornerType) {
@@ -200,10 +203,17 @@ public final class ConnectLogic {
                     return new ResultOutcome(Result.CORNER_NO_ROOM, null);
                 BlockPos l1 = c1.remove(c1.size() - 1);
                 BlockPos l2 = c2.remove(0);
+                // 审计发现 #7: 这两格是从 legCells 里"吃掉"的, 不会进入下面的 occupied 校验循环,
+                // 所以必须在这里单独校验, 否则大齿轮会直接覆盖掉角上的既有方块。
+                if (occupied(world, l1) || occupied(world, l2))
+                    return new ResultOutcome(Result.PATH_BLOCKED, null);
                 plan.cogs.add(new CogPlace(l1, cur.axis));
                 plan.cogs.add(new CogPlace(l2, next.axis));
             } else {
-                // 齿轮箱节点允许替换该处方块(即"普通方块→齿轮箱"), 不做遮挡判定
+                // 齿轮箱节点: 允许把**可替换方块/已有轴**换成齿轮箱, 但**不能无条件覆盖**别的东西
+                // (审计发现 #7: 原来这里完全不校验, 角点落在箱子等机器上会直接把方块抹掉)
+                if (occupied(world, jp))
+                    return new ResultOutcome(Result.PATH_BLOCKED, null);
                 Axis gax = junctionAxis(cur.axis, next.axis);
                 plan.gearboxes.add(new GearboxPlace(jp, gax, gax != Axis.Y));
             }
@@ -390,6 +400,11 @@ public final class ConnectLogic {
         if (oc.result != Result.SUCCESS)
             return oc.result;
         Plan plan = oc.plan;
+
+        // 服务端安全: 单次请求能铺设的方块总数上限(挡住"拐点多 × 每段最长 64"叠出的超大工程把服务端卡住)
+        int totalBlocks = plan.shaftPositions.size() + plan.gearboxes.size() + plan.cogs.size();
+        if (totalBlocks > MAX_TOTAL_BLOCKS)
+            return Result.TOO_LONG;
 
         Item shaftItem = resolveShaftItem(player);
         int shaftCount = plan.shaftPositions.size();

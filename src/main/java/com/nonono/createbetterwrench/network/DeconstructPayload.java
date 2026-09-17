@@ -41,12 +41,31 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
         return TYPE;
     }
 
+    /** 单个轴向上的最大边长(用户指定: 选区最大 128×128×128)。 */
+    private static final int MAX_EDGE = 128;
+
     public void handle(IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
             if (!(ctx.player() instanceof ServerPlayer sp))
                 return;
+
+            // ===== 服务端校验(绝不信任客户端)=====
+            // ① 资格: 旁观者/无建造权限者一律拒绝(对照 Create 的 WrenchItem.useOn 会先查 mayBuild)
+            if (sp.isSpectator() || !sp.mayBuild())
+                return;
+            // ② 必须手持本模组的扳手
+            if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
+                && !sp.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH))
+                return;
+            // ③ 选区尺寸上限: 每轴 ≤ 128(挡住"改包发超大区域 ⇒ 服务端死循环"的卡服路径)
+            int dx = Math.abs(cornerA.getX() - cornerB.getX()) + 1;
+            int dy = Math.abs(cornerA.getY() - cornerB.getY()) + 1;
+            int dz = Math.abs(cornerA.getZ() - cornerB.getZ()) + 1;
+            if (dx > MAX_EDGE || dy > MAX_EDGE || dz > MAX_EDGE)
+                return;
             if (!sp.level().hasChunkAt(cornerA) || !sp.level().hasChunkAt(cornerB))
                 return;
+
             DeconstructScope scope;
             try {
                 scope = DeconstructScope.valueOf(scopeName);

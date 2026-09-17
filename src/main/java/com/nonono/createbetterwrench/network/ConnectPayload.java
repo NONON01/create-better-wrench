@@ -29,11 +29,18 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
     public static final Type<ConnectPayload> TYPE = new Type<>(
         ResourceLocation.fromNamespaceAndPath(BetterWrenchMod.MODID, "connect"));
 
+    /** 拐点数量硬上限(服务端安全: 挡住"发超大 n ⇒ ArrayList 预分配 OOM")。 */
+    public static final int MAX_CORNERS = 32;
+
     private static final StreamCodec<ByteBuf, List<BlockPos>> CORNERS_CODEC = new StreamCodec<>() {
         @Override
         public List<BlockPos> decode(ByteBuf buffer) {
             int n = buffer.readInt();
-            List<BlockPos> list = new ArrayList<>(n);
+            // ⚠️ 审计发现 #2: 绝不拿线上读到的 int 直接当 ArrayList 容量。
+            //    n = Integer.MAX_VALUE 会让 new ArrayList<>(n) 直接 OOM, 而 OOM 属于 Error, 服务端无法恢复。
+            if (n < 0 || n > MAX_CORNERS)
+                throw new io.netty.handler.codec.DecoderException("corner count out of range: " + n);
+            List<BlockPos> list = new ArrayList<>(Math.min(n, 8));
             for (int i = 0; i < n; i++)
                 list.add(BlockPos.STREAM_CODEC.decode(buffer));
             return list;
@@ -69,8 +76,24 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
         ctx.enqueueWork(() -> {
             if (!(ctx.player() instanceof ServerPlayer sp))
                 return;
+
+            // ===== 服务端校验(绝不信任客户端)=====
+            // ① 资格: 旁观者/无建造权限者一律拒绝(对照 Create 的 WrenchItem.useOn 会先查 mayBuild)
+            if (sp.isSpectator() || !sp.mayBuild())
+                return;
+            // ② 必须手持本模组的扳手
+            if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
+                && !sp.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH))
+                return;
+            // ③ 拐点数量上限(解码层已有硬上限, 这里再兜一次)
+            if (corners.size() > MAX_CORNERS)
+                return;
+            // ④ 所有节点所在区块必须已加载(避免被用来强制生成/加载区块)
             if (!sp.level().hasChunkAt(start) || !sp.level().hasChunkAt(end))
                 return;
+            for (BlockPos c : corners)
+                if (!sp.level().hasChunkAt(c))
+                    return;
 
             ConnectCorner cornerType = ConnectCorner.byName(cornerTypeName);
 

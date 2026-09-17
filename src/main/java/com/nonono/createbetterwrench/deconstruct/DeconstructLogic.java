@@ -18,6 +18,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.level.BlockEvent;
 
 /**
  * 「拆除」的服务端核心: 判定一个方块是否"可用扳手拆下"、是否落在某 Ctrl 档过滤内,
@@ -102,9 +104,17 @@ public final class DeconstructLogic {
             return level.getBlockState(pos).isAir();
         }
 
-        // 只靠 create:wrench_pickup tag 被纳入的普通方块: 它没有 IWrenchable 逻辑, 沿用简单路径
-        Block.getDrops(state, level, pos, level.getBlockEntity(pos), player, player.getMainHandItem())
-            .forEach(stack -> player.getInventory().placeItemBackInInventory(stack));
+        // 只靠 create:wrench_pickup tag 被纳入的普通方块: 它没有 IWrenchable 逻辑, 沿用简单路径。
+        // ⚠️ 但**必须**同样先发 BlockEvent.BreakEvent —— 否则领地保护类插件拦不住这条分支,
+        //    行为与上面的 IWrenchable 路径不一致(审计发现 #8)。
+        BlockEvent.BreakEvent event = new BlockEvent.BreakEvent(level, pos, state, player);
+        NeoForge.EVENT_BUS.post(event);
+        if (event.isCanceled())
+            return false;
+
+        if (!player.isCreative())
+            Block.getDrops(state, level, pos, level.getBlockEntity(pos), player, player.getMainHandItem())
+                .forEach(stack -> player.getInventory().placeItemBackInInventory(stack));
         state.spawnAfterBreak(level, pos, ItemStack.EMPTY, true);
         level.destroyBlock(pos, false);
         return true;
