@@ -11,7 +11,7 @@
   "mode.create_better_wrench.connect.desc": "[RMB] Pick a start, corner and end point; the drivetrain is built for you\n[Ctrl+Scroll] Switch how corner nodes are built {Gearbox/Large Cogwheel}",
   "mode.create_better_wrench.deconstruct.desc": "[RMB] Select an area; remove everything a wrench can remove\n[Ctrl+Scroll] Switch the filter {All/Create only/Redstone only}",
   "mode.create_better_wrench.assemble.desc": "[RMB] Lock a depot to process whatever sits on it\nWith several items, the extras wait nearby as unpickable drops\n[Ctrl+Scroll] Adjust how long the product stays",
-  "mode.create_better_wrench.coming_soon.desc": "Create Better Wrench v1.0.0-beta\nAn unofficial Create addon by nonono\nCreate 6.0.10+ · Minecraft 1.21.1 · NeoForge",
+  "mode.create_better_wrench.coming_soon.desc": "1.0.0-beta+Create6.0.10",
 
   "corner.create_better_wrench.gearbox": "Gearbox",
   "corner.create_better_wrench.large_cog": "Large Cogwheel",
