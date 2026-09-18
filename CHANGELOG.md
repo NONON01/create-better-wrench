@@ -1,10 +1,11 @@
 # Changelog
 
 All notable changes to Create Better Wrench are documented here.
-Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions use
-`<mod version>+create<Create version>`.
+Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
+Versions are SemVer; from `1.0.0-beta` on we no longer append the Create version
+(earlier releases used `<mod version>+create<Create version>`, e.g. `0.4.0+create6.0.10`).
 
-## [0.4.0] - unreleased
+## [1.0.0-beta] - unreleased
 
 ### Added
 - **Wrench mode** (leftmost, the default): passes right-clicks through to Create's standard wrench behaviour.
