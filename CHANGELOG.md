@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Universal Wrench are documented here.
+All notable changes to Create Better Wrench are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions use
 `<mod version>+create<Create version>`.
 
@@ -25,6 +25,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions
 
 ### Changed
 - Renamed the mod to **Universal Wrench** (`mod_name`; the `mod_id` stays `create_better_wrench`).
+  ⚠️ Renamed **again** to **Create Better Wrench** in the same release — `Universal Wrench` collided with
+  an existing Modrinth project of the same name and niche. The **item** is still called
+  "Universal Wrench"; only the mod name changed.
+- Dropped the placeholder `issueTrackerURL` (optional field, no tracker yet) and pointed `displayURL`
+  at the Modrinth project page. The `REPLACE_ME` placeholders are gone.
 - Java package moved to `com.nonono.createbetterwrench`; version scheme is now
   `<mod version>+create<Create version>`.
 - Process mode: a finished product now **stays on the depot for a configurable number of ticks**

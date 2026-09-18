@@ -15,7 +15,7 @@ import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
- * 万能扳手(Universal Wrench)主类。
+ * Create Better Wrench(万能扳手)主类。
  *
  * <p>纯 Create addon:不新增方块, 提供一把更好用的 Create 扳手「万能扳手」。
  * 物品注册在 {@link #BETTER_WRENCH}; 它加入 {@code c:tools/wrench} 标签使 Create 把它当扳手,

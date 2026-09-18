@@ -2,10 +2,12 @@ modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
 
-# ⚠️ 发布前必须替换: 下面 2 个 REPLACE_ME 需要真实的仓库 / 项目页地址(见 docs/10 §5.1)。
-#    ⚠️ 本模板由 Groovy expand 处理, **正文里不要出现反斜杠**(会被当转义符导致构建失败), 路径一律用正斜杠。
-#    自检: 搜本文件里的 REPLACE_ME
-issueTrackerURL="https://github.com/REPLACE_ME/create-better-wrench/issues"
+# ⚠️ 本模板由 Groovy expand 处理, **正文里不要出现反斜杠**(会被当转义符导致构建失败), 路径一律用正斜杠。
+#
+# 2026-09-18: 两处占位地址已全部处理完毕 ——
+#   * issueTrackerURL **删除**: 该字段可选, 且我们目前没有 GitHub;实测主流 Create 附属
+#     (Create Aeronautics 806 万下载 / Create Big Cannons)都不填它。
+#   * displayURL 填成 Modrinth 项目页 —— slug 已实测可用(见下), 不需要账号就能先填对。
 
 [[mods]]
 modId="${mod_id}"
@@ -20,7 +22,7 @@ logoBlur=false
 # ⚠️ 不是省掉署名 —— 所有许可与第三方声明(含 Create 的 MIT 全文, 逐字收录)都集中在
 #    jar 内的**单个 LICENSE.md** 中;游戏内"许可证"那一行就是指向它的指针。
 #    另有 client/WrenchToolSelection.java 的类注释。
-displayURL="https://modrinth.com/mod/REPLACE_ME"
+displayURL="https://modrinth.com/mod/create-better-wrench"
 description='''
 A Better Wrench For Create.
 '''

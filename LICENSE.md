@@ -1,6 +1,6 @@
-# Universal Wrench — License / 许可
+# Create Better Wrench — License / 许可
 
-`Universal Wrench` — mod id `create_better_wrench` — Copyright (c) 2026 nonono.
+`Create Better Wrench` — mod id `create_better_wrench` — Copyright (c) 2026 nonono.
 
 > **This single file is the source of truth for this mod's licensing *and* for every
 > third-party notice.** It is deliberately one file: the in-game mod menu's `license`

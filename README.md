@@ -1,4 +1,4 @@
-# Universal Wrench
+# Create Better Wrench
 
 An **unofficial** [Create](https://github.com/Creators-of-Create/Create) addon that adds a more
 convenient wrench. Hold **ALT** to open a bottom tool-select bar, then **scroll** to switch modes.
@@ -16,7 +16,7 @@ convenient wrench. Hold **ALT** to open a bottom tool-select bar, then **scroll*
 | --- | --- | --- |
 | Wrench 扳手 | `wrench` | The standard Create wrench experience (rotate / pick up blocks) |
 | Connect 连接 | `connect` | Right-click a start and an end block, add air-cell corners freely; the drivetrain (shafts, gearboxes or large cogwheels) is placed and the materials are consumed |
-| Remove 拆除 | `deconstruct` | Two-click area selection, then batch-remove everything a wrench can remove (Ctrl+Scroll filters: All / Create only / Redstone only) |
+| Deconstruct 拆除 | `deconstruct` | Two-click area selection, then batch-remove everything a wrench can remove (Ctrl+Scroll filters: All / Create only / Redstone only) |
 | Process 加工 | `assemble` | Lock a Depot, then right-click it while holding an item to act as a Deployer / Spout / axe. Handles sequenced assembly, item application, log stripping and fluid filling. Ctrl+Scroll adjusts how long a finished product stays on the depot |
 | Mod Info 模组描述 | `coming_soon` | Placeholder info page (also hides a small easter egg) |
 
@@ -80,5 +80,7 @@ verbatim MIT text. It is also what the in-game mod menu links to via its `licens
 
 - This repository is the mod project itself; the wider development workspace (docs, tools,
   reference sources) lives outside it.
-- **Before releasing**, replace the `REPLACE_ME` placeholders in
-  `src/main/templates/META-INF/neoforge.mods.toml` and add an `icon.png`.
+- **Release metadata is complete**: `displayName` / `authors` / `logoFile` / `displayURL` /
+  `license` / `description` are all filled in `src/main/templates/META-INF/neoforge.mods.toml`,
+  and `src/main/resources/icon.png` ships in the JAR. The release checklist lives in the
+  workspace docs (`docs/10-publishing-and-licensing.md`).

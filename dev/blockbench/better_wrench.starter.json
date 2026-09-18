@@ -1,5 +1,5 @@
 {
-  "credit": "Universal Wrench -- 3D item model skeleton (Blockbench 'Java Block/Item'). Reshape freely; display + parenting is the part that is already correct.",
+  "credit": "Create Better Wrench -- 3D item model skeleton (Blockbench 'Java Block/Item'). Reshape freely; display + parenting is the part that is already correct.",
   "parent": "minecraft:block/block",
   "texture_size": [16, 16],
   "textures": {
