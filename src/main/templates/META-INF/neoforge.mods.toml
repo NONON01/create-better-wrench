@@ -17,9 +17,9 @@ authors="nonono"
 logoFile="icon.png"
 logoBlur=false
 # 2026-09-18: 按用户要求移除游戏内"鸣谢"(credits)字段。
-# ⚠️ 不是省掉署名 —— Create 的 MIT 署名义务仍由 jar 内的
-#    licenses/Create-MIT.txt(全文)、THIRD_PARTY_NOTICES.md, 以及
-#    client/WrenchToolSelection.java 的类注释共同承担。
+# ⚠️ 不是省掉署名 —— 所有许可与第三方声明(含 Create 的 MIT 全文, 逐字收录)都集中在
+#    jar 内的**单个 LICENSE.md** 中;游戏内"许可证"那一行就是指向它的指针。
+#    另有 client/WrenchToolSelection.java 的类注释。
 displayURL="https://modrinth.com/mod/REPLACE_ME"
 description='''
 A Better Wrench For Create.

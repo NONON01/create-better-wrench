@@ -59,9 +59,10 @@ Requires **JDK 21**. Dependencies resolve from `maven.createmod.net` (Create, Po
 - You may play, ship this jar unmodified in modpacks/servers, and feature it in videos.
 - You may **not** redistribute modified versions or reuse the code elsewhere without permission.
 - Portions derived from Create's MIT-licensed code **remain MIT**; the full MIT notice is
-  reproduced in [`licenses/Create-MIT.txt`](src/main/resources/licenses/Create-MIT.txt).
+  reproduced **verbatim in Appendix A** of [`LICENSE.md`](LICENSE.md).
 
-See [`LICENSE`](LICENSE) and [`THIRD_PARTY_NOTICES.md`](src/main/resources/THIRD_PARTY_NOTICES.md).
+Everything lives in that **single file** — our terms, every third-party notice, and the
+verbatim MIT text. It is also what the in-game mod menu links to via its `license` field.
 
 ---
 

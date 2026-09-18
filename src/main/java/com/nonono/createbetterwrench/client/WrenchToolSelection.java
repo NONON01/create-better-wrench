@@ -22,8 +22,8 @@ import net.minecraft.util.FormattedCharSequence;
  *
  * <p><b>MIT 署名(硬性义务)</b>: Derived from Create's ToolSelectionScreen.
  * Create code is MIT-licensed — Copyright (c) The Create Team / The Creators of Create.
- * Full license text: see {@code licenses/Create-MIT.txt} inside this JAR
- * (and {@code THIRD_PARTY_NOTICES.md}).</p>
+ * Full license text (Create's MIT notice, verbatim): see {@code LICENSE.md} inside this JAR,
+ * Appendix A. That single file also carries our own terms and every third-party notice.</p>
  *
  * <p>行为: 始终渲染(renderPassive 每帧); focused=按住 ALT 时清晰、顶部"[SCROLL] 循环"并显示描述 tooltip;
  * 未聚焦半透明、顶部"按住[ALT]..."; current=当前选中模式(上浮高亮)。</p>
@@ -148,7 +148,7 @@ public final class WrenchToolSelection {
 
     private void renderIcon(GuiGraphics graphics, WrenchMode mode, int ix, int iy, float alpha) {
         // 图标全部是**我们自绘的 PNG**(ResourceLocation)—— 不再有任何 Create 蓝图图标(AllIcons)分支。
-        // 这样 THIRD_PARTY_NOTICES.md 里"不再引用 Create 的 AllIcons"才是**代码上可核实**的。
+        // 这样 LICENSE.md §2.1 里"不再引用 Create 的 AllIcons"才是**代码上可核实**的。
         ResourceLocation icon = mode.icon();
         if (icon == null)
             return;

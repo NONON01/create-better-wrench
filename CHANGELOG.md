@@ -34,6 +34,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions
 - Unlocking a depot now **returns everything to your inventory** — the item on the depot plus both
   piles, including products that had been popped out.
 - The `create` dependency no longer forces a load order (`ordering` is now `NONE`).
+- **Licensing consolidated into a single `LICENSE.md`** (previously `LICENSE` + `THIRD_PARTY_NOTICES.md`
+  + `licenses/Create-MIT.txt`): our terms, every third-party notice, and Create's MIT notice
+  (reproduced **verbatim** in Appendix A) now live in one file — which is exactly what the in-game
+  mod menu's `license` field points at (`Read attached LICENSE.md`).
+- `neoforge.mods.toml`: the `credits` field was removed and the description reduced to a single
+  line, matching how Create itself presents its own mod entry.
 
 ### Fixed
 - **Security**: connect / deconstruct payloads are validated server-side (volume cap, corner-count cap,
