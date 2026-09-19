@@ -31,6 +31,7 @@
   "hint.create_better_wrench.toolbar.scroll": "[SCROLL] 循环",
   "hint.create_better_wrench.toolbar.focus": "按住 [%s] 鼠标滚轮选择",
 
+  "msg.create_better_wrench.adventure_mode": "当前是冒险模式",
   "msg.create_better_wrench.connect.success": "连接成功:已铺设传动结构",
   "msg.create_better_wrench.connect.unloaded": "连接失败:区块未加载",
   "msg.create_better_wrench.connect.not_kinetic": "连接失败:两端方块无法接入本方向的传动轴",
@@ -45,6 +46,7 @@
   "msg.create_better_wrench.connect.too_long": "连接失败:某段路径过长",
   "msg.create_better_wrench.deconstruct.count": "本次拆除了 %s 个方块",
   "msg.create_better_wrench.deconstruct.batching": "选区较大, 分 %s 批拆除中…",
+  "msg.create_better_wrench.deconstruct.too_large": "选区过大",
   "msg.create_better_wrench.assemble.locked": "置物台已锁定",
   "msg.create_better_wrench.assemble.unlocked": "置物台已解锁",
   "msg.create_better_wrench.battle_no_permission": "无权限使用战斗模式(需要权限 cbw.battlemode)",

@@ -37,10 +37,29 @@ public final class DeconstructSelectionHandler {
 
     private static final Object OUTLINE_KEY = "deconstruct_select";
 
+    /** 正常选区框颜色(蓝图蓝)。 */
+    private static final int COLOR_OK = 0x6886c5;
+
+    /** 选区超限时的颜色(红)—— 服务端会拒绝这种选区, 画红让玩家一眼看出"选大了"。 */
+    private static final int COLOR_TOO_LARGE = 0xE0392B;
+
+    /**
+     * 单轴最大边长。**必须与 {@code network/DeconstructPayload.MAX_EDGE} 保持一致** ——
+     * 否则会出现"框还是蓝的、服务端却拒绝"的割裂体验。
+     */
+    private static final int MAX_EDGE = 64;
+
     private static BlockPos cornerA;
     private static BlockPos previewB;
 
     private DeconstructSelectionHandler() {
+    }
+
+    /** 两角围出的选区是否超过单轴上限(与服务端同一套判据)。 */
+    private static boolean tooLarge(BlockPos a, BlockPos b) {
+        return Math.abs(a.getX() - b.getX()) + 1 > MAX_EDGE
+            || Math.abs(a.getY() - b.getY()) + 1 > MAX_EDGE
+            || Math.abs(a.getZ() - b.getZ()) + 1 > MAX_EDGE;
     }
 
     private static boolean active(Minecraft mc) {
@@ -129,18 +148,18 @@ public final class DeconstructSelectionHandler {
                 return;
             }
             Outliner.getInstance().chaseAABB(OUTLINE_KEY, new AABB(hit))
-                .colored(0x6886c5)
+                .colored(COLOR_OK)
                 .withFaceTextures(AllSpecialTextures.CHECKERED, AllSpecialTextures.HIGHLIGHT_CHECKERED)
                 .lineWidth(1 / 16f);
             return;
         }
 
-        // 已选 A: 画 A → 当前视线块 的区域框
+        // 已选 A: 画 A → 当前视线块 的区域框;超限则整框变红
         previewB = hit != null ? hit : cornerA;
         AABB box = new AABB(Vec3.atLowerCornerOf(cornerA), Vec3.atLowerCornerOf(previewB))
             .expandTowards(1, 1, 1);
         Outliner.getInstance().chaseAABB(OUTLINE_KEY, box)
-            .colored(0x6886c5)
+            .colored(tooLarge(cornerA, previewB) ? COLOR_TOO_LARGE : COLOR_OK)
             .withFaceTextures(AllSpecialTextures.CHECKERED, AllSpecialTextures.HIGHLIGHT_CHECKERED)
             .lineWidth(1 / 16f);
     }

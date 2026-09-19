@@ -6,6 +6,7 @@ import java.util.List;
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.connect.ConnectLogic;
 import com.nonono.createbetterwrench.mode.ConnectCorner;
+import com.nonono.createbetterwrench.permission.WrenchPermissions;
 
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
@@ -78,8 +79,8 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
                 return;
 
             // ===== 服务端校验(绝不信任客户端)=====
-            // ① 资格: 旁观者/无建造权限者一律拒绝(对照 Create 的 WrenchItem.useOn 会先查 mayBuild)
-            if (sp.isSpectator() || !sp.mayBuild())
+            // ① 资格: 旁观者/无建造权限者一律拒绝;冒险模式下额外提示「当前是冒险模式」
+            if (WrenchPermissions.rejectIfCannotBuild(sp))
                 return;
             // ② 必须手持本模组的扳手
             if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)

@@ -3,6 +3,7 @@ package com.nonono.createbetterwrench.network;
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.assemble.AssembleLock;
 import com.nonono.createbetterwrench.assemble.AssembleLogic;
+import com.nonono.createbetterwrench.permission.WrenchPermissions;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 
 import io.netty.buffer.ByteBuf;
@@ -50,8 +51,8 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
             // 原本只查了"区块已加载 + 目标是置物台", 于是任何人改包就能
             // **远程上锁/解锁别人的置物台**(解锁后原料堆变成可抢的掉落物; 上锁后对方彻底不可交互)。
             // 照 ConnectPayload.handle 里那套校验抄一份:
-            // ① 资格: 旁观者/无建造权限者一律拒绝
-            if (sp.isSpectator() || !sp.mayBuild())
+            // ① 资格: 旁观者/无建造权限者一律拒绝;冒险模式下额外提示「当前是冒险模式」
+            if (WrenchPermissions.rejectIfCannotBuild(sp))
                 return;
             // ② 必须手持本模组的扳手(锁定/解锁是扳手模式下的行为)
             if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)

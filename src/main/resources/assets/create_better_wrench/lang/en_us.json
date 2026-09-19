@@ -31,6 +31,7 @@
   "hint.create_better_wrench.toolbar.scroll": "[SCROLL] Cycle",
   "hint.create_better_wrench.toolbar.focus": "Hold [%s] and scroll",
 
+  "msg.create_better_wrench.adventure_mode": "Currently in Adventure mode",
   "msg.create_better_wrench.connect.success": "Connected: drivetrain placed",
   "msg.create_better_wrench.connect.unloaded": "Connect failed: chunk not loaded",
   "msg.create_better_wrench.connect.not_kinetic": "Connect failed: an endpoint cannot accept a shaft in this direction",
@@ -45,6 +46,7 @@
   "msg.create_better_wrench.connect.too_long": "Connect failed: a segment is too long",
   "msg.create_better_wrench.deconstruct.count": "Removed %s blocks",
   "msg.create_better_wrench.deconstruct.batching": "Large area: removing in %s batches...",
+  "msg.create_better_wrench.deconstruct.too_large": "Selection too large",
   "msg.create_better_wrench.assemble.locked": "Depot locked",
   "msg.create_better_wrench.assemble.unlocked": "Depot unlocked",
   "msg.create_better_wrench.battle_no_permission": "No permission for Combat Mode (requires cbw.battlemode)",

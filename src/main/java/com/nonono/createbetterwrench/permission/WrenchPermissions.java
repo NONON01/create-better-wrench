@@ -2,8 +2,10 @@ package com.nonono.createbetterwrench.permission;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
 
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameType;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.server.permission.PermissionAPI;
@@ -52,5 +54,25 @@ public final class WrenchPermissions {
         } catch (RuntimeException e) {
             return false;
         }
+    }
+
+    /**
+     * 三个操作类服务端入口共用的「能不能动手」闸门。
+     *
+     * <p>对照 Create 自己的 {@code WrenchItem.useOn} —— 它同样先查 {@code mayBuild()}。
+     * 无建造权限时不执行任何操作;若是**冒险模式**则额外给一条 actionbar 提示
+     * (用户要求:「在冒险模式触发时, 提示『当前是冒险模式』」)。</p>
+     *
+     * <p>旁观者/其它无权限情形保持**静默**拒绝 —— 提示只针对冒险模式, 避免误报。</p>
+     *
+     * @return {@code true} 表示已拒绝, 调用方应立刻 {@code return}
+     */
+    public static boolean rejectIfCannotBuild(ServerPlayer player) {
+        if (!player.isSpectator() && player.mayBuild())
+            return false;                                   // 有建造权限, 放行
+        if (player.gameMode.getGameModeForPlayer() == GameType.ADVENTURE)
+            player.displayClientMessage(
+                Component.translatable("msg." + BetterWrenchMod.MODID + ".adventure_mode"), true);
+        return true;
     }
 }
