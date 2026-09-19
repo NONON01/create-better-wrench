@@ -45,7 +45,7 @@
   "msg.create_better_wrench.connect.materials": "连接失败:背包材料不足",
   "msg.create_better_wrench.connect.too_long": "连接失败:某段路径过长",
   "msg.create_better_wrench.deconstruct.count": "本次拆除了 %s 个方块",
-  "msg.create_better_wrench.deconstruct.batching": "选区较大, 分 %s 批拆除中…",
+  "msg.create_better_wrench.deconstruct.batching": "选区较大(约 %s 格), 正在分批拆除…",
   "msg.create_better_wrench.deconstruct.too_large": "选区过大",
   "msg.create_better_wrench.assemble.locked": "置物台已锁定",
   "msg.create_better_wrench.assemble.unlocked": "置物台已解锁",

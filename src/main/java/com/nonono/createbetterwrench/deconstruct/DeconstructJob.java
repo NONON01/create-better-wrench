@@ -20,30 +20,48 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
- * 「拆除」的**分帧执行器**。
+ * 「拆除」的**按时间预算的分帧执行器**。
  *
- * <p>大范围拆除如果一次性在同一个 tick 里跑完, 会因为每格都要
- * {@code getBlockState} + {@code BlockEvent.BreakEvent} 广播 + loot table + {@code destroyBlock}
- * 而**长时间卡住服务端主线程**。所以这里把选区切成 **16×16×16 的子块, 每个服务端刻只处理一个**:
- * 最大 64×64×64 = 64 个子块 ⇒ 最坏约 64 刻(≈3.2 秒)分批完成, 期间服务器保持响应。</p>
+ * <p>大范围拆除若一次跑完, 每格都要 {@code BlockState} 查询 + {@code BlockEvent.BreakEvent} 广播 +
+ * loot table + {@code destroyBlock}, 会长时间占住服务端主线程(单机下客户端一并冻住)。</p>
  *
- * <p>小选区(体积 ≤ 16³)仍然**当场做完**, 正常游玩没有任何延迟感。</p>
+ * <h2>为什么不是"每刻一个 16³ 子块"</h2>
+ * <p>最初按 16³ 子块分批: 每刻处理一个子块。但一个子块最多 **4096 格** ——
+ * 实测 16240 格 / 8 批时**每刻要干约 2000 格, 造成约 1 秒卡顿**。
+ * 批的"粒度"其实由**单刻的工作量**决定, 而不是由几何切块决定。</p>
  *
- * <p>同一玩家同时只保留一个任务(再次发起会覆盖旧的);玩家登出或换维度会丢弃任务。</p>
+ * <p>现在改成**时间预算**: 每刻最多干 {@link #BUDGET_NANOS} 纳秒(默认 10ms, 约占一个 tick 的 20%),
+ * 到点就停、下一 tick 接着从游标处继续。这样单刻开销**有上界**, 无论选区多大都不会再"卡一下";
+ * 代价是大选区耗时变长(16k 格 ≈ 5 秒), 但期间**一直流畅**且能看见逐片消失。</p>
+ *
+ * <p>另加一道硬上限 {@link #MAX_BLOCKS_PER_TICK} 兜底(防止个别方块极廉价时单刻处理过多)。</p>
+ *
+ * <p>提交时先**当场**跑一个预算: 小选区因此立即完成(保持原有的即时反馈, 无延迟感);
+ * 没跑完才登记为跨刻任务。同一玩家只保留一个任务;玩家登出/换维度会丢弃任务。</p>
  */
 public final class DeconstructJob {
 
-    /** 子块边长(用户指定: 按 16×16×16 依次计算)。 */
-    public static final int CHUNK = 16;
-    private static final int CHUNK_VOLUME = CHUNK * CHUNK * CHUNK;
+    /** 每刻的时间预算(纳秒)。10ms ≈ 一个 50ms tick 的 20%, 留足余量给别的系统。 */
+    private static final long BUDGET_NANOS = 10_000_000L;
+
+    /** 单刻处理的格数硬上限(兜底;正常由时间预算先触发)。 */
+    private static final int MAX_BLOCKS_PER_TICK = 4096;
+
+    /** 每处理这么多格才查一次时钟 —— {@code System.nanoTime()} 很便宜, 但没必要每格都查。 */
+    private static final int TIME_CHECK_INTERVAL = 64;
 
     private final ServerLevel level;
     private final UUID playerId;
-    private final int minX, minY, minZ, maxX, maxY, maxZ;
     private final DeconstructScope scope;
-    private final int chunksX, chunksY, chunksZ;
 
+    private final int minX, minY, minZ;
+    private final int sizeX, sizeY, sizeZ;
+    private final long volume;
+
+    /** 游标(相对选区的坐标, z 最快、然后 y、最后 x)。 */
     private int cx, cy, cz;
+    private boolean done;
+
     private int removed;
 
     private static final Map<UUID, DeconstructJob> ACTIVE = new HashMap<>();
@@ -54,13 +72,18 @@ public final class DeconstructJob {
         this.playerId = playerId;
         this.scope = scope;
         this.minX = minX; this.minY = minY; this.minZ = minZ;
-        this.maxX = maxX; this.maxY = maxY; this.maxZ = maxZ;
-        this.chunksX = (maxX - minX) / CHUNK + 1;
-        this.chunksY = (maxY - minY) / CHUNK + 1;
-        this.chunksZ = (maxZ - minZ) / CHUNK + 1;
+        this.sizeX = maxX - minX + 1;
+        this.sizeY = maxY - minY + 1;
+        this.sizeZ = maxZ - minZ + 1;
+        this.volume = (long) this.sizeX * this.sizeY * this.sizeZ;
     }
 
-    /** 提交一次拆除请求: 小选区当场完成, 大选区登记为分帧任务。 */
+    /** 选区体积(格数), 用于给玩家的提示文案。 */
+    public long volume() {
+        return volume;
+    }
+
+    /** 提交一次拆除请求: 先当场跑一个预算;没跑完再登记为跨刻任务。 */
     public static void start(ServerLevel level, ServerPlayer player, BlockPos a, BlockPos b,
                              DeconstructScope scope) {
         int minX = Math.min(a.getX(), b.getX()), maxX = Math.max(a.getX(), b.getX());
@@ -70,70 +93,53 @@ public final class DeconstructJob {
         DeconstructJob job = new DeconstructJob(level, player.getUUID(), scope,
             minX, minY, minZ, maxX, maxY, maxZ);
 
-        long volume = (long) (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
-        if (volume <= CHUNK_VOLUME) {
-            // 小范围: 一次做完, 保持原有的"即时反馈"。
-            // ⚠️ 这里刻意用**计数循环**而不是 `while (hasNext())` —— 见 hasNext() 的注释:
-            //    曾经因为 hasNext() 判据写错导致 `while` 空转, 把服务端一个 tick 卡了 40+ 秒
-            //    (单机下客户端一起冻住)。计数循环是**可证明有界**的, 同类回归不会再挂死服务器。
-            int total = job.chunksX * job.chunksY * job.chunksZ;
-            for (int i = 0; i < total; i++)
-                job.runOneChunk(player);
+        job.runBudgeted(player);
+
+        if (job.done) {
+            // 小选区: 当场做完, 保持即时反馈
             report(player, job.removed);
             return;
         }
 
-        // 大范围: 覆盖同一玩家的旧任务, 分帧执行
+        // 大选区: 覆盖同一玩家的旧任务, 跨刻继续
         ACTIVE.put(player.getUUID(), job);
         player.displayClientMessage(Component.translatable(
-            "msg." + BetterWrenchMod.MODID + ".deconstruct.batching",
-            job.chunksX * job.chunksY * job.chunksZ), true);
+            "msg." + BetterWrenchMod.MODID + ".deconstruct.batching", job.volume), true);
     }
 
-    /**
-     * 是否还有未处理的子块。
-     *
-     * <p>⚠️ <b>2026-09-19 修 bug</b>:原先写的是 {@code return cz < chunksZ;} —— 只看 z 轴。
-     * 而 {@link #runOneChunk} 的推进是 <b>z → y → x 三级进位</b>:当 z、y 都走完时
-     * {@code cz} 会被**重置为 0**, 于是 {@code cz < chunksZ} 又成立 ⇒ 该方法**永远返回 true**
-     * (循环里 x 越界后内层三层 for 都不执行, 于是变成纯空转)。</p>
-     *
-     * <p>后果:{@code start()} 里的 {@code while (hasNext()) runOneChunk(...)} **无限空转**,
-     * 服务端单个 tick 卡死 —— 单机时客户端跟着一起冻。已实测(ModernFix 集成服务器看门狗报
-     * "A single server tick has taken 40001 ms", 线程栈正落在这两行)。</p>
-     *
-     * <p>正确判据是看最外层的 x 轴:全部子块处理完后 {@code cx} 恰好等于 {@code chunksX}。</p>
-     */
-    private boolean hasNext() {
-        return cx < chunksX;
-    }
-
-    /** 处理一个 16³ 子块。 */
-    private void runOneChunk(ServerPlayer player) {
-        int x0 = minX + cx * CHUNK, x1 = Math.min(x0 + CHUNK - 1, maxX);
-        int y0 = minY + cy * CHUNK, y1 = Math.min(y0 + CHUNK - 1, maxY);
-        int z0 = minZ + cz * CHUNK, z1 = Math.min(z0 + CHUNK - 1, maxZ);
-
-        for (int x = x0; x <= x1; x++)
-            for (int y = y0; y <= y1; y++)
-                for (int z = z0; z <= z1; z++) {
-                    BlockPos pos = new BlockPos(x, y, z);
-                    BlockState state = level.getBlockState(pos);
-                    if (state.isAir())
-                        continue;
-                    if (!DeconstructLogic.matchesScope(state, scope))
-                        continue;
-                    if (DeconstructLogic.deconstructBlock(level, pos, player))
-                        removed++;
-                }
-
-        // 前进到下一个子块(z → y → x 顺序, 自底向上扫)
-        if (++cz >= chunksZ) {
-            cz = 0;
-            if (++cy >= chunksY) {
-                cy = 0;
-                cx++;
+    /** 在时间预算内尽量多处理几格;到点或做完就返回。 */
+    private void runBudgeted(ServerPlayer player) {
+        long deadline = System.nanoTime() + BUDGET_NANOS;
+        int processed = 0;
+        while (!done && processed < MAX_BLOCKS_PER_TICK) {
+            int x = minX + cx, y = minY + cy, z = minZ + cz;
+            BlockPos pos = new BlockPos(x, y, z);
+            BlockState state = level.getBlockState(pos);
+            if (!state.isAir() && DeconstructLogic.matchesScope(state, scope)
+                && DeconstructLogic.deconstructBlock(level, pos, player)) {
+                removed++;
             }
+            advance();
+
+            processed++;
+            if ((processed % TIME_CHECK_INTERVAL) == 0 && System.nanoTime() >= deadline) {
+                break;
+            }
+        }
+    }
+
+    /** 游标前进一格: z → y → x, 自底向上扫;走到头就置 done。 */
+    private void advance() {
+        if (++cz < sizeZ) {
+            return;
+        }
+        cz = 0;
+        if (++cy < sizeY) {
+            return;
+        }
+        cy = 0;
+        if (++cx >= sizeX) {
+            done = true;
         }
     }
 
@@ -143,20 +149,22 @@ public final class DeconstructJob {
     }
 
     private static void tick(MinecraftServer server) {
-        if (ACTIVE.isEmpty())
+        if (ACTIVE.isEmpty()) {
             return;
+        }
         Iterator<Map.Entry<UUID, DeconstructJob>> it = ACTIVE.entrySet().iterator();
         while (it.hasNext()) {
             DeconstructJob job = it.next().getValue();
             ServerPlayer player = server.getPlayerList().getPlayer(job.playerId);
-            // 玩家已离线 / 换了维度 / 区块不再加载 -> 放弃任务(不报错)
+            // 玩家已离线 / 换了维度 -> 放弃任务(不报错)
             if (player == null || player.serverLevel() != job.level) {
                 it.remove();
                 continue;
             }
-            if (job.hasNext())
-                job.runOneChunk(player);
-            if (!job.hasNext()) {
+            if (!job.done) {
+                job.runBudgeted(player);
+            }
+            if (job.done) {
                 it.remove();
                 report(player, job.removed);
             }

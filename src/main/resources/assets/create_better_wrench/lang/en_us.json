@@ -45,7 +45,7 @@
   "msg.create_better_wrench.connect.materials": "Connect failed: not enough materials",
   "msg.create_better_wrench.connect.too_long": "Connect failed: a segment is too long",
   "msg.create_better_wrench.deconstruct.count": "Removed %s blocks",
-  "msg.create_better_wrench.deconstruct.batching": "Large area: removing in %s batches...",
+  "msg.create_better_wrench.deconstruct.batching": "Large area (~%s blocks): removing in batches...",
   "msg.create_better_wrench.deconstruct.too_large": "Selection too large",
   "msg.create_better_wrench.assemble.locked": "Depot locked",
   "msg.create_better_wrench.assemble.unlocked": "Depot unlocked",
