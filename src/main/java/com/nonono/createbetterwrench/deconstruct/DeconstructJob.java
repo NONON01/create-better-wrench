@@ -72,8 +72,12 @@ public final class DeconstructJob {
 
         long volume = (long) (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
         if (volume <= CHUNK_VOLUME) {
-            // 小范围: 一次做完, 保持原有的"即时反馈"
-            while (job.hasNext())
+            // 小范围: 一次做完, 保持原有的"即时反馈"。
+            // ⚠️ 这里刻意用**计数循环**而不是 `while (hasNext())` —— 见 hasNext() 的注释:
+            //    曾经因为 hasNext() 判据写错导致 `while` 空转, 把服务端一个 tick 卡了 40+ 秒
+            //    (单机下客户端一起冻住)。计数循环是**可证明有界**的, 同类回归不会再挂死服务器。
+            int total = job.chunksX * job.chunksY * job.chunksZ;
+            for (int i = 0; i < total; i++)
                 job.runOneChunk(player);
             report(player, job.removed);
             return;
@@ -86,8 +90,22 @@ public final class DeconstructJob {
             job.chunksX * job.chunksY * job.chunksZ), true);
     }
 
+    /**
+     * 是否还有未处理的子块。
+     *
+     * <p>⚠️ <b>2026-09-19 修 bug</b>:原先写的是 {@code return cz < chunksZ;} —— 只看 z 轴。
+     * 而 {@link #runOneChunk} 的推进是 <b>z → y → x 三级进位</b>:当 z、y 都走完时
+     * {@code cz} 会被**重置为 0**, 于是 {@code cz < chunksZ} 又成立 ⇒ 该方法**永远返回 true**
+     * (循环里 x 越界后内层三层 for 都不执行, 于是变成纯空转)。</p>
+     *
+     * <p>后果:{@code start()} 里的 {@code while (hasNext()) runOneChunk(...)} **无限空转**,
+     * 服务端单个 tick 卡死 —— 单机时客户端跟着一起冻。已实测(ModernFix 集成服务器看门狗报
+     * "A single server tick has taken 40001 ms", 线程栈正落在这两行)。</p>
+     *
+     * <p>正确判据是看最外层的 x 轴:全部子块处理完后 {@code cx} 恰好等于 {@code chunksX}。</p>
+     */
     private boolean hasNext() {
-        return cz < chunksZ;
+        return cx < chunksX;
     }
 
     /** 处理一个 16³ 子块。 */
