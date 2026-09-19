@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.mode.DeconstructScope;
+import com.simibubi.create.content.equipment.wrench.IWrenchable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -86,6 +87,11 @@ public final class DeconstructJob {
 
         DeconstructJob job = new DeconstructJob(level, player.getUUID(), scope,
             minX, minY, minZ, maxX, maxY, maxZ);
+
+        // 用户要求: 拆除时在**玩家处播放一次** Create 扳手音效。
+        // (Create 的默认实现是**每格**一次 —— 批量拆除时那是成千上万个音效事件, 正是卡顿来源之一;
+        //  现改为整次操作只播一次, 位置取玩家脚下, 保留"扳手把东西拆下来"的听感。)
+        IWrenchable.playRemoveSound(level, player.blockPosition());
 
         job.runSlice(player);
 
