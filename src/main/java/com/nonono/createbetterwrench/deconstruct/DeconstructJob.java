@@ -41,14 +41,29 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  */
 public final class DeconstructJob {
 
-    /** 每刻的时间预算(纳秒)。10ms ≈ 一个 50ms tick 的 20%, 留足余量给别的系统。 */
-    private static final long BUDGET_NANOS = 10_000_000L;
+    /** 每刻的时间预算(纳秒)。5ms ≈ 一个 50ms tick 的 10% —— 留足余量给渲染与其它系统。 */
+    private static final long BUDGET_NANOS = 5_000_000L;
+
+    /**
+     * 提交时**当场**跑的那一小段预算。
+     *
+     * <p>刻意取每刻预算的一半:这段是在<b>当前 tick 内</b>额外执行的, 若也跑满一个完整预算,
+     * 那么"提交的那一 tick"会承担两份工作(表现为开始时更明显的一次顿挫)。
+     * 减半后小选区照样立即完成, 而首刻不会超标。</p>
+     */
+    private static final long START_BUDGET_NANOS = BUDGET_NANOS / 2;
 
     /** 单刻处理的格数硬上限(兜底;正常由时间预算先触发)。 */
     private static final int MAX_BLOCKS_PER_TICK = 4096;
 
-    /** 每处理这么多格才查一次时钟 —— {@code System.nanoTime()} 很便宜, 但没必要每格都查。 */
-    private static final int TIME_CHECK_INTERVAL = 64;
+    /**
+     * 每处理这么多格才查一次时钟。
+     *
+     * <p>{@code System.nanoTime()} 很便宜(约 20ns), 没必要每格都查;
+     * 但间隔也不能大:按每格 ~0.06ms 估算, 间隔 64 会让检查点落在 ~3.8ms 处 ⇒
+     * 实际可能冲到 ~7.6ms 才停(超调 50%)。取 16 可把超调压到 ~1ms。</p>
+     */
+    private static final int TIME_CHECK_INTERVAL = 16;
 
     private final ServerLevel level;
     private final UUID playerId;
@@ -93,7 +108,7 @@ public final class DeconstructJob {
         DeconstructJob job = new DeconstructJob(level, player.getUUID(), scope,
             minX, minY, minZ, maxX, maxY, maxZ);
 
-        job.runBudgeted(player);
+        job.runBudgeted(player, START_BUDGET_NANOS);
 
         if (job.done) {
             // 小选区: 当场做完, 保持即时反馈
@@ -107,9 +122,9 @@ public final class DeconstructJob {
             "msg." + BetterWrenchMod.MODID + ".deconstruct.batching", job.volume), true);
     }
 
-    /** 在时间预算内尽量多处理几格;到点或做完就返回。 */
-    private void runBudgeted(ServerPlayer player) {
-        long deadline = System.nanoTime() + BUDGET_NANOS;
+    /** 在给定时间预算内尽量多处理几格;到点或做完就返回。 */
+    private void runBudgeted(ServerPlayer player, long budgetNanos) {
+        long deadline = System.nanoTime() + budgetNanos;
         int processed = 0;
         while (!done && processed < MAX_BLOCKS_PER_TICK) {
             int x = minX + cx, y = minY + cy, z = minZ + cz;
@@ -162,7 +177,7 @@ public final class DeconstructJob {
                 continue;
             }
             if (!job.done) {
-                job.runBudgeted(player);
+                job.runBudgeted(player, BUDGET_NANOS);
             }
             if (job.done) {
                 it.remove();
