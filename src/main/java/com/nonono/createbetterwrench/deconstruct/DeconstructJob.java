@@ -20,50 +20,29 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
- * 「拆除」的**按时间预算的分帧执行器**。
+ * 「拆除」的**逐刻执行器**:把一个大选区切成若干片, 每服务端刻处理一片。
  *
- * <p>大范围拆除若一次跑完, 每格都要 {@code BlockState} 查询 + {@code BlockEvent.BreakEvent} 广播 +
- * loot table + {@code destroyBlock}, 会长时间占住服务端主线程(单机下客户端一并冻住)。</p>
+ * <p>为什么需要分片:一次拆几千格会长时间占住服务端主线程(单机时客户端一起冻)。
+ * 但**分片的粒度不该按时间预算精调** —— 实测表明卡顿的真正来源是
+ * <b>Create {@code onSneakWrenched} 每格产生的破坏粒子 / 音效 / 经验球</b>,
+ * 而不是拆除本身的计算量。那部分已在 {@link DeconstructLogic#deconstructBlock} 里
+ * 通过"静默拆除"消除(绝大多数方块不再走 Create 那条产生特效的路径)。</p>
  *
- * <h2>为什么不是"每刻一个 16³ 子块"</h2>
- * <p>最初按 16³ 子块分批: 每刻处理一个子块。但一个子块最多 **4096 格** ——
- * 实测 16240 格 / 8 批时**每刻要干约 2000 格, 造成约 1 秒卡顿**。
- * 批的"粒度"其实由**单刻的工作量**决定, 而不是由几何切块决定。</p>
+ * <p>所以这里只用**一个朴素的固定片大小** {@link #BLOCKS_PER_TICK}:每刻最多处理这么多格。
+ * 简单、可预测、便于解释, 没有时钟读取也没有自适应逻辑。</p>
  *
- * <p>现在改成**时间预算**: 每刻最多干 {@link #BUDGET_NANOS} 纳秒(默认 10ms, 约占一个 tick 的 20%),
- * 到点就停、下一 tick 接着从游标处继续。这样单刻开销**有上界**, 无论选区多大都不会再"卡一下";
- * 代价是大选区耗时变长(16k 格 ≈ 5 秒), 但期间**一直流畅**且能看见逐片消失。</p>
- *
- * <p>另加一道硬上限 {@link #MAX_BLOCKS_PER_TICK} 兜底(防止个别方块极廉价时单刻处理过多)。</p>
- *
- * <p>提交时先**当场**跑一个预算: 小选区因此立即完成(保持原有的即时反馈, 无延迟感);
- * 没跑完才登记为跨刻任务。同一玩家只保留一个任务;玩家登出/换维度会丢弃任务。</p>
+ * <p>提交时先**当场处理一片**:小选区因此立即完成(保持即时反馈), 没做完才登记为跨刻任务。
+ * 同一玩家只保留一个任务;玩家登出或换维度会丢弃任务。</p>
  */
 public final class DeconstructJob {
 
-    /** 每刻的时间预算(纳秒)。5ms ≈ 一个 50ms tick 的 10% —— 留足余量给渲染与其它系统。 */
-    private static final long BUDGET_NANOS = 5_000_000L;
-
     /**
-     * 提交时**当场**跑的那一小段预算。
+     * 每服务端刻处理的格数上限。
      *
-     * <p>刻意取每刻预算的一半:这段是在<b>当前 tick 内</b>额外执行的, 若也跑满一个完整预算,
-     * 那么"提交的那一 tick"会承担两份工作(表现为开始时更明显的一次顿挫)。
-     * 减半后小选区照样立即完成, 而首刻不会超标。</p>
+     * <p>取 1024:静默拆除后每格只剩「BreakEvent + 产物入包 + removeBlock」,
+     * 16240 格约 16 刻(≈0.8 秒)完成。若改大则单刻更重(可能感觉到顿), 改小则总耗时更长。</p>
      */
-    private static final long START_BUDGET_NANOS = BUDGET_NANOS / 2;
-
-    /** 单刻处理的格数硬上限(兜底;正常由时间预算先触发)。 */
-    private static final int MAX_BLOCKS_PER_TICK = 4096;
-
-    /**
-     * 每处理这么多格才查一次时钟。
-     *
-     * <p>{@code System.nanoTime()} 很便宜(约 20ns), 没必要每格都查;
-     * 但间隔也不能大:按每格 ~0.06ms 估算, 间隔 64 会让检查点落在 ~3.8ms 处 ⇒
-     * 实际可能冲到 ~7.6ms 才停(超调 50%)。取 16 可把超调压到 ~1ms。</p>
-     */
-    private static final int TIME_CHECK_INTERVAL = 16;
+    private static final int BLOCKS_PER_TICK = 1024;
 
     private final ServerLevel level;
     private final UUID playerId;
@@ -98,7 +77,7 @@ public final class DeconstructJob {
         return volume;
     }
 
-    /** 提交一次拆除请求: 先当场跑一个预算;没跑完再登记为跨刻任务。 */
+    /** 提交一次拆除请求: 先当场处理一片;没做完再登记为跨刻任务。 */
     public static void start(ServerLevel level, ServerPlayer player, BlockPos a, BlockPos b,
                              DeconstructScope scope) {
         int minX = Math.min(a.getX(), b.getX()), maxX = Math.max(a.getX(), b.getX());
@@ -108,7 +87,7 @@ public final class DeconstructJob {
         DeconstructJob job = new DeconstructJob(level, player.getUUID(), scope,
             minX, minY, minZ, maxX, maxY, maxZ);
 
-        job.runBudgeted(player, START_BUDGET_NANOS);
+        job.runSlice(player);
 
         if (job.done) {
             // 小选区: 当场做完, 保持即时反馈
@@ -122,11 +101,9 @@ public final class DeconstructJob {
             "msg." + BetterWrenchMod.MODID + ".deconstruct.batching", job.volume), true);
     }
 
-    /** 在给定时间预算内尽量多处理几格;到点或做完就返回。 */
-    private void runBudgeted(ServerPlayer player, long budgetNanos) {
-        long deadline = System.nanoTime() + budgetNanos;
-        int processed = 0;
-        while (!done && processed < MAX_BLOCKS_PER_TICK) {
+    /** 处理至多 {@link #BLOCKS_PER_TICK} 格;做完就置 done。 */
+    private void runSlice(ServerPlayer player) {
+        for (int i = 0; i < BLOCKS_PER_TICK && !done; i++) {
             int x = minX + cx, y = minY + cy, z = minZ + cz;
             BlockPos pos = new BlockPos(x, y, z);
             BlockState state = level.getBlockState(pos);
@@ -135,11 +112,6 @@ public final class DeconstructJob {
                 removed++;
             }
             advance();
-
-            processed++;
-            if ((processed % TIME_CHECK_INTERVAL) == 0 && System.nanoTime() >= deadline) {
-                break;
-            }
         }
     }
 
@@ -177,7 +149,7 @@ public final class DeconstructJob {
                 continue;
             }
             if (!job.done) {
-                job.runBudgeted(player, BUDGET_NANOS);
+                job.runSlice(player);
             }
             if (job.done) {
                 it.remove();

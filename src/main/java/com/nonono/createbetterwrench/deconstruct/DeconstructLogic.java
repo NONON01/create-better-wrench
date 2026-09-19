@@ -1,5 +1,9 @@
 package com.nonono.createbetterwrench.deconstruct;
 
+import java.lang.reflect.Method;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import com.nonono.createbetterwrench.mode.DeconstructScope;
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
 
@@ -12,7 +16,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -81,12 +84,34 @@ public final class DeconstructLogic {
     /**
      * 拆除指定的一个方块, 产物进背包(满则掉落脚下)。
      *
-     * <p><b>关键</b>: 只要方块是 {@link IWrenchable}, 就把拆除**交还给 Create 自己的
-     * {@link IWrenchable#onSneakWrenched}**, 而不是自己 {@code destroyBlock}。
-     * 因为多方块结构的连带拆除正是写在各个子类的覆盖实现里 —— 例如
-     * {@code WaterWheelStructuralBlock} 会把点击位置**重定向到主方块**再整体拆掉
-     * (大型水车/大水泵)。自己 destroy 只能拆掉一半, 留下孤儿方块。
-     * 走这条路还顺带获得了 {@code BlockEvent.BreakEvent}(领地保护插件)与创造模式不掉落的正确行为。</p>
+     * <h2>为什么不再无条件走 Create 的 {@code onSneakWrenched}</h2>
+     * <p>早期实现是"只要是 {@link IWrenchable} 就交给 Create", 好处是自动获得多方块连带拆除。
+     * 但 Create 的默认实现({@code IWrenchable#onSneakWrenched})**每格**都会做三件很贵的事:</p>
+     * <pre>
+     *   state.spawnAfterBreak(serverLevel, pos, ItemStack.EMPTY, true);  // 破坏粒子 + 经验
+     *   world.destroyBlock(pos, false);                                  // levelEvent(2001) => 原版破坏粒子爆发 + 音效
+     *   playRemoveSound(world, pos);                                     // Create 扳手音效
+     * </pre>
+     * <p>单格使用完全没问题;但**批量拆除**(实测 16240 格 / 8 批, 约 2000 格每刻)会产生
+     * **约 2000 个音效事件 + 十万级粒子 + 经验球**, 把客户端直接卡住 —— 这正是用户反馈的
+     * "极其短暂的卡顿"的来源(与拆除本身的计算量无关)。</p>
+     *
+     * <h2>现在的做法</h2>
+     * <ul>
+     *   <li><b>绝大多数方块</b>:自己做"静默拆除" —— 发 {@code BlockEvent.BreakEvent}(领地保护照常生效)、
+     *       产物进背包, 然后 {@code level.removeBlock()}(<b>不触发</b> {@code levelEvent(2001)}),
+     *       因此**没有破坏粒子、没有破坏音效、没有经验球**;</li>
+     *   <li><b>少数重写了 {@code onSneakWrenched} 的方块</b>(Create 6.0.10 里共 **9 个类**:
+     *       {@code CartAssemblerBlock} / {@code CopycatBlock} / {@code WhistleExtenderBlock} /
+     *       {@code ChainConveyorBlock} / {@code EncasedCogwheelBlock} / {@code EncasedShaftBlock} /
+     *       {@code WaterWheelStructuralBlock} / {@code FactoryPanelBlock} / {@code TrackBlock}。
+     *       例如前者会把拆除重定向到主方块)仍然**交还给 Create**,
+     *       否则会留下孤儿方块。它们数量少, 那点粒子开销无所谓。</li>
+     * </ul>
+     *
+     * <p>⚠️ 刻意的一个取舍: 静默路径**不再产生经验球**({@code spawnAfterBreak} 的 {@code dropExperience=true}
+     * 是 XP 的主要来源)。批量拆除是便利操作, 少掉这点经验可以接受;若将来要保留,
+     * 应改为"整批结束后统一结算经验", 而不是每格刷一轮。</p>
      *
      * @return 是否真的把这个位置的方块拆掉了(用于计数)
      */
@@ -95,7 +120,8 @@ public final class DeconstructLogic {
         if (!isWrenchRemovable(state))
             return false;
 
-        if (state.getBlock() instanceof IWrenchable wrenchable) {
+        if (state.getBlock() instanceof IWrenchable wrenchable && overridesSneakWrench(state.getBlock())) {
+            // 有多方块连带拆除逻辑的少数方块: 只能交给 Create 自己处理
             UseOnContext context = new UseOnContext(level, player, InteractionHand.MAIN_HAND,
                 player.getMainHandItem(),
                 new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
@@ -104,9 +130,7 @@ public final class DeconstructLogic {
             return level.getBlockState(pos).isAir();
         }
 
-        // 只靠 create:wrench_pickup tag 被纳入的普通方块: 它没有 IWrenchable 逻辑, 沿用简单路径。
-        // ⚠️ 但**必须**同样先发 BlockEvent.BreakEvent —— 否则领地保护类插件拦不住这条分支,
-        //    行为与上面的 IWrenchable 路径不一致(审计发现 #8)。
+        // 静默拆除(绝大多数方块走这里)
         BlockEvent.BreakEvent event = new BlockEvent.BreakEvent(level, pos, state, player);
         NeoForge.EVENT_BUS.post(event);
         if (event.isCanceled())
@@ -115,9 +139,31 @@ public final class DeconstructLogic {
         if (!player.isCreative())
             Block.getDrops(state, level, pos, level.getBlockEntity(pos), player, player.getMainHandItem())
                 .forEach(stack -> player.getInventory().placeItemBackInInventory(stack));
-        state.spawnAfterBreak(level, pos, ItemStack.EMPTY, true);
-        level.destroyBlock(pos, false);
+
+        // ⚠️ 用 removeBlock 而不是 destroyBlock: 后者会发 levelEvent(2001) => 客户端爆发破坏粒子 + 音效。
+        //    批量拆除时那正是卡顿来源。removeBlock 照样会正确移除方块实体、发邻居更新。
+        level.removeBlock(pos, false);
         return true;
+    }
+
+    /** 缓存"该方块类是否重写了 onSneakWrenched", 避免每格反射一次。 */
+    private static final Map<Class<?>, Boolean> SNEAK_OVERRIDE = new ConcurrentHashMap<>();
+
+    /**
+     * 该方块类是否**重写**了 {@link IWrenchable#onSneakWrenched}。
+     *
+     * <p>用反射判断而不是硬编码类型清单: 这样不依赖具体 Create 版本有哪些多方块,
+     * 将来 Create 新增/改动结构方块也能自动跟上(重写者一律走 Create 路径)。</p>
+     */
+    private static boolean overridesSneakWrench(Block block) {
+        return SNEAK_OVERRIDE.computeIfAbsent(block.getClass(), c -> {
+            try {
+                Method m = c.getMethod("onSneakWrenched", BlockState.class, UseOnContext.class);
+                return m.getDeclaringClass() != IWrenchable.class;
+            } catch (NoSuchMethodException e) {
+                return false;
+            }
+        });
     }
 
     /**
