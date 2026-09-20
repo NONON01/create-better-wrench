@@ -13,7 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
  * <pre>[CBW]:    你没有权限打开战斗模式(需要OP权限)</pre>
  * <ul>
  *   <li>前缀 {@code [CBW]:} —— <b>黄色 + 加粗</b>;</li>
- *   <li>前缀与正文之间 —— **4 个空格**;</li>
+ *   <li>前缀与正文之间 —— **2 个空格**;</li>
  *   <li>正文 —— <b>标准白色、不加粗</b>。</li>
  * </ul>
  *
@@ -29,8 +29,8 @@ public final class ChatFeedback {
     /** 模组前缀(黄色加粗)。 */
     private static final String PREFIX = "[CBW]:";
 
-    /** 前缀与正文之间的间隔:4 个空格。 */
-    private static final String GAP = "    ";
+    /** 前缀与正文之间的间隔:2 个空格。 */
+    private static final String GAP = "  ";
 
     private ChatFeedback() {
     }
