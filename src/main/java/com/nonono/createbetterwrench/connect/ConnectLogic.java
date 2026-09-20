@@ -1,8 +1,11 @@
 package com.nonono.createbetterwrench.connect;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
+import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.mode.ConnectCorner;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllItems;
@@ -30,7 +33,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
  * 「连接」模式的服务端核心 —— 拐点数量不限, 每段边按几何自动路由。
  *
  * <p>交互(用户 2026-09-07 重定义):
- * 起点 S(机械动力方块) → 若干普通方块拐点 c1..ck(数量不限) → 终点 E(机械动力方块)。</p>
+ * 起点 S(机械动力方块) → 若干普通方块拐点 c1..ck(最多 32 个, 见 ConnectPayload.MAX_CORNERS) → 终点 E(机械动力方块)。</p>
  *
  * <p>每段相邻节点 a→b 的边按三档自动路由:
  * <ul>
@@ -41,7 +44,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
  *
  * <p>每个方向改变处(被点拐点 + 每条拐弯边的自动角点)放一个齿轮箱。默认材料: 轴 create:shaft +
  * 齿轮箱 create:gearbox(水平转) / create:vertical_gearbox(涉竖直转); 副手持轴变体则优先用副手。
- * 放置先校验材料足量, 不足整拒不部分放; 双源方向冲突预检防炸块。</p>
+ * 放置前按 Item 聚合校验材料足量, 不足整拒不部分放; 扣料只按逐格校验通过的实际落块数。</p>
  */
 public final class ConnectLogic {
 
@@ -54,16 +57,18 @@ public final class ConnectLogic {
         SUCCESS,
         UNLOADED,
         NOT_KINETIC,
-        AXIS_MISMATCH,
-        BAD_TURN,
         NON_PLANAR,
         SAME_POS,
         PATH_BLOCKED,
         CORNER_NO_ROOM,
-        CONFLICTING_SOURCE,
         MATERIALS,
         TOO_LONG
     }
+
+    /** 计划格登记结果(见 {@link #registerCell})。 */
+    private static final int CELL_ADDED = 1;
+    private static final int CELL_DUPLICATE = 0;
+    private static final int CELL_CONFLICT = -1;
 
     /** 一截直线轴段(from→to, 不含两端, 沿 axis), to 若为节点则其上是齿轮箱。 */
     private static final class Leg {
@@ -154,14 +159,12 @@ public final class ConnectLogic {
         for (int i = 0; i < chain.size() - 1; i++) {
             boolean first = i == 0;
             Leg[] edge = routeEdge(world, chain.get(i), chain.get(i + 1), first,
-                start, world.getBlockState(start));
+                start, end, world.getBlockState(start));
             if (edge == null)
                 return new ResultOutcome(edgeResult(world, chain.get(i), chain.get(i + 1)), null);
             for (Leg l : edge)
                 legs.add(l);
         }
-        if (legs.isEmpty())
-            return new ResultOutcome(Result.AXIS_MISMATCH, null);
 
         // 端点轴口校验
         Leg firstLeg = legs.get(0);
@@ -183,10 +186,17 @@ public final class ConnectLogic {
             List<BlockPos> cells = interiorCells(leg.from, leg.to, leg.axis);
             if (cells == null)
                 return new ResultOutcome(Result.TOO_LONG, null);
+            // 审计 A-5: 中间格也必须已加载 —— Level#getBlockState 会阻塞式加载/生成区块,
+            // 所以绝不能让它走到后面的 occupied()。节点级校验(上方 isLoaded)挡不住路径穿的未加载区。
+            for (BlockPos p : cells)
+                if (!world.hasChunkAt(p))
+                    return new ResultOutcome(Result.UNLOADED, null);
             legCells.add(cells);
         }
 
         Plan plan = new Plan();
+        // 审计 A-4: 记录"已规划坐标 → 该格要放什么", 用于去重/冲突检测, 并禁止任何计划格落到起点/终点上
+        Map<BlockPos, String> planned = new LinkedHashMap<>();
 
         // 每个内部节点(被点拐点 / 自动角点): 按拐角类型放齿轮箱 或 两个大齿轮
         for (int i = 0; i < legs.size() - 1; i++) {
@@ -207,15 +217,27 @@ public final class ConnectLogic {
                 // 所以必须在这里单独校验, 否则大齿轮会直接覆盖掉角上的既有方块。
                 if (occupied(world, l1) || occupied(world, l2))
                     return new ResultOutcome(Result.PATH_BLOCKED, null);
-                plan.cogs.add(new CogPlace(l1, cur.axis));
-                plan.cogs.add(new CogPlace(l2, next.axis));
+                int r1 = registerCell(planned, l1, "COG:" + cur.axis, start, end);
+                int r2 = registerCell(planned, l2, "COG:" + next.axis, start, end);
+                if (r1 == CELL_CONFLICT || r2 == CELL_CONFLICT)
+                    return new ResultOutcome(Result.PATH_BLOCKED, null);
+                if (r1 != CELL_DUPLICATE)
+                    plan.cogs.add(new CogPlace(l1, cur.axis));
+                if (r2 != CELL_DUPLICATE)
+                    plan.cogs.add(new CogPlace(l2, next.axis));
             } else {
                 // 齿轮箱节点: 允许把**可替换方块/已有轴**换成齿轮箱, 但**不能无条件覆盖**别的东西
                 // (审计发现 #7: 原来这里完全不校验, 角点落在箱子等机器上会直接把方块抹掉)
+                if (!world.hasChunkAt(jp))
+                    return new ResultOutcome(Result.UNLOADED, null);
                 if (occupied(world, jp))
                     return new ResultOutcome(Result.PATH_BLOCKED, null);
                 Axis gax = junctionAxis(cur.axis, next.axis);
-                plan.gearboxes.add(new GearboxPlace(jp, gax, gax != Axis.Y));
+                int r = registerCell(planned, jp, "GEARBOX:" + gax, start, end);
+                if (r == CELL_CONFLICT)
+                    return new ResultOutcome(Result.PATH_BLOCKED, null);
+                if (r != CELL_DUPLICATE)
+                    plan.gearboxes.add(new GearboxPlace(jp, gax, gax != Axis.Y));
             }
         }
 
@@ -225,12 +247,36 @@ public final class ConnectLogic {
             for (BlockPos p : legCells.get(i)) {
                 if (occupied(world, p))
                     return new ResultOutcome(Result.PATH_BLOCKED, null);
-                plan.shaftPositions.add(p);
-                plan.shaftAxes.add(ax);
+                int r = registerCell(planned, p, "SHAFT:" + ax, start, end);
+                if (r == CELL_CONFLICT)
+                    return new ResultOutcome(Result.PATH_BLOCKED, null);
+                if (r != CELL_DUPLICATE) {
+                    plan.shaftPositions.add(p);
+                    plan.shaftAxes.add(ax);
+                }
             }
         }
 
         return new ResultOutcome(Result.SUCCESS, plan);
+    }
+
+    /**
+     * 登记一个计划格(审计 A-4)。
+     *
+     * <p>同一坐标、同一内容 → {@link #CELL_DUPLICATE}(调用方跳过: 不重复计材料、不重复放置);
+     * 同一坐标、不同内容(例如先排竖直齿轮箱后又排水平齿轮箱) → {@link #CELL_CONFLICT};
+     * 坐标等于起点或终点 → 同样判冲突(绝不允许把起点/终点方块换成齿轮箱或轴)。</p>
+     */
+    private static int registerCell(Map<BlockPos, String> planned, BlockPos pos, String kind,
+                                    BlockPos start, BlockPos end) {
+        if (pos.equals(start) || pos.equals(end))
+            return CELL_CONFLICT;
+        String prev = planned.get(pos);
+        if (prev == null) {
+            planned.put(pos.immutable(), kind);
+            return CELL_ADDED;
+        }
+        return prev.equals(kind) ? CELL_DUPLICATE : CELL_CONFLICT;
     }
 
     private static Result edgeResult(Level world, BlockPos a, BlockPos b) {
@@ -245,7 +291,7 @@ public final class ConnectLogic {
 
     /** 路由一条边: 返回 1(直线)或 2(一次拐弯)个轴段; 无法路由返回 null。 */
     private static Leg[] routeEdge(Level world, BlockPos a, BlockPos b, boolean first,
-                                   BlockPos start, BlockState startState) {
+                                   BlockPos start, BlockPos end, BlockState startState) {
         List<Axis> ds = differingAxes(a, b);
         int n = ds.size();
         if (n == 0 || n >= 3)
@@ -275,16 +321,24 @@ public final class ConnectLogic {
         } else if (!pOk) {
             return null; // 两种都不可用
         } else {
-            // 两种都可用: 优先避免拐点"紧贴端点"(尤其紧贴终点方块), 再兼顾起点旋转轴
-            int scoreP = orientationScore(a, b, cornerP);
-            int scoreQ = orientationScore(a, b, cornerQ);
-            if (scoreP != scoreQ) {
-                useP = scoreP > scoreQ;
-            } else if (first) {
-                Axis rax = ((IRotate) startState.getBlock()).getRotationAxis(startState);
-                useP = p == rax ? true : (q == rax ? false : true);
+            // 两种都可用: 先避开"自动拐点正好落在起点/终点上"的取向
+            // (审计 A-4: 那样的拐点会变成齿轮箱, 把起点/终点方块覆盖掉), 再按分数与起点旋转轴挑
+            boolean onEndP = cornerP.equals(start) || cornerP.equals(end);
+            boolean onEndQ = cornerQ.equals(start) || cornerQ.equals(end);
+            if (onEndP != onEndQ) {
+                useP = !onEndP;
             } else {
-                useP = true; // 取第一个差异轴(确定)
+                // 优先避免拐点"紧贴端点"(尤其紧贴终点方块), 再兼顾起点旋转轴
+                int scoreP = orientationScore(a, b, cornerP);
+                int scoreQ = orientationScore(a, b, cornerQ);
+                if (scoreP != scoreQ) {
+                    useP = scoreP > scoreQ;
+                } else if (first) {
+                    Axis rax = ((IRotate) startState.getBlock()).getRotationAxis(startState);
+                    useP = p == rax ? true : (q == rax ? false : true);
+                } else {
+                    useP = true; // 取第一个差异轴(确定)
+                }
             }
         }
 
@@ -406,66 +460,118 @@ public final class ConnectLogic {
         if (totalBlocks > MAX_TOTAL_BLOCKS)
             return Result.TOO_LONG;
 
-        Item shaftItem = resolveShaftItem(player);
-        int shaftCount = plan.shaftPositions.size();
-        int gearboxCount = plan.gearboxes.size();
-        int verticalCount = 0;
+        // 审计 A-3: 每个将要落块的坐标都要先过原版交互权限(服务端实现里含出生点保护与世界边界)
+        for (BlockPos p : plan.shaftPositions)
+            if (!world.mayInteract(player, p))
+                return Result.PATH_BLOCKED;
         for (GearboxPlace g : plan.gearboxes)
-            if (g.vertical)
-                verticalCount++;
-        int horizontalCount = gearboxCount - verticalCount;
-        int cogCount = plan.cogs.size();
+            if (!world.mayInteract(player, g.pos))
+                return Result.PATH_BLOCKED;
+        for (CogPlace c : plan.cogs)
+            if (!world.mayInteract(player, c.pos))
+                return Result.PATH_BLOCKED;
 
+        Item shaftItem = resolveShaftItem(player);
         Item gearboxItem = AllBlocks.GEARBOX.asItem();
         Item verticalItem = AllItems.VERTICAL_GEARBOX.get();
         Item cogItem = AllBlocks.LARGE_COGWHEEL.asItem();
 
-        if (!player.isCreative()) {
-            if (countItem(player, shaftItem) < shaftCount)
-                return Result.MATERIALS;
-            if (horizontalCount > 0 && countItem(player, gearboxItem) < horizontalCount)
-                return Result.MATERIALS;
-            if (verticalCount > 0 && countItem(player, verticalItem) < verticalCount)
-                return Result.MATERIALS;
-            if (cogCount > 0 && countItem(player, cogItem) < cogCount)
-                return Result.MATERIALS;
-        }
+        // 审计 A-1: 材料需求先按 Item 聚合再一次性校验 —— 副手持"轴变体"(AbstractSimpleShaftBlock,
+        // 含 create:cogwheel / create:large_cogwheel)时 shaftItem 可能与 cogItem 是同一个 Item,
+        // 分头校验会造成"放 7 块只扣 5 个"的凭空造物。
+        if (!hasMaterials(player, plan))
+            return Result.MATERIALS;
 
-        // 放置
+        // 放置, 并逐格确认真的落上了(审计 A-16: switchToBlockState→setBlock 可能静默失败,
+        // 所以扣料只按"校验通过的实际落块数", 不能照 plan 计数扣)
         BlockState shaftBase = shaftBlockState(shaftItem);
+        Map<Item, Integer> placedItems = new LinkedHashMap<>();
         for (int i = 0; i < plan.shaftPositions.size(); i++) {
             BlockPos p = plan.shaftPositions.get(i);
             BlockState st = shaftBase.hasProperty(BlockStateProperties.AXIS)
                 ? shaftBase.setValue(BlockStateProperties.AXIS, plan.shaftAxes.get(i))
                 : shaftBase;
             KineticBlockEntity.switchToBlockState(world, p, st);
+            if (placed(world, p, st))
+                addDemand(placedItems, shaftItem, 1);
+            else
+                BetterWrenchMod.LOGGER.warn("connect: 轴未落下 {} (期望 {})", p, st);
         }
-        for (GearboxPlace g : plan.gearboxes)
-            KineticBlockEntity.switchToBlockState(world, g.pos,
-                AllBlocks.GEARBOX.getDefaultState()
-                    .setValue(BlockStateProperties.AXIS, g.axis == null ? Axis.Y : g.axis));
-        for (CogPlace c : plan.cogs)
-            KineticBlockEntity.switchToBlockState(world, c.pos,
-                AllBlocks.LARGE_COGWHEEL.getDefaultState()
-                    .setValue(BlockStateProperties.AXIS, c.axis));
+        for (GearboxPlace g : plan.gearboxes) {
+            BlockState st = AllBlocks.GEARBOX.getDefaultState()
+                .setValue(BlockStateProperties.AXIS, g.axis);
+            KineticBlockEntity.switchToBlockState(world, g.pos, st);
+            if (placed(world, g.pos, st))
+                addDemand(placedItems, g.vertical ? verticalItem : gearboxItem, 1);
+            else
+                BetterWrenchMod.LOGGER.warn("connect: 齿轮箱未落下 {} (期望 {})", g.pos, st);
+        }
+        for (CogPlace c : plan.cogs) {
+            BlockState st = AllBlocks.LARGE_COGWHEEL.getDefaultState()
+                .setValue(BlockStateProperties.AXIS, c.axis);
+            KineticBlockEntity.switchToBlockState(world, c.pos, st);
+            if (placed(world, c.pos, st))
+                addDemand(placedItems, cogItem, 1);
+            else
+                BetterWrenchMod.LOGGER.warn("connect: 大齿轮未落下 {} (期望 {})", c.pos, st);
+        }
 
         world.playSound(null, BlockPos.containing(
             net.createmod.catnip.math.VecHelper.getCenterOf(start.offset(end)).scale(.5f)),
             SoundEvents.WOOL_PLACE, SoundSource.BLOCKS, 0.5F, 1F);
 
-        // 扣料(creative 跳过)
+        // 扣料(creative 跳过): 只按真正落下的方块数扣
         if (!player.isCreative()) {
-            if (shaftCount > 0)
-                consumeItem(player, shaftItem, shaftCount);
-            if (horizontalCount > 0)
-                consumeItem(player, gearboxItem, horizontalCount);
-            if (verticalCount > 0)
-                consumeItem(player, verticalItem, verticalCount);
-            if (cogCount > 0)
-                consumeItem(player, cogItem, cogCount);
+            for (Map.Entry<Item, Integer> e : placedItems.entrySet())
+                if (!consumeItem(player, e.getKey(), e.getValue()))
+                    BetterWrenchMod.LOGGER.warn("connect: 扣料不足 {} x{} (玩家 {})",
+                        e.getKey(), e.getValue(), player.getName().getString());
         }
 
         return Result.SUCCESS;
+    }
+
+    /** 落块是否真的生效(Level#setBlock 在 debug 世界等情形会静默返回 false)。 */
+    private static boolean placed(Level world, BlockPos pos, BlockState target) {
+        BlockState now = world.getBlockState(pos);
+        if (now.getBlock() != target.getBlock())
+            return false;
+        if (target.hasProperty(BlockStateProperties.AXIS) && now.hasProperty(BlockStateProperties.AXIS))
+            return now.getValue(BlockStateProperties.AXIS) == target.getValue(BlockStateProperties.AXIS);
+        return true;
+    }
+
+    /** 本单按 Item 聚合的需求量(同一 Item 的多项用途必须累加, 见审计 A-1)。 */
+    private static Map<Item, Integer> demandOf(Plan plan, Item shaftItem) {
+        Map<Item, Integer> demand = new LinkedHashMap<>();
+        addDemand(demand, shaftItem, plan.shaftPositions.size());
+        addDemand(demand, AllBlocks.GEARBOX.asItem(), gearboxCount(plan.gearboxes, false));
+        addDemand(demand, AllItems.VERTICAL_GEARBOX.get(), gearboxCount(plan.gearboxes, true));
+        addDemand(demand, AllBlocks.LARGE_COGWHEEL.asItem(), plan.cogs.size());
+        return demand;
+    }
+
+    private static int gearboxCount(List<GearboxPlace> gearboxes, boolean vertical) {
+        int count = 0;
+        for (GearboxPlace g : gearboxes)
+            if (g.vertical == vertical)
+                count++;
+        return count;
+    }
+
+    private static void addDemand(Map<Item, Integer> demand, Item item, int count) {
+        if (count > 0)
+            demand.merge(item, count, Integer::sum);
+    }
+
+    /** 计划所需材料是否齐备(客户端幽灵预览与服务端扣料共用同一口径)。 */
+    public static boolean hasMaterials(Player player, Plan plan) {
+        if (player.isCreative())
+            return true;
+        for (Map.Entry<Item, Integer> e : demandOf(plan, resolveShaftItem(player)).entrySet())
+            if (countItem(player, e.getKey()) < e.getValue())
+                return false;
+        return true;
     }
 
     private static BlockState shaftBlockState(Item shaftItem) {
@@ -495,7 +601,8 @@ public final class ConnectLogic {
         return count;
     }
 
-    private static void consumeItem(Player player, Item item, int count) {
+    /** 从背包(含副手)扣除指定物品; 扣不满返回 false(调用方须记录日志, 不静默吞掉)。 */
+    private static boolean consumeItem(Player player, Item item, int count) {
         int remain = count;
         for (int i = player.getInventory().items.size() - 1; i >= 0 && remain > 0; i--) {
             ItemStack stack = player.getInventory().items.get(i);
@@ -513,5 +620,6 @@ public final class ConnectLogic {
                 remain -= take;
             }
         }
+        return remain <= 0;
     }
 }

@@ -60,7 +60,7 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
             if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
                 && !sp.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH))
                 return;
-            // ③ 选区尺寸上限: 每轴 ≤ 128(挡住"改包发超大区域 ⇒ 服务端死循环"的卡服路径)
+            // ③ 选区尺寸上限: 每轴 ≤ 64(挡住"改包发超大区域 ⇒ 服务端长时间遍历"的卡服路径)
             int dx = Math.abs(cornerA.getX() - cornerB.getX()) + 1;
             int dy = Math.abs(cornerA.getY() - cornerB.getY()) + 1;
             int dz = Math.abs(cornerA.getZ() - cornerB.getZ()) + 1;
@@ -79,7 +79,7 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
             } catch (Exception e) {
                 scope = DeconstructScope.ALL;
             }
-            // 交给分帧执行器: 小选区当场完成;大选区切成 16³ 子块, 每刻一块, 避免卡服。
+            // 交给分帧执行器: 小选区当场完成;大选区按**固定片大小**(每服务端刻最多 1024 格)分帧, 避免卡服。
             // 拆除数量由执行器统一回报(actionbar), 文案见 msg.<modid>.deconstruct.count / .batching
             DeconstructJob.start((net.minecraft.server.level.ServerLevel) sp.level(),
                 sp, cornerA, cornerB, scope);

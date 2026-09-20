@@ -89,7 +89,14 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
             // ③ 拐点数量上限(解码层已有硬上限, 这里再兜一次)
             if (corners.size() > MAX_CORNERS)
                 return;
-            // ④ 所有节点所在区块必须已加载(避免被用来强制生成/加载区块)
+            // ④ 审计 A-3: 终点必须在玩家 8 格内(平方 64) —— 挡住改包客户端远程施工。
+            //    刻意**不校验** start/拐点: 玩家是一路走过去逐个点拐点的, 起点很可能已在很远处。
+            if (sp.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(end)) > 64.0) {
+                sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "msg." + BetterWrenchMod.MODID + ".connect.too_far"), true);
+                return;
+            }
+            // ⑤ 所有节点所在区块必须已加载(避免被用来强制生成/加载区块)
             if (!sp.level().hasChunkAt(start) || !sp.level().hasChunkAt(end))
                 return;
             for (BlockPos c : corners)

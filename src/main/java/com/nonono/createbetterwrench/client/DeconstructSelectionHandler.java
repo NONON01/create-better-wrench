@@ -74,6 +74,11 @@ public final class DeconstructSelectionHandler {
         Minecraft mc = Minecraft.getInstance();
         if (!active(mc))
             return false;
+        // 潜行 + 右键 = 放弃当前选区(cancel() 本来就有, 这里把输入接上; 见 docs/07 §6 A-14)
+        if (mc.player != null && mc.player.isShiftKeyDown()) {
+            cancel();
+            return true;
+        }
         BlockPos hit = rayTraceBlock(mc);
         if (hit == null)
             return true; // 没点到方块: 仍吃掉, 避免误触普通扳手
@@ -164,17 +169,12 @@ public final class DeconstructSelectionHandler {
             .lineWidth(1 / 16f);
     }
 
-    /** 供其它类查询当前是否已选 A(如 HUD 是否画提示)。 */
-    public static boolean hasCornerA() {
-        return cornerA != null;
-    }
-
-    /** 供其它类查询已选 A 的位置。 */
-    public static BlockPos getCornerA() {
-        return cornerA;
-    }
-
-    /** 潜行时取消已选的 A(供后续 Esc/Shift 取消)。 */
+    /**
+     * 丢掉当前未完成的选区(角 A + 预览框)。
+     *
+     * <p>两个调用方: ①客户端登出/切维度时的统一清理(`client/ClientStateReset`);
+     * ②玩家在拆除模式下 **Shift + 右键** 主动取消(见 docs/07 §6 A-14)。</p>
+     */
     public static void cancel() {
         resetSelection();
     }

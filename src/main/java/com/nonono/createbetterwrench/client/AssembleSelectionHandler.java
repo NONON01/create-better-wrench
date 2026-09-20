@@ -18,7 +18,7 @@ import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * 客户端: 手持扳手且处于**[加工] / [模组描述]** 模式时, 吃掉右键点击。
+ * 客户端: **主手**持有扳手且处于**[加工] / [模组描述]** 模式时, 吃掉右键点击。
  *
  * <ul>
  *   <li><b>[加工]</b>: 对着置物台右键 → 发包切换锁定状态; 对着**其它方块**右键 → 只吃掉, 不做事。</li>
@@ -28,9 +28,12 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * <p><b>为什么必须吃掉</b>: 不吃掉的话, 这次右键会正常发到服务端, 于是 Create 的扳手逻辑照常生效
  * (扭方块 / 拆方块 / 开界面) —— 也就是说这两个模式里右键还带着"扳手"语义, 这与模式设计冲突。</p>
  *
- * <p>吃掉 {@code MouseButton.Pre} 会让 {@code keyUse} 不被置为按下, MC 也就不会再连发右键, 正好符合需要。
- * 手持**加工材料**(如小齿轮)时本处理器不管, 交互照常发给服务端, 由
- * {@code AssembleInteractionHandler} 在已锁定的置物台上执行加工。</p>
+ * <p>吃掉 {@code MouseButton.Pre} 会让 {@code keyUse} 不被置为按下, MC 也就不会再连发右键, 正好符合需要。</p>
+ *
+ * <p><b>⚠️ 只有主手握扳手才吃(审计 A-9)</b>: 扳手在**副手**、主手拿的是加工材料时, 本处理器
+ * <b>不 cancel</b> —— 让这次右键照常发到服务端, 由 {@code AssembleInteractionHandler} 在已锁定的
+ * 置物台上执行加工。旧实现只要"任一只手"拿扳手就吃掉且不发包, 于是副手扳手 + 主手材料
+ * 完全无法加工(服务端其实是允许的, 见 {@code AssemblePayload} 的双手校验)。</p>
  */
 @EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
 public final class AssembleSelectionHandler {
@@ -38,12 +41,12 @@ public final class AssembleSelectionHandler {
     private AssembleSelectionHandler() {
     }
 
-    private static boolean active(Minecraft mc) {
-        if (mc.player == null)
-            return false;
-        if (!mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
-            && !mc.player.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH))
-            return false;
+    /** 主手是否持有本模组扳手(只有这种情况才吃掉右键)。 */
+    private static boolean mainHandWrench(Minecraft mc) {
+        return mc.player != null && mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH);
+    }
+
+    private static boolean modeActive() {
         WrenchMode mode = WrenchModeSwitcher.current;
         return mode == WrenchMode.ASSEMBLE || mode == WrenchMode.COMING_SOON;
     }
@@ -55,7 +58,10 @@ public final class AssembleSelectionHandler {
             return;
         if (event.getAction() != 1 || event.getButton() != 1) // 右键按下
             return;
-        if (!active(mc))
+        // 副手扳手 + 主手材料: 放行, 让服务端在已锁定的置物台上施加材料
+        if (!mainHandWrench(mc))
+            return;
+        if (!modeActive())
             return;
         HitResult hit = mc.hitResult;
         if (hit == null || hit.getType() != HitResult.Type.BLOCK)
@@ -71,7 +77,7 @@ public final class AssembleSelectionHandler {
             }
         }
 
-        // 无论目标是哪种方块都吃掉本次点击, 避免右键落到扳手语义上
+        // 主手持扳手时, 无论目标是哪种方块都吃掉本次点击, 避免右键落到扳手语义上
         event.setCanceled(true);
     }
 }

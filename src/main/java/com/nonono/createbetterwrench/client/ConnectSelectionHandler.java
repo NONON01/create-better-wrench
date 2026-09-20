@@ -18,6 +18,7 @@ import net.createmod.catnip.outliner.Outliner;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -72,6 +73,11 @@ public final class ConnectSelectionHandler {
         Minecraft mc = Minecraft.getInstance();
         if (!active(mc))
             return false;
+        // 审计 A-14: Shift+右键 = 放弃当前起点与全部拐点(在 active 判定之后)
+        if (mc.player.isShiftKeyDown()) {
+            resetSelection();
+            return true;
+        }
         BlockHitResult bhr = rayTraceHit(mc);
 
         if (bhr == null) {
@@ -79,7 +85,7 @@ public final class ConnectSelectionHandler {
             if (startPos != null) {
                 BlockPos air = airCellFromLook(mc);
                 if (air != null && !air.equals(startPos))
-                    corners.add(air);
+                    addCorner(mc, air);
             }
             return true;
         }
@@ -106,11 +112,33 @@ public final class ConnectSelectionHandler {
         }
 
         // 拐点 = 直接选中"空气格": 取点击方块命中面旁的空气格(不选中完整方块本身)
-        corners.add(hit.relative(bhr.getDirection()));
+        addCorner(mc, hit.relative(bhr.getDirection()));
         return true;
     }
 
+    /**
+     * 追加一个拐点(审计 A-2)。
+     *
+     * <p>拐点数量必须与 {@link ConnectPayload#MAX_CORNERS} 对齐: 客户端若不设上限, 第 33 个拐点会让
+     * 服务端的载荷解码抛出 DecoderException, 直接把玩家踢下线(且此时选点已被清空, 没有任何提示)。
+     * 与**最后一个拐点重复**的格也直接忽略 —— 零长边会被服务端整单判 SAME_POS 拒连。</p>
+     */
+    private static void addCorner(Minecraft mc, BlockPos pos) {
+        if (corners.size() >= ConnectPayload.MAX_CORNERS) {
+            if (mc.player != null)
+                mc.player.displayClientMessage(Component.translatable(
+                    "hint." + BetterWrenchMod.MODID + ".connect.corner_limit"), true);
+            return;
+        }
+        if (!corners.isEmpty() && corners.get(corners.size() - 1).equals(pos))
+            return;
+        corners.add(pos.immutable());
+    }
+
     private static void resetSelection() {
+        // 审计 B-7: 拐点框用的是带索引的 key(CORNER_KEY + "|" + i), 必须逐个 remove, 否则会残留在 Outliner
+        for (int i = 0; i < corners.size(); i++)
+            Outliner.getInstance().remove(CORNER_KEY + "|" + i);
         startPos = null;
         corners.clear();
         Outliner.getInstance().remove(START_KEY);
@@ -241,7 +269,7 @@ public final class ConnectSelectionHandler {
             }
             ConnectLogic.ResultOutcome oc =
                 ConnectLogic.plan(mc.level, startPos, corners, aimBlock, WrenchModeSwitcher.connectCorner);
-            boolean ok = oc.result == ConnectLogic.Result.SUCCESS;
+            boolean ok = oc.result == ConnectLogic.Result.SUCCESS && affordable(mc, oc.plan);
             Outliner.getInstance().chaseAABB(HOVER_KEY, new AABB(aimBlock))
                 .colored(ok ? GREEN : RED).lineWidth(1 / 16f);
             if (ok)
@@ -260,6 +288,20 @@ public final class ConnectSelectionHandler {
                 .colored(GOLD).lineWidth(1 / 16f);
             Outliner.getInstance().remove(GHOST_KEY);
         }
+    }
+
+    /**
+     * 审计 A-15: 服务端除了几何还会卡"总方块数上限"和"材料是否够", 客户端画绿框前先按同一口径自查,
+     * 避免"预览是绿的、服务端却回 路径过长 / 材料不足"的割裂体验
+     * (材料口径直接复用 {@link ConnectLogic#hasMaterials}, 与服务端扣料完全一致)。
+     */
+    private static boolean affordable(Minecraft mc, Plan plan) {
+        if (plan == null || mc.player == null)
+            return false;
+        int total = plan.shaftPositions.size() + plan.gearboxes.size() + plan.cogs.size();
+        if (total > ConnectLogic.MAX_TOTAL_BLOCKS)
+            return false;
+        return ConnectLogic.hasMaterials(mc.player, plan);
     }
 
     private static void drawGhost(Plan plan) {

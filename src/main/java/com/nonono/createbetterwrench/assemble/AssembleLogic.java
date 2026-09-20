@@ -22,6 +22,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.BlockItem;
@@ -31,6 +32,7 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.wrapper.RecipeWrapper;
@@ -47,18 +49,28 @@ import net.neoforged.neoforge.items.wrapper.RecipeWrapper;
  *   <li><b>注液</b> —— {@code create:filling}, 等价于注液器(Spout)。</li>
  * </ol>
  *
- * <h2>三个位置</h2>
- * 一个置物台只能渲染一个物品堆, 所以台面**只放"正在加工"的那一个**, 另外两个位置由
- * {@link DepotPiles} 用掉落物实体摆在**置物台的两个对角**(带正常重力, 会自己落在台面上):
+ * <h2>两个位置</h2>
+ * 一个置物台只能渲染一个物品堆, 所以台面**只放"正在加工"的那一个**, 原料则由
+ * {@link DepotPiles} 用掉落物实体摆在**置物台的西北角**(带正常重力, 会自己落在台面上):
  * <pre>
- *   原料堆(RAW, 西北角, 锁定期间不可拿)   ←  台面中央(正在加工)  →  成品堆(DONE, 东南角, 可拿)
+ *   原料堆(RAW, 西北角, 锁定期间不可拿)   ←  台面中央(正在加工)
  * </pre>
+ *
+ * <p><b>已经没有「成品堆」这个概念了</b>: 加工产出(含注液批量产出)一律作为**普通掉落物**
+ * 直接落在世界上 —— 不打任何持久化标记、不 {@code setUnlimitedLifetime()}, 因此会像普通掉落物
+ * 一样被拾取、也会正常消失。解锁置物台时只返还「台面上那一个 + 原料堆」。</p>
  *
  * <p><b>自动续料</b>: 每加工完一件, {@link #consumeAndRefill} 会在**同一个 tick 内**把原料堆的下一个
  * 顶上台面, 所以台面在原料堆还有货时不会空着, 玩家加工完一件就能直接接着下一件
- * (不需要先"右键放料"再"右键加工")。装配**失败**的产物直接弹成普通掉落物, 不进成品堆。</p>
+ * (不需要先"右键放料"再"右键加工")。装配**失败**的产物直接弹成普通掉落物。</p>
  */
 public final class AssembleLogic {
+
+    /**
+     * 注液批量产出的落点相对置物台中心的水平偏移(东南侧)。
+     * 与原料堆(西北角)分开, 免得产出和原料混在一处。
+     */
+    private static final double PRODUCT_DROP_OFFSET = 0.27;
 
     private AssembleLogic() {
     }
@@ -123,7 +135,7 @@ public final class AssembleLogic {
             return true;
         }
 
-        // 序列结束: **成品先在台面上停留若干 tick(见 DepotProductEjector.STAY_TICKS), 然后弹出**(用户指定的观感)。
+        // 序列结束: **成品先在台面上停留若干 tick, 然后弹出**(用户指定的观感; 时长见 DepotStayState)。
         //
         // ℹ️ 这里**刻意不再区分**成品与废料。旧代码拿 SequencedAssemblyRecipe.resultPool.getFirst()
         //    当"唯一的目标成品"去比对 out, 但结果池实际上是**按权重随机抽取**的
@@ -227,25 +239,42 @@ public final class AssembleLogic {
         int onDepot = current.getCount();
         int wanted = Math.min(units, onDepot + (int) Math.min(Integer.MAX_VALUE, countRaw(level, pos)));
         ItemStack combined = current.copy();
+        int extraMerged = 0;   // 实际并入 combined 的"从原料堆取来"的数量(失败时要原样退回)
         if (wanted > onDepot) {
-            ItemStack extra = DepotPiles.take(level, pos, DepotPiles.RAW, wanted - onDepot);
-            if (!extra.isEmpty())
-                combined.grow(extra.getCount());
+            ItemStack extra = DepotPiles.take(level, pos, wanted - onDepot);
+            if (!extra.isEmpty()) {
+                if (ItemStack.isSameItemSameComponents(combined, extra)) {
+                    extraMerged = extra.getCount();
+                    combined.grow(extraMerged);
+                } else {
+                    // 异类型(不该发生): 原样放回原料堆, 绝不留在手上丢掉
+                    DepotPiles.deposit(level, pos, extra);
+                }
+            }
         }
         int toFill = Math.min(units, combined.getCount());
         if (toFill <= 0)
             return false;
 
         int made = 0;
-        for (int i = 0; i < toFill; i++) {
+        for (int i = 0; i < toFill && !combined.isEmpty(); i++) {
             ItemStack filled = FillingBySpout.fillItem(level, perItem, combined.copyWithCount(1), available.copy());
             if (filled.isEmpty())
                 break;
-            DepotPiles.deposit(level, pos, DepotPiles.DONE, filled);
+            // 产出是**普通掉落物**(已无成品堆): 落在置物台**东南侧**的产出收集点, 无初速
+            dropProduct(level, productDropPos(pos), filled.copy(), false);
+            // 审计 B-6: 显式扣减这一轮的输入, 不再靠"combined.getCount() - made"算术对消
+            combined.shrink(1);
             made++;
         }
-        if (made <= 0)
+        if (made <= 0) {
+            // ⚠️ 一件都没注成: 必须把**从原料堆取来的那部分输入原样退回**。
+            //    这些物品已经离开料堆实体、只存在于 combined 里, 直接 return 就**静默丢了**。
+            //    (台面那部分不用管 —— 它还在置物台上, 我们没动它。)
+            if (extraMerged > 0)
+                DepotPiles.deposit(level, pos, combined.copyWithCount(extraMerged));
             return false;
+        }
 
         // 真正抽掉玩家手里那份流体, 并把空容器还给他
         if (!player.isCreative()) {
@@ -261,9 +290,8 @@ public final class AssembleLogic {
         }
 
         // 没注到的输入退回原料堆, 台面清空后续下一个
-        int leftover = combined.getCount() - made;
-        if (leftover > 0)
-            DepotPiles.deposit(level, pos, DepotPiles.RAW, combined.copyWithCount(leftover));
+        if (!combined.isEmpty())
+            DepotPiles.deposit(level, pos, combined.copy());
         consumeAndRefill(level, pos, depot);
         level.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1f, 1f);
         return true;
@@ -271,7 +299,7 @@ public final class AssembleLogic {
 
     private static long countRaw(Level level, BlockPos pos) {
         // 只要一个上界; 真正的取出由 DepotPiles.take 完成
-        return DepotPiles.hasAny(level, pos, DepotPiles.RAW) ? 64L : 0L;
+        return DepotPiles.hasAny(level, pos) ? 64L : 0L;
     }
 
     // ---------------------------------------------------------------- 台面 / 料堆
@@ -283,7 +311,7 @@ public final class AssembleLogic {
             return;
         ItemStack extras = current.copyWithCount(current.getCount() - 1);
         setDepot(depot, current.copyWithCount(1));
-        DepotPiles.deposit(level, pos, DepotPiles.RAW, extras);
+        DepotPiles.deposit(level, pos, extras);
     }
 
     /**
@@ -308,6 +336,41 @@ public final class AssembleLogic {
     }
 
     /**
+     * 生成一个「加工产出」的**普通掉落物** —— 不打持久化标记、不 {@code setUnlimitedLifetime()},
+     * 因此可正常拾取、也会像普通掉落物一样正常消失。
+     *
+     * <p>两种形态:</p>
+     * <ul>
+     *   <li>{@code launched == true}: 台面正上方的出口, 带向上的初速
+     *       (保留"从台面上弹出来"的观感, 见 {@link #ejectHeldAndRefill});</li>
+     *   <li>{@code launched == false}: 在给定锚点原地落下、无初速(注液批量产出用, 锚点取
+     *       {@link #productDropPos})。</li>
+     * </ul>
+     */
+    private static void dropProduct(Level level, Vec3 anchor, ItemStack stack, boolean launched) {
+        if (level.isClientSide || stack.isEmpty())
+            return;
+        ItemEntity drop = new ItemEntity(level, anchor.x, anchor.y, anchor.z, stack);
+        if (launched)
+            drop.setDeltaMovement(
+                (level.random.nextDouble() - 0.5) * 0.12,
+                0.22,
+                (level.random.nextDouble() - 0.5) * 0.12);
+        else
+            drop.setDeltaMovement(Vec3.ZERO);
+        level.addFreshEntity(drop);
+    }
+
+    /**
+     * 产出收集点: 置物台**东南侧**正上方(原「成品堆」所在的角落), 与西北角的原料堆分开,
+     * 这样批量注液的产出不会和原料堆混在一处。
+     */
+    private static Vec3 productDropPos(BlockPos pos) {
+        return new Vec3(pos.getX() + 0.5 + PRODUCT_DROP_OFFSET, pos.getY() + 1.0,
+            pos.getZ() + 0.5 + PRODUCT_DROP_OFFSET);
+    }
+
+    /**
      * 停留时间到: 把台面上那件成品**弹出**, 然后自动续上原料堆的下一个。
      * 只由 {@link DepotProductEjector} 调用。
      */
@@ -315,26 +378,33 @@ public final class AssembleLogic {
         ItemStack held = depot.getHeldItem();
         if (held.isEmpty())
             return;
-        DepotPiles.eject(level, pos, held.copy()); // 弹出去(带向上初速的成品堆掉落物)
+        // 弹出物是**普通掉落物**了(带向上初速, 保留"从台面弹出来"的观感); 它落地后不会被置物台
+        // 吸走, 因为下一行 consumeAndRefill 已经把台面占上了(占用时置物台拒收掉落物)。
+        dropProduct(level, new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5),
+            held.copy(), true);
         consumeAndRefill(level, pos, depot);       // 台面清空 + 立刻续下一个原料
     }
 
     /**
-     * 解锁置物台时: 把**台面上正在加工的那一个**和**两个料堆(原料堆 + 成品堆, 含被弹出去的那些)**
-     * 全部**返还到玩家背包**。
+     * 解锁置物台时: 把**台面上正在加工的那一个**和**原料堆**全部**返还到玩家背包**。
      *
      * <p>用户要求(2026-09-17):「在解锁置物台后, 把所有置物台上面的东西都返还到玩家背包(包括掉落物堆)」。</p>
+     *
+     * <p>⚠️ 「成品堆」已经不在了: 加工产出落在地上就是**普通掉落物**, 属于世界而不是这个置物台,
+     * 所以本方法**不会**去捡已经弹出的成品 —— 它们留在原地等玩家自己拾取(也会正常消失)。</p>
      *
      * <p>装不下的部分由原版 {@code Inventory.placeItemBackInInventory} 负责掉在玩家脚下, **不会凭空消失**。</p>
      */
     public static void returnHeldAndPiles(ServerLevel level, BlockPos pos, DepotBlockEntity depot, ServerPlayer player) {
+        // 解锁/停用: 该坐标上还在排队的「停留后弹出」条目作废, 否则到点会弹出台面上后来放的东西
+        DepotProductEjector.cancelAt(level, pos);
         // ① 台面上的那一个
         ItemStack held = depot.getHeldItem();
         if (!held.isEmpty()) {
             setDepot(depot, ItemStack.EMPTY);
             give(player, held);
         }
-        // ② 两个料堆(原料堆 + 成品堆)
+        // ② 原料堆
         for (ItemStack stack : DepotPiles.drainAll(level, pos))
             give(player, stack);
     }
@@ -356,7 +426,7 @@ public final class AssembleLogic {
     public static boolean refillIfEmpty(Level level, BlockPos pos, DepotBlockEntity depot) {
         if (!depot.getHeldItem().isEmpty())
             return false;
-        ItemStack next = DepotPiles.take(level, pos, DepotPiles.RAW, 1);
+        ItemStack next = DepotPiles.take(level, pos, 1);
         if (next.isEmpty())
             return false;
         setDepot(depot, next);
@@ -374,11 +444,11 @@ public final class AssembleLogic {
      * 如果此时台面是空的, 它落地就会被置物台收进去;
      * 而本方法先把下一个原料顶上台面, 落地时台面是**占用**状态,
      * 普通置物台在占用时拒收掉落物({@link com.simibubi.create.content.logistics.depot.DepotBehaviour}
-     * 的 `isOccupied()`) ⇒ 成品会稳稳停在台面上成为成品堆。
+     * 的 `isOccupied()`) ⇒ 成品会稳稳停在台面上而不被吸走。
      * 只有原料堆也空了(一个批次加工完)才会被收进去, 那时正好也该收工了。</p>
      */
     private static void consumeAndRefill(Level level, BlockPos pos, DepotBlockEntity depot) {
-        ItemStack next = DepotPiles.take(level, pos, DepotPiles.RAW, 1);
+        ItemStack next = DepotPiles.take(level, pos, 1);
         // next 可能为空: 那就是单纯把台面清空
         setDepot(depot, next);
     }

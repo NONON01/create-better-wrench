@@ -31,8 +31,6 @@ public final class WrenchHud {
 
     /** 视觉聚焦进度 0..1(用于淡入淡出)。 */
     private static float focusAmount;
-    /** 工具条向上浮起量(聚焦时上移)。 */
-    private static float lift;
     /** 模式选择器(懒加载)。 */
     private static WrenchToolSelection selection;
 
@@ -134,6 +132,19 @@ public final class WrenchHud {
             selection.setSelected(WrenchModeSwitcher.current);
         }
         return selection;
+    }
+
+    /**
+     * 断开连接时复位工具条(见 docs/07 §6 A-12)。
+     *
+     * <p>⚠️ 必须与 {@link WrenchModeSwitcher#reset()} **成对**调用: 画高亮的依据是选择器**内部的下标**
+     * ({@code WrenchToolSelection.render} 里的 {@code if (i == selection)}), 只重置 current 的话,
+     * 工具条会一直高亮"退出世界前那个模式", 直到玩家第一次 ALT+滚轮才对齐。
+     * 这里直接把单例丢掉 —— 下次 {@link #getSelection()} 会按 current 重建。</p>
+     */
+    public static void reset() {
+        selection = null;
+        focusAmount = 0f;
     }
 
     /** 该模式是否有可循环的 Ctrl 选项。 */

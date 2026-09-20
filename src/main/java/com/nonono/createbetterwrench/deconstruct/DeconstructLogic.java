@@ -69,14 +69,25 @@ public final class DeconstructLogic {
         return key != null && ns.equals(key.getNamespace());
     }
 
-    /** 粗略红石类判定: 方块 id 含若干红石关键字。 */
+    /**
+     * 粗略红石类判定: 方块 id 含若干红石关键字。
+     *
+     * <p>⚠️ 2026-09 核查补了 4 个关键字(见 docs/07 §6 A-8): 实测 Create 6.0.10 的
+     * {@code create:wrench_pickup} 标签里, {@code tripwire} / {@code tripwire_hook} /
+     * {@code daylight_detector} / {@code hopper}, 以及 {@code #minecraft:rails} 展开出的
+     * {@code rail} / {@code powered_rail} / {@code detector_rail} / {@code activator_rail}(都含 "rail")
+     * **原本一个都命中不了** ⇒ 在「仅红石」档下全都拆不到(静默漏掉)。</p>
+     */
     private static boolean isRedstone(BlockState state) {
         ResourceLocation key = BuiltInRegistries.BLOCK.getKey(state.getBlock());
         String path = key == null ? "" : key.getPath();
         // 常见 MC 红石组件关键字(按钮/拉杆/门/压力板/红石线/比较器/中继器/目标方块/红石块)
         if (path.contains("button") || path.contains("lever") || path.contains("pressure_plate")
             || path.contains("redstone") || path.contains("comparator") || path.contains("repeater")
-            || path.contains("target") || path.contains("observer") || path.contains("piston"))
+            || path.contains("target") || path.contains("observer") || path.contains("piston")
+            // 2026-09 补: 绊线(钩)/阳光探测器/漏斗/各类铁轨
+            || path.contains("tripwire") || path.contains("daylight_detector")
+            || path.contains("hopper") || path.contains("rail"))
             return true;
         return false;
     }
@@ -166,29 +177,4 @@ public final class DeconstructLogic {
         });
     }
 
-    /**
-     * 遍历 axis-aligned 区域(两角, 含端点), 按 scope 过滤并拆除, 返回拆除数量。
-     * 仅由服务端调用。
-     */
-    public static int deconstructRegion(ServerLevel level, BlockPos cornerA, BlockPos cornerB,
-                                        DeconstructScope scope, ServerPlayer player) {
-        int minX = Math.min(cornerA.getX(), cornerB.getX()), maxX = Math.max(cornerA.getX(), cornerB.getX());
-        int minY = Math.min(cornerA.getY(), cornerB.getY()), maxY = Math.max(cornerA.getY(), cornerB.getY());
-        int minZ = Math.min(cornerA.getZ(), cornerB.getZ()), maxZ = Math.max(cornerA.getZ(), cornerB.getZ());
-
-        int count = 0;
-        for (int x = minX; x <= maxX; x++)
-            for (int y = minY; y <= maxY; y++)
-                for (int z = minZ; z <= maxZ; z++) {
-                    BlockPos pos = new BlockPos(x, y, z);
-                    BlockState state = level.getBlockState(pos);
-                    if (state.isAir())
-                        continue;
-                    if (!matchesScope(state, scope))
-                        continue;
-                    if (deconstructBlock(level, pos, player))
-                        count++;
-                }
-        return count;
-    }
 }

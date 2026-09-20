@@ -50,7 +50,8 @@ public final class AssembleInteractionHandler {
     }
 
     /**
-     * 置物台被(玩家 / 其它 mod / 本模组的拆除模式)破坏时, 释放它配对的料堆。
+     * 置物台被(玩家 / 其它 mod / 本模组的拆除模式)破坏时, 释放它配对的料堆,
+     * 并作废该坐标上还在排队的「停留后弹出」条目。
      *
      * <p>本模组自己的拆除也走这条路: {@code DeconstructLogic} 交还给 {@code IWrenchable.onSneakWrenched},
      * 而 Create 的销毁路径会正常广播 {@code BlockEvent.BreakEvent}(审计已修复的那条分支同理)。</p>
@@ -61,11 +62,13 @@ public final class AssembleInteractionHandler {
             return;
         if (!(level.getBlockEntity(event.getPos()) instanceof DepotBlockEntity))
             return;
+        DepotProductEjector.cancelAt(level, event.getPos());
         DepotPiles.releaseAll(level, event.getPos());
     }
 
     /**
-     * 置物台被**爆炸**波及时同样释放料堆。
+     * 置物台被**爆炸**波及时同样释放料堆, 并作废该坐标上还在排队的「停留后弹出」条目
+     * (否则置物台已经没了, 条目到点还会照弹一次那时台面上的东西)。
      *
      * <p>{@code Detonate} 在真正破坏方块/结算实体伤害**之前**触发, 所以此时释放还有意义 ——
      * 料堆会被推到置物台旁边, 有机会躲过这一发爆炸, 而不是跟着置物台一起消失。</p>
@@ -76,8 +79,10 @@ public final class AssembleInteractionHandler {
         if (level.isClientSide)
             return;
         for (BlockPos pos : event.getAffectedBlocks())
-            if (level.getBlockEntity(pos) instanceof DepotBlockEntity)
+            if (level.getBlockEntity(pos) instanceof DepotBlockEntity) {
+                DepotProductEjector.cancelAt(level, pos);
                 DepotPiles.releaseAll(level, pos);
+            }
     }
 
     /** 玩家登出: 清掉该玩家的「成品停留时间」记录, 避免长年运行的服务端无上限累积 UUID。 */

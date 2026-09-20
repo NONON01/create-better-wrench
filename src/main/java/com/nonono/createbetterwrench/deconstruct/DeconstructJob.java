@@ -45,6 +45,17 @@ public final class DeconstructJob {
      */
     private static final int BLOCKS_PER_TICK = 1024;
 
+    /**
+     * 「实际减少方块数」统计的体量上限。
+     *
+     * <p>为了让 Create 多方块的**连带拆除**也计入上报数(旧实现只给"发起格"+1, 所以大型水车这类结构会少报),
+     * 我们在开始时数一遍选区里的非空气方块、结束时再数一遍, 用差值作为结果。
+     * 两次全量扫描对超大选区(64³ = 262144 格)会有可感知的主线程停顿,
+     * 所以只对 ≤ {@value} 格的选区启用; 更大的选区退回"直接计数"(可能少算连带拆除的格数)。
+     * 详见 docs/07 §6 A-13。</p>
+     */
+    private static final long COUNT_DELTA_MAX_VOLUME = 32768; // 32³
+
     private final ServerLevel level;
     private final UUID playerId;
     private final DeconstructScope scope;
@@ -57,7 +68,11 @@ public final class DeconstructJob {
     private int cx, cy, cz;
     private boolean done;
 
+    /** 直接由本次循环拆掉的格数(**下界**: 不含多方块被连带拆除的那些)。 */
     private int removed;
+
+    /** 开始时的非空气方块数; {@code -1} = 该选区体量过大, 不启用差值统计。 */
+    private final long blocksBefore;
 
     private static final Map<UUID, DeconstructJob> ACTIVE = new HashMap<>();
 
@@ -71,6 +86,7 @@ public final class DeconstructJob {
         this.sizeY = maxY - minY + 1;
         this.sizeZ = maxZ - minZ + 1;
         this.volume = (long) this.sizeX * this.sizeY * this.sizeZ;
+        this.blocksBefore = this.volume <= COUNT_DELTA_MAX_VOLUME ? countNonAir() : -1L;
     }
 
     /** 选区体积(格数), 用于给玩家的提示文案。 */
@@ -97,7 +113,7 @@ public final class DeconstructJob {
 
         if (job.done) {
             // 小选区: 当场做完, 保持即时反馈
-            report(player, job.removed);
+            report(player, job.reportCount());
             return;
         }
 
@@ -136,6 +152,30 @@ public final class DeconstructJob {
         }
     }
 
+    /** 选区内的非空气方块数(跳过未加载区块, 避免顺带把区块加载进来)。 */
+    private long countNonAir() {
+        long n = 0;
+        for (int x = minX; x < minX + sizeX; x++)
+            for (int y = minY; y < minY + sizeY; y++)
+                for (int z = minZ; z < minZ + sizeZ; z++) {
+                    BlockPos pos = new BlockPos(x, y, z);
+                    if (level.hasChunkAt(pos) && !level.getBlockState(pos).isAir())
+                        n++;
+                }
+        return n;
+    }
+
+    /**
+     * 上报用的拆除数量: 优先用「开始 − 结束」的非空气方块**差值**, 这样多方块的连带拆除也会被算进来。
+     * 大选区(未启用差值统计)退回直接计数。
+     */
+    private int reportCount() {
+        if (blocksBefore < 0)
+            return removed;
+        long delta = blocksBefore - countNonAir();
+        return (int) Math.max(removed, Math.max(0L, delta));
+    }
+
     private static void report(ServerPlayer player, int removed) {
         player.displayClientMessage(Component.translatable(
             "msg." + BetterWrenchMod.MODID + ".deconstruct.count", removed), true);
@@ -159,7 +199,7 @@ public final class DeconstructJob {
             }
             if (job.done) {
                 it.remove();
-                report(player, job.removed);
+                report(player, job.reportCount());
             }
         }
     }
