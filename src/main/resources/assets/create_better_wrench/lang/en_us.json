@@ -49,7 +49,7 @@
   "msg.create_better_wrench.deconstruct.too_large": "Selection too large",
   "msg.create_better_wrench.assemble.locked": "Depot locked",
   "msg.create_better_wrench.assemble.unlocked": "Depot unlocked",
-  "msg.create_better_wrench.battle_no_permission": "No permission for Combat Mode (requires cbw.battlemode)",
+  "msg.create_better_wrench.battle_no_permission": "You don't have permission to enable Combat Mode (OP required)",
   "msg.create_better_wrench.icon_export.running": "Exporting wrench icon render...",
 
   "key.create_better_wrench.tools": "Focus Wrench Mode Bar",

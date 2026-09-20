@@ -3,6 +3,7 @@ package com.nonono.createbetterwrench.network;
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.combat.WrenchCombat;
 import com.nonono.createbetterwrench.permission.WrenchPermissions;
+import com.nonono.createbetterwrench.util.ChatFeedback;
 
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.chat.Component;
@@ -44,8 +45,9 @@ public record CombatModePayload(boolean combat) implements CustomPacketPayload {
             // 回传权威状态(无权限被拒时, 客户端会把本地开关回正)
             PacketDistributor.sendToPlayer(sp, new BattleModeSyncPayload(allowed));
             if (requested && !allowed)
-                sp.displayClientMessage(
-                    Component.translatable("msg." + BetterWrenchMod.MODID + ".battle_no_permission"), true);
+                // 用户要求: 走**聊天栏**(不是 actionbar), 前缀 [CBW]: 黄色加粗、正文白色, 且**仅该玩家可见**
+                ChatFeedback.warn(sp,
+                    Component.translatable("msg." + BetterWrenchMod.MODID + ".battle_no_permission"));
         });
     }
 }
