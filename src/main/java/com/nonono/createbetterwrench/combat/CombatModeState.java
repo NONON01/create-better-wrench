@@ -3,13 +3,13 @@ package com.nonono.createbetterwrench.combat;
 /**
  * 「战斗模式」权威状态的**跨端中转站**。
  *
- * <p>服务端回传的权威开关(见 {@code network/BattleModeSyncPayload})先写在这里,
+ * <p>服务端回传的权威开关(见 {@code network/CombatModeSyncPayload})先写在这里,
  * 再由**仅客户端**的 {@code client/WrenchCombatClient} 在每个客户端 tick 取走、落到本地开关上,
  * 并在 {@code announce=true} 时**此时才**显示提示(actionbar)。</p>
  *
  * <h2>为什么绕这一道(审计发现 #6)</h2>
  * <p>通用包 {@code network/} 位于**两侧都会加载**的公共代码里。如果载荷的 {@code handle} 里直接写
- * {@code WrenchCombatClient.onBattleModeSync(...)}, 那么专用服务器上只要执行到那条字节码指令,
+ * {@code WrenchCombatClient.onCombatModeSync(...)}, 那么专用服务器上只要执行到那条字节码指令,
  * 就会因为去加载 {@code @OnlyIn(Dist.CLIENT)} 的类而抛
  * {@code NoClassDefFoundError: net/minecraft/client/Minecraft} ——
  * 它是 {@link Error} 而不是 {@link Exception}, catch 不住, 轻则踢人重则崩服。</p>
@@ -25,7 +25,7 @@ package com.nonono.createbetterwrench.combat;
  * 并在 {@code announce} 为真(**确实是一次用户操作**)时才显示提示。 登录时的同步带 {@code announce=false},
  * 因此不会在进世界时冒出一条无意义的提示。</p>
  */
-public final class BattleModeState {
+public final class CombatModeState {
 
     /** 一次权威回包:{@code combat} = 权威开关, {@code announce} = 是否该给玩家显示提示。 */
     public record Sync(boolean combat, boolean announce) {
@@ -39,7 +39,7 @@ public final class BattleModeState {
      */
     private static volatile Sync pending = null;
 
-    private BattleModeState() {
+    private CombatModeState() {
     }
 
     /** 记录服务端回传的权威状态(通用侧调用, 不碰任何客户端类)。 */

@@ -65,9 +65,9 @@ public class BetterWrenchMod {
             com.nonono.createbetterwrench.network.CombatModePayload.STREAM_CODEC,
             com.nonono.createbetterwrench.network.CombatModePayload::handle);
         registrar.playToClient(
-            com.nonono.createbetterwrench.network.BattleModeSyncPayload.TYPE,
-            com.nonono.createbetterwrench.network.BattleModeSyncPayload.STREAM_CODEC,
-            com.nonono.createbetterwrench.network.BattleModeSyncPayload::handle);
+            com.nonono.createbetterwrench.network.CombatModeSyncPayload.TYPE,
+            com.nonono.createbetterwrench.network.CombatModeSyncPayload.STREAM_CODEC,
+            com.nonono.createbetterwrench.network.CombatModeSyncPayload::handle);
         registrar.playToServer(
             com.nonono.createbetterwrench.network.AssemblePayload.TYPE,
             com.nonono.createbetterwrench.network.AssemblePayload.STREAM_CODEC,

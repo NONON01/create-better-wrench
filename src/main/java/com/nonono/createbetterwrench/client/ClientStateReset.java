@@ -1,7 +1,7 @@
 package com.nonono.createbetterwrench.client;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
-import com.nonono.createbetterwrench.combat.BattleModeState;
+import com.nonono.createbetterwrench.combat.CombatModeState;
 
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
@@ -18,7 +18,7 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
  *       换服务器后会出现「本地显示已开战斗模式、服务端却没生效」的假象;</li>
  *   <li>{@code ConnectSelectionHandler} / {@code DeconstructSelectionHandler} 的**未完成选区** ——
  *       里面存的是**旧世界的 BlockPos**, 进了新世界后下一次右键会拿旧坐标去发包;</li>
- *   <li>{@code BattleModeState} 里还没被取走的待处理开关。</li>
+ *   <li>{@code CombatModeState} 里还没被取走的待处理开关。</li>
  * </ul>
  *
  * <p>统一放在这一处, 而不是分散到各个类里各写一个监听器(那样很容易漏掉新加的状态)。</p>
@@ -36,6 +36,6 @@ public final class ClientStateReset {
         WrenchModeSwitcher.reset();
         ConnectSelectionHandler.cancel();
         DeconstructSelectionHandler.cancel();
-        BattleModeState.clear();
+        CombatModeState.clear();
     }
 }

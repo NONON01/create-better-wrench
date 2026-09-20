@@ -49,7 +49,7 @@
   "msg.create_better_wrench.deconstruct.too_large": "选区过大",
   "msg.create_better_wrench.assemble.locked": "置物台已锁定",
   "msg.create_better_wrench.assemble.unlocked": "置物台已解锁",
-  "msg.create_better_wrench.battle_no_permission": "你没有权限打开战斗模式(需要OP权限)",
+  "msg.create_better_wrench.combat_no_permission": "你没有权限打开战斗模式(需要OP权限)",
   "msg.create_better_wrench.icon_export.running": "正在导出扳手图标渲染…",
 
   "key.create_better_wrench.tools": "呼出扳手模式工具条",

@@ -1,7 +1,7 @@
 package com.nonono.createbetterwrench.client;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
-import com.nonono.createbetterwrench.combat.BattleModeState;
+import com.nonono.createbetterwrench.combat.CombatModeState;
 import com.nonono.createbetterwrench.combat.WrenchCombat;
 import com.nonono.createbetterwrench.network.CombatModePayload;
 
@@ -37,7 +37,7 @@ public final class WrenchCombatClient {
         //    "战斗模式" 会挂在 actionbar 上 2~3 秒不动 ⇒ 用户看到"文本卡死在战斗模式"。
         //    现在:权威回包到达后立刻用**正确值**(此时是"正常模式")覆盖它, 于是既保留即时反馈,
         //    也不会停在错误状态。聊天栏那边的 [CBW]: 拒绝提示由服务端单独发出, 两者同时出现。
-        BattleModeState.Sync synced = BattleModeState.poll();
+        CombatModeState.Sync synced = CombatModeState.poll();
         if (synced != null) {
             WrenchModeSwitcher.combatMode = synced.combat();
             if (synced.announce())

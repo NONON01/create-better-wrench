@@ -81,7 +81,7 @@ public final class WrenchCombat {
     public static void tickServer(Player player) {
         boolean on = holdsWrench(player) && getServer(player.getUUID());
         if (on && player instanceof net.minecraft.server.level.ServerPlayer sp
-            && !com.nonono.createbetterwrench.permission.WrenchPermissions.canUseBattleMode(sp)) {
+            && !com.nonono.createbetterwrench.permission.WrenchPermissions.canUseCombatMode(sp)) {
             on = false;
             setServer(player.getUUID(), false);
         }
