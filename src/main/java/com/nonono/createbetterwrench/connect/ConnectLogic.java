@@ -28,6 +28,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.neoforged.neoforge.common.util.BlockSnapshot;
+import net.neoforged.neoforge.event.EventHooks;
 
 /**
  * 「连接」模式的服务端核心 —— 拐点数量不限, 每段边按几何自动路由。
@@ -60,6 +62,7 @@ public final class ConnectLogic {
         NON_PLANAR,
         SAME_POS,
         PATH_BLOCKED,
+        PROTECTED,
         CORNER_NO_ROOM,
         MATERIALS,
         TOO_LONG
@@ -460,16 +463,17 @@ public final class ConnectLogic {
         if (totalBlocks > MAX_TOTAL_BLOCKS)
             return Result.TOO_LONG;
 
-        // 审计 A-3: 每个将要落块的坐标都要先过原版交互权限(服务端实现里含出生点保护与世界边界)
+        // 审计 A-3: 每个将要落块的坐标都要先过原版交互权限(服务端实现里含出生点保护与世界边界)。
+        // 单独给一个 PROTECTED 结果码, 免得玩家看到"路径被方块阻挡"却看不出是保护规则在拦。
         for (BlockPos p : plan.shaftPositions)
             if (!world.mayInteract(player, p))
-                return Result.PATH_BLOCKED;
+                return Result.PROTECTED;
         for (GearboxPlace g : plan.gearboxes)
             if (!world.mayInteract(player, g.pos))
-                return Result.PATH_BLOCKED;
+                return Result.PROTECTED;
         for (CogPlace c : plan.cogs)
             if (!world.mayInteract(player, c.pos))
-                return Result.PATH_BLOCKED;
+                return Result.PROTECTED;
 
         Item shaftItem = resolveShaftItem(player);
         Item gearboxItem = AllBlocks.GEARBOX.asItem();
@@ -483,37 +487,47 @@ public final class ConnectLogic {
             return Result.MATERIALS;
 
         // 放置, 并逐格确认真的落上了(审计 A-16: switchToBlockState→setBlock 可能静默失败,
-        // 所以扣料只按"校验通过的实际落块数", 不能照 plan 计数扣)
+        // 所以扣料只按"校验通过的实际落块数", 不能照 plan 计数扣)。
+        //
+        // 每格还会**补发原版的 EntityPlaceEvent**(审计 A-3 残留修复): 只监听该事件的领地/保护插件
+        // 从此也能拦住; 一旦被拦 => **逆序整体还原 + 拒连**(世上不留半截传动结构, 也不扣料)。
         BlockState shaftBase = shaftBlockState(shaftItem);
         Map<Item, Integer> placedItems = new LinkedHashMap<>();
+        List<BlockSnapshot> undo = new ArrayList<>();
         for (int i = 0; i < plan.shaftPositions.size(); i++) {
             BlockPos p = plan.shaftPositions.get(i);
             BlockState st = shaftBase.hasProperty(BlockStateProperties.AXIS)
                 ? shaftBase.setValue(BlockStateProperties.AXIS, plan.shaftAxes.get(i))
                 : shaftBase;
-            KineticBlockEntity.switchToBlockState(world, p, st);
-            if (placed(world, p, st))
+            PlaceOutcome outcome = placeWithEvent(world, p, st, player, undo);
+            if (outcome == PlaceOutcome.DENIED) {
+                revertAll(undo);
+                return Result.PROTECTED;
+            }
+            if (outcome == PlaceOutcome.OK)
                 addDemand(placedItems, shaftItem, 1);
-            else
-                BetterWrenchMod.LOGGER.warn("connect: 轴未落下 {} (期望 {})", p, st);
         }
         for (GearboxPlace g : plan.gearboxes) {
             BlockState st = AllBlocks.GEARBOX.getDefaultState()
                 .setValue(BlockStateProperties.AXIS, g.axis);
-            KineticBlockEntity.switchToBlockState(world, g.pos, st);
-            if (placed(world, g.pos, st))
+            PlaceOutcome outcome = placeWithEvent(world, g.pos, st, player, undo);
+            if (outcome == PlaceOutcome.DENIED) {
+                revertAll(undo);
+                return Result.PROTECTED;
+            }
+            if (outcome == PlaceOutcome.OK)
                 addDemand(placedItems, g.vertical ? verticalItem : gearboxItem, 1);
-            else
-                BetterWrenchMod.LOGGER.warn("connect: 齿轮箱未落下 {} (期望 {})", g.pos, st);
         }
         for (CogPlace c : plan.cogs) {
             BlockState st = AllBlocks.LARGE_COGWHEEL.getDefaultState()
                 .setValue(BlockStateProperties.AXIS, c.axis);
-            KineticBlockEntity.switchToBlockState(world, c.pos, st);
-            if (placed(world, c.pos, st))
+            PlaceOutcome outcome = placeWithEvent(world, c.pos, st, player, undo);
+            if (outcome == PlaceOutcome.DENIED) {
+                revertAll(undo);
+                return Result.PROTECTED;
+            }
+            if (outcome == PlaceOutcome.OK)
                 addDemand(placedItems, cogItem, 1);
-            else
-                BetterWrenchMod.LOGGER.warn("connect: 大齿轮未落下 {} (期望 {})", c.pos, st);
         }
 
         world.playSound(null, BlockPos.containing(
@@ -529,6 +543,54 @@ public final class ConnectLogic {
         }
 
         return Result.SUCCESS;
+    }
+
+    /** 单格放置的结果(见 {@link #placeWithEvent})。 */
+    private enum PlaceOutcome {
+        /** 落上了且没被保护事件拦下 —— 可计入扣料。 */
+        OK,
+        /** 方块没落上(极端情形, 例如 debug 世界) —— 不计料, 但**不**中止整次操作。 */
+        FAILED,
+        /** 被 {@code EntityPlaceEvent} 取消 —— 调用方必须整体还原并拒连。 */
+        DENIED
+    }
+
+    /**
+     * 落一块方块, 并**补发原版的「实体放置方块」事件**(审计 A-3 残留修复)。
+     *
+     * <p><b>为什么必须补</b>: 本模组是用 {@code KineticBlockEntity.switchToBlockState} 直接改方块的,
+     * 原版那条 {@code BlockEvent.EntityPlaceEvent} 不会发出 ⇒ **只监听该事件的领地/保护插件拦不住**
+     * (出生点保护与世界边界已由 {@code world.mayInteract} 覆盖, 见 {@link #connect} 开头)。</p>
+     *
+     * <p><b>顺序照 {@code CommonHooks} 的官方做法</b>: 先落块 → 再发事件(这样
+     * {@code snapshot.getCurrentState()} 已经是新方块, 插件读到的"placedBlock"才是要放的那一块) → 被取消再还原。
+     * 放置朝向取 {@code Direction.UP} —— 我们没有"点击面", 把"下方那一格"当作 placedAgainst 是最自然的近似。</p>
+     *
+     * <p>放置成功时把 {@code snapshot}(放置前的状态)记进 {@code undo}, 供被拒时逆序整体还原。</p>
+     */
+    private static PlaceOutcome placeWithEvent(ServerLevel world, BlockPos pos, BlockState st,
+                                               Player player, List<BlockSnapshot> undo) {
+        BlockSnapshot snapshot = BlockSnapshot.create(world.dimension(), world, pos);
+        KineticBlockEntity.switchToBlockState(world, pos, st);
+        if (EventHooks.onBlockPlace(player, snapshot, Direction.UP)) {
+            snapshot.restore(snapshot.getFlags() | Block.UPDATE_CLIENTS);
+            BetterWrenchMod.LOGGER.warn("connect: 放置被 EntityPlaceEvent 取消 {}", pos);
+            return PlaceOutcome.DENIED;
+        }
+        if (!placed(world, pos, st)) {
+            BetterWrenchMod.LOGGER.warn("connect: 方块未落下 {} (期望 {})", pos, st);
+            return PlaceOutcome.FAILED;
+        }
+        undo.add(snapshot);
+        return PlaceOutcome.OK;
+    }
+
+    /** 把本次已放置的方块按**逆序**还原(被保护插件拦下后, 世上不留半截传动结构)。 */
+    private static void revertAll(List<BlockSnapshot> undo) {
+        for (int i = undo.size() - 1; i >= 0; i--) {
+            BlockSnapshot snapshot = undo.get(i);
+            snapshot.restore(snapshot.getFlags() | Block.UPDATE_CLIENTS);
+        }
     }
 
     /** 落块是否真的生效(Level#setBlock 在 debug 世界等情形会静默返回 false)。 */

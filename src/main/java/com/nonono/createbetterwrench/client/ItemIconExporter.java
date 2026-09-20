@@ -16,6 +16,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
@@ -43,7 +44,9 @@ import org.lwjgl.glfw.GLFW;
  * <p>洋红之所以能当键控背景: 本模组物品贴图 {@code textures/item/better_wrench.png} 的 20 个不透明颜色里
  * **既没有 {@code #FF00FF} 也没有 {@code #00FF00}**(已实测), 所以洋红不会出现在物品本体上。</p>
  *
- * <p>⚠️ 这是**开发/发布素材工具**, 不属于玩法。发布前若要收干净, 删掉本文件即可(不影响其它逻辑)。</p>
+ * <p>⚠️ 这是**开发/发布素材工具**, 不属于玩法。**2026-09-20 起只在开发环境启用**:
+ * 正式版里连按键都不注册(见 {@link #enabled()}), 所以玩家不会多出 F9 绑定与按键分类项, 也没有顶层 HUD 层
+ * (见 docs/07 §6 B-5)。</p>
  */
 @OnlyIn(Dist.CLIENT)
 public final class ItemIconExporter {
@@ -80,6 +83,18 @@ public final class ItemIconExporter {
     private ItemIconExporter() {
     }
 
+    /**
+     * 是否启用这个开发工具(见 docs/07 §6 B-5)。
+     *
+     * <p>{@code FMLEnvironment.production} 为 true 即"玩家的正式版" ⇒ **默认完全不启用**:
+     * 不注册按键、不注册 HUD 层、tick 里也不响应。它只是做素材用的, 不该出现在玩家的按键设置里。
+     * 开发环境({@code gradle runClient}, production=false)自动可用; 想在正式版临时一用时加
+     * JVM 参数 {@code -Dcbw.iconExport=true}。</p>
+     */
+    public static boolean enabled() {
+        return !FMLEnvironment.production || Boolean.getBoolean("cbw.iconExport");
+    }
+
     // ---------------------------------------------------------------- 注册
 
     /** MOD 总线: 注册按键。 */
@@ -90,6 +105,8 @@ public final class ItemIconExporter {
 
         @SubscribeEvent
         public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
+            if (!enabled())
+                return; // 正式版不注册: 玩家不会看到这个按键/分类项
             event.register(EXPORT_KEY);
         }
     }
@@ -102,6 +119,8 @@ public final class ItemIconExporter {
 
         @SubscribeEvent
         public static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
+            if (!enabled())
+                return;
             event.registerAboveAll(LAYER_ID, ItemIconExporter::render);
         }
     }
@@ -114,6 +133,8 @@ public final class ItemIconExporter {
 
         @SubscribeEvent
         public static void onClientTick(ClientTickEvent.Post event) {
+            if (!enabled())
+                return;
             Minecraft mc = Minecraft.getInstance();
             while (EXPORT_KEY.consumeClick()) {
                 if (mc.player == null || mc.level == null)
@@ -128,7 +149,7 @@ public final class ItemIconExporter {
     // ---------------------------------------------------------------- 绘制
 
     private static void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
-        if (framesLeft <= 0)
+        if (!enabled() || framesLeft <= 0)
             return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null)
