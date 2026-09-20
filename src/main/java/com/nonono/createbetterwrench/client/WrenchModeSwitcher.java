@@ -106,9 +106,12 @@ public final class WrenchModeSwitcher {
             return assembleStay;
         }
         if (current == WrenchMode.COMING_SOON) {
-            // 彩蛋: Ctrl 切换 正常模式 / 战斗模式, 并同步给服务端
+            // 彩蛋: Ctrl 切换 正常模式 / 战斗模式。
+            // 保持"按下即反馈": 本地乐观翻转并立刻由 HUD 显示 actionbar(与原来一模一样)。
+            // 同时把"想要的值"发给服务端; 若被权限拒绝, 权威回包到达时会**再显示一次**正确值把它覆盖掉
+            // (见 WrenchCombatClient#onPlayerTick), 因此不会停在"战斗模式"上。
             combatMode = !combatMode;
-            WrenchCombatClient.sendCombatMode();
+            WrenchCombatClient.sendCombatModeRequest(combatMode);
             return combatMode;
         }
         return null;

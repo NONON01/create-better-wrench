@@ -108,11 +108,10 @@ public final class WrenchHud {
         if (net.minecraft.client.gui.screens.Screen.hasControlDown()
             && modeHasCtrlOption(WrenchModeSwitcher.current)) {
             Object opt = WrenchModeSwitcher.cycleCtrlOption(dir);
-            if (opt != null) {
-                net.minecraft.network.chat.Component hint = WrenchModeSwitcher.ctrlOptionHint();
-                if (hint != null)
-                    mc.player.displayClientMessage(hint, true);
-            }
+            // opt == null 表示"这次切换的结果要等服务端授权后再显示"(战斗模式, 见 WrenchCombatClient),
+            // 此时**不要**乐观显示, 否则无权限时会先冒出"战斗模式"再被推翻。
+            if (opt != null)
+                showCtrlOptionHint();
             return true;
         }
 
@@ -141,5 +140,20 @@ public final class WrenchHud {
     private static boolean modeHasCtrlOption(WrenchMode mode) {
         return mode == WrenchMode.DECONSTRUCT || mode == WrenchMode.CONNECT
             || mode == WrenchMode.ASSEMBLE || mode == WrenchMode.COMING_SOON;
+    }
+
+    /**
+     * 在 actionbar 显示"当前模式的 Ctrl 选项"提示。
+     *
+     * <p>本地就能定的开关(拆除范围 / 拐角类型 / 成品停留)在滚动时立刻调用它;
+     * 战斗模式则要等服务端权威回包后再调用(见 {@code WrenchCombatClient#onPlayerTick})。</p>
+     */
+    public static void showCtrlOptionHint() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null)
+            return;
+        net.minecraft.network.chat.Component hint = WrenchModeSwitcher.ctrlOptionHint();
+        if (hint != null)
+            mc.player.displayClientMessage(hint, true);
     }
 }
