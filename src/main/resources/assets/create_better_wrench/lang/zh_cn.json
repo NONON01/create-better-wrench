@@ -7,7 +7,7 @@
   "mode.create_better_wrench.deconstruct": "拆除",
   "mode.create_better_wrench.assemble": "加工",
   "mode.create_better_wrench.coming_soon": "模组描述",
-  "mode.create_better_wrench.wrench.desc": "标准的《机械动力》扳手体验",
+  "mode.create_better_wrench.wrench.desc": "标准的《机械动力》扳手体验\n若此物品在副手，则只为此功能",
   "mode.create_better_wrench.connect.desc": "[右键]选择起点，拐点和终点，自动生成传动结构\n[Ctrl+滚轮]切换拐弯节点的实现方式{齿轮箱/大齿轮}",
   "mode.create_better_wrench.deconstruct.desc": "[右键]选择区域，拆除其中可以被扳手拆除的东西\n[Ctrl+滚轮]切换过滤器{全部/仅机械动力/仅红石}",
   "mode.create_better_wrench.assemble.desc": "[右键]锁定置物台，对置物台上的东西实现加工\n若有多个物品，它们会以不可拾取的掉落物样式在旁边等待\n[Ctrl+滚轮]调节成品停留时间",

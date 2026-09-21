@@ -62,10 +62,14 @@ public final class DeconstructSelectionHandler {
             || Math.abs(a.getZ() - b.getZ()) + 1 > MAX_EDGE;
     }
 
+    /**
+     * 仅当**主手**持扳手且当前模式为「拆除」时才接管。
+     *
+     * <p>⚠️ 2026-09-20(用户约定): 扳手在**副手**时"只作普通扳手" ⇒ 本模式不生效, 右键原样交给 Create。</p>
+     */
     private static boolean active(Minecraft mc) {
         return mc.player != null
-            && (mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
-                || mc.player.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH))
+            && mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
             && WrenchModeSwitcher.current == WrenchMode.DECONSTRUCT;
     }
 

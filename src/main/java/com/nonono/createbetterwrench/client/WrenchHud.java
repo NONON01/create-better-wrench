@@ -86,9 +86,14 @@ public final class WrenchHud {
         }
     }
 
+    /**
+     * 是否**主手**持着万能扳手 —— 工具条只在这种情况下显示、也只在此时响应滚轮。
+     *
+     * <p>⚠️ 2026-09-20(用户约定): 扳手在**副手**时"只作普通扳手" ⇒ **不显示 HUD**,
+     * ALT+滚轮也不切模式(滚轮照常切物品栏)。</p>
+     */
     private static boolean isHoldingOurWrench(Minecraft mc) {
-        return mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
-            || mc.player.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH);
+        return mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH);
     }
 
     /** 由 GAME 总线客户端事件调用: 处理扳手模式/选项的滚轮切换, 返回 true 表示已消费本次滚动。 */

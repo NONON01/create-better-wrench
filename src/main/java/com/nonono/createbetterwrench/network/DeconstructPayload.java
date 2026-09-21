@@ -56,9 +56,9 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
             // ① 资格: 旁观者/无建造权限者一律拒绝;冒险模式下额外提示「当前是冒险模式」
             if (WrenchPermissions.rejectIfCannotBuild(sp))
                 return;
-            // ② 必须手持本模组的扳手
-            if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
-                && !sp.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH))
+            // ② 必须**主手**手持本模组的扳手
+            // ⚠️ 2026-09-20(用户约定): 扳手在副手时"只作普通扳手", 不参与本模组的模式功能
+            if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH))
                 return;
             // ③ 选区尺寸上限: 每轴 ≤ 64(挡住"改包发超大区域 ⇒ 服务端长时间遍历"的卡服路径)
             int dx = Math.abs(cornerA.getX() - cornerB.getX()) + 1;

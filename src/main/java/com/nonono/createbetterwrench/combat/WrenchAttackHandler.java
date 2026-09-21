@@ -38,9 +38,8 @@ public final class WrenchAttackHandler {
         // 彩蛋: 未开战斗模式则保持原版受伤冷却
         if (!WrenchCombat.getServer(player.getUUID()))
             return;
-        boolean mainHand = player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH);
-        boolean offHand = player.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH);
-        if (!mainHand && !offHand)
+        // ⚠️ 2026-09-20: 只认主手 —— 扳手在副手时"只作普通扳手", 战斗彩蛋不生效
+        if (!player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH))
             return;
 
         Entity target = event.getTarget();

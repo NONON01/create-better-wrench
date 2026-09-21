@@ -54,9 +54,9 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
             // ① 资格: 旁观者/无建造权限者一律拒绝;冒险模式下额外提示「当前是冒险模式」
             if (WrenchPermissions.rejectIfCannotBuild(sp))
                 return;
-            // ② 必须手持本模组的扳手(锁定/解锁是扳手模式下的行为)
-            if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
-                && !sp.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH))
+            // ② 必须**主手**手持本模组的扳手(锁定/解锁是扳手模式下的行为)
+            // ⚠️ 2026-09-20(用户约定): 扳手在副手时"只作普通扳手", 不参与本模组的模式功能
+            if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH))
                 return;
             // ③ 距离: 必须在可交互范围内
             if (sp.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)

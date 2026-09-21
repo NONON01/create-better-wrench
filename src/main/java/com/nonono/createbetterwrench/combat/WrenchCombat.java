@@ -51,10 +51,14 @@ public final class WrenchCombat {
         SERVER.remove(id);
     }
 
-    /** 玩家(主手或副手)是否持有万能扳手。 */
+    /**
+     * 玩家**主手**是否持有万能扳手。
+     *
+     * <p>⚠️ 2026-09-20(用户约定): 扳手在**副手**时一律"只作普通扳手" —— 不显示 HUD、模式功能不生效,
+     * 彩蛋的战斗加成也随之不生效, 所以这里只看主手。</p>
+     */
     public static boolean holdsWrench(Player player) {
-        return player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
-            || player.getOffhandItem().is(BetterWrenchMod.BETTER_WRENCH);
+        return player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH);
     }
 
     /** 按 enabled 应用/移除战斗加成(幂等; 仅状态变化时才动属性, 避免每 tick 抖动)。 */
