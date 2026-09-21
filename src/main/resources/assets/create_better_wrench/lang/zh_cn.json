@@ -25,7 +25,7 @@
 
   "hint.create_better_wrench.deconstruct": "拆除模式:%s",
   "hint.create_better_wrench.corner": "拐角:%s",
-  "hint.create_better_wrench.connect.corner_limit": "拐点已达上限(最多 32 个)",
+  "hint.create_better_wrench.connect.corner_limit": "拐点已达上限(最多 %s 个)",
   "hint.create_better_wrench.stay": "成品停留:%s",
   "hint.create_better_wrench.combat.on": "战斗模式",
   "hint.create_better_wrench.combat.off": "正常模式",

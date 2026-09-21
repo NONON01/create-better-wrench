@@ -4,7 +4,10 @@ import com.nonono.createbetterwrench.BetterWrenchMod;
 
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.gui.ConfigurationScreen;
+import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 
 /**
  * 客户端专用入口: {@code @Mod(dist = Dist.CLIENT)} ⇒ **专用服务器上不会被构造/加载**。
@@ -23,8 +26,12 @@ import net.neoforged.fml.common.Mod;
 @Mod(value = BetterWrenchMod.MODID, dist = Dist.CLIENT)
 public final class BetterWrenchClient {
 
-    public BetterWrenchClient(IEventBus modEventBus) {
+    public BetterWrenchClient(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(WrenchHud::onRegisterGuiLayers);
         modEventBus.addListener(WrenchModeSwitcher::onRegisterKeyMappings);
+        // 模组列表里挂上 NeoForge **内置配置界面**: 玩家能直接看/改 WrenchConfig 里的参数,
+        // 而且会把我们写的**中英双语注释**显示出来(不需要 Cloth Config 之类额外依赖)。
+        modContainer.registerExtensionPoint(IConfigScreenFactory.class,
+            (IConfigScreenFactory) (container, parent) -> new ConfigurationScreen(container, parent));
     }
 }

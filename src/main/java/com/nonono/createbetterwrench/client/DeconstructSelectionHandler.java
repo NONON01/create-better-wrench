@@ -1,6 +1,7 @@
 package com.nonono.createbetterwrench.client;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.mode.DeconstructScope;
 import com.nonono.createbetterwrench.mode.WrenchMode;
 import com.nonono.createbetterwrench.network.DeconstructPayload;
@@ -44,10 +45,14 @@ public final class DeconstructSelectionHandler {
     private static final int COLOR_TOO_LARGE = 0xE0392B;
 
     /**
-     * 单轴最大边长。**必须与 {@code network/DeconstructPayload.MAX_EDGE} 保持一致** ——
-     * 否则会出现"框还是蓝的、服务端却拒绝"的割裂体验。
+     * 单轴最大边长 —— 与服务端**读同一份配置**({@code config/WrenchConfig} → {@code deconstruct.max_edge})。
+     *
+     * <p>以前这里是各写一份的常量(必须手工与服务端同步, 否则会出现"框还是蓝的、服务端却拒绝"的割裂体验);
+     * 现在两端同一个来源, 这个隐患从根上消除(docs/11-hardcoded-data.md 的 E-1)。</p>
      */
-    private static final int MAX_EDGE = 64;
+    private static int maxEdge() {
+        return WrenchConfig.deconstructMaxEdge();
+    }
 
     private static BlockPos cornerA;
     private static BlockPos previewB;
@@ -57,9 +62,10 @@ public final class DeconstructSelectionHandler {
 
     /** 两角围出的选区是否超过单轴上限(与服务端同一套判据)。 */
     private static boolean tooLarge(BlockPos a, BlockPos b) {
-        return Math.abs(a.getX() - b.getX()) + 1 > MAX_EDGE
-            || Math.abs(a.getY() - b.getY()) + 1 > MAX_EDGE
-            || Math.abs(a.getZ() - b.getZ()) + 1 > MAX_EDGE;
+        int limit = maxEdge();
+        return Math.abs(a.getX() - b.getX()) + 1 > limit
+            || Math.abs(a.getY() - b.getY()) + 1 > limit
+            || Math.abs(a.getZ() - b.getZ()) + 1 > limit;
     }
 
     /**

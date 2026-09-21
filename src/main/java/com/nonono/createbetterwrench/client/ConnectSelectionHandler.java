@@ -123,15 +123,17 @@ public final class ConnectSelectionHandler {
     /**
      * 追加一个拐点(审计 A-2)。
      *
-     * <p>拐点数量必须与 {@link ConnectPayload#MAX_CORNERS} 对齐: 客户端若不设上限, 第 33 个拐点会让
-     * 服务端的载荷解码抛出 DecoderException, 直接把玩家踢下线(且此时选点已被清空, 没有任何提示)。
+     * <p>拐点数量上限与 {@link ConnectPayload#maxCorners()}(配置项 {@code connect.max_corners}, 默认 32)对齐:
+     * 客户端若不设上限, 超出上限的载荷会让服务端解码抛 DecoderException, 直接把玩家踢下线
+     * (且此时选点已被清空, 没有任何提示)。
      * 与**最后一个拐点重复**的格也直接忽略 —— 零长边会被服务端整单判 SAME_POS 拒连。</p>
      */
     private static void addCorner(Minecraft mc, BlockPos pos) {
-        if (corners.size() >= ConnectPayload.MAX_CORNERS) {
+        int limit = ConnectPayload.maxCorners();
+        if (corners.size() >= limit) {
             if (mc.player != null)
                 mc.player.displayClientMessage(Component.translatable(
-                    "hint." + BetterWrenchMod.MODID + ".connect.corner_limit"), true);
+                    "hint." + BetterWrenchMod.MODID + ".connect.corner_limit", limit), true);
             return;
         }
         if (!corners.isEmpty() && corners.get(corners.size() - 1).equals(pos))
@@ -303,7 +305,7 @@ public final class ConnectSelectionHandler {
         if (plan == null || mc.player == null)
             return false;
         int total = plan.shaftPositions.size() + plan.gearboxes.size() + plan.cogs.size();
-        if (total > ConnectLogic.MAX_TOTAL_BLOCKS)
+        if (total > ConnectLogic.maxTotalBlocks())
             return false;
         return ConnectLogic.hasMaterials(mc.player, plan);
     }

@@ -3,11 +3,14 @@ package com.nonono.createbetterwrench;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
+import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.simibubi.create.AllCreativeModeTabs;
 
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
@@ -33,8 +36,11 @@ public class BetterWrenchMod {
     public static final DeferredItem<com.nonono.createbetterwrench.item.BetterWrenchItem> BETTER_WRENCH =
         ITEMS.register("better_wrench", () -> new com.nonono.createbetterwrench.item.BetterWrenchItem(new Item.Properties()));
 
-    public BetterWrenchMod(IEventBus modEventBus) {
+    public BetterWrenchMod(IEventBus modEventBus, ModContainer modContainer) {
         ITEMS.register(modEventBus);
+        // 可调参数(拆除上限/分帧粒度、连接上限与终点距离) → serverconfig/create_better_wrench-server.toml
+        // 类型 SERVER: 数值由服务端权威读取; 单人游戏里客户端与内置服务端共用同一份(预览与限制一致)。
+        modContainer.registerConfig(ModConfig.Type.SERVER, WrenchConfig.SPEC);
         // 数据附件(置物台锁定态)
         com.nonono.createbetterwrench.assemble.AssembleLock.ATTACHMENTS.register(modEventBus);
         modEventBus.addListener(BetterWrenchMod::registerPayloads);

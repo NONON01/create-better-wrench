@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.connect.ConnectLogic;
 import com.nonono.createbetterwrench.mode.ConnectCorner;
 import com.nonono.createbetterwrench.permission.WrenchPermissions;
@@ -30,8 +31,15 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
     public static final Type<ConnectPayload> TYPE = new Type<>(
         ResourceLocation.fromNamespaceAndPath(BetterWrenchMod.MODID, "connect"));
 
-    /** 拐点数量硬上限(服务端安全: 挡住"发超大 n ⇒ ArrayList 预分配 OOM")。 */
-    public static final int MAX_CORNERS = 32;
+    /**
+     * 拐点数量硬上限(服务端安全: 挡住"发超大 n ⇒ ArrayList 预分配 OOM")。
+     *
+     * <p>★ 可在配置里调: {@code config/WrenchConfig} → {@code connect.max_corners}(默认 32)。
+     * 客户端 {@code ConnectSelectionHandler} 读同一份配置来提前拦住第 N+1 个拐点。</p>
+     */
+    public static int maxCorners() {
+        return WrenchConfig.connectMaxCorners();
+    }
 
     private static final StreamCodec<ByteBuf, List<BlockPos>> CORNERS_CODEC = new StreamCodec<>() {
         @Override
@@ -39,7 +47,7 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
             int n = buffer.readInt();
             // ⚠️ 审计发现 #2: 绝不拿线上读到的 int 直接当 ArrayList 容量。
             //    n = Integer.MAX_VALUE 会让 new ArrayList<>(n) 直接 OOM, 而 OOM 属于 Error, 服务端无法恢复。
-            if (n < 0 || n > MAX_CORNERS)
+            if (n < 0 || n > maxCorners())
                 throw new io.netty.handler.codec.DecoderException("corner count out of range: " + n);
             List<BlockPos> list = new ArrayList<>(Math.min(n, 8));
             for (int i = 0; i < n; i++)
@@ -87,11 +95,12 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
             if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH))
                 return;
             // ③ 拐点数量上限(解码层已有硬上限, 这里再兜一次)
-            if (corners.size() > MAX_CORNERS)
+            if (corners.size() > maxCorners())
                 return;
-            // ④ 审计 A-3: 终点必须在玩家 8 格内(平方 64) —— 挡住改包客户端远程施工。
+            // ④ 审计 A-3: 终点必须在玩家**配置的距离**内(默认 8 格) —— 挡住改包客户端远程施工。
             //    刻意**不校验** start/拐点: 玩家是一路走过去逐个点拐点的, 起点很可能已在很远处。
-            if (sp.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(end)) > 64.0) {
+            if (sp.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(end))
+                > WrenchConfig.connectMaxEndDistanceSqr()) {
                 sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(
                     "msg." + BetterWrenchMod.MODID + ".connect.too_far"), true);
                 return;

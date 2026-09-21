@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.mode.DeconstructScope;
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
 
@@ -29,7 +30,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * 而不是拆除本身的计算量。那部分已在 {@link DeconstructLogic#deconstructBlock} 里
  * 通过"静默拆除"消除(绝大多数方块不再走 Create 那条产生特效的路径)。</p>
  *
- * <p>所以这里只用**一个朴素的固定片大小** {@link #BLOCKS_PER_TICK}:每刻最多处理这么多格。
+ * <p>所以这里只用**一个朴素的固定片大小** {@link #blocksPerTick}:每刻最多处理这么多格。
  * 简单、可预测、便于解释, 没有时钟读取也没有自适应逻辑。</p>
  *
  * <p>提交时先**当场处理一片**:小选区因此立即完成(保持即时反馈), 没做完才登记为跨刻任务。
@@ -38,12 +39,14 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 public final class DeconstructJob {
 
     /**
-     * 每服务端刻处理的格数上限。
+     * 每服务端刻处理的格数上限 —— 读配置 {@code deconstruct.blocks_per_tick}(默认 1024)。
      *
-     * <p>取 1024:静默拆除后每格只剩「BreakEvent + 产物入包 + removeBlock」,
+     * <p>默认值 1024 的依据: 静默拆除后每格只剩「BreakEvent + 产物入包 + removeBlock」,
      * 16240 格约 16 刻(≈0.8 秒)完成。若改大则单刻更重(可能感觉到顿), 改小则总耗时更长。</p>
+     *
+     * <p>⚠️ 每个任务在**创建时读一次**(不是每格去查配置)。</p>
      */
-    private static final int BLOCKS_PER_TICK = 1024;
+    private final int blocksPerTick;
 
     /**
      * 「实际减少方块数」统计的体量上限。
@@ -87,6 +90,7 @@ public final class DeconstructJob {
         this.sizeZ = maxZ - minZ + 1;
         this.volume = (long) this.sizeX * this.sizeY * this.sizeZ;
         this.blocksBefore = this.volume <= COUNT_DELTA_MAX_VOLUME ? countNonAir() : -1L;
+        this.blocksPerTick = WrenchConfig.deconstructBlocksPerTick();
     }
 
     /** 选区体积(格数), 用于给玩家的提示文案。 */
@@ -123,9 +127,9 @@ public final class DeconstructJob {
             "msg." + BetterWrenchMod.MODID + ".deconstruct.batching", job.volume), true);
     }
 
-    /** 处理至多 {@link #BLOCKS_PER_TICK} 格;做完就置 done。 */
+    /** 处理至多 {@link #blocksPerTick} 格;做完就置 done。 */
     private void runSlice(ServerPlayer player) {
-        for (int i = 0; i < BLOCKS_PER_TICK && !done; i++) {
+        for (int i = 0; i < blocksPerTick && !done; i++) {
             int x = minX + cx, y = minY + cy, z = minZ + cz;
             BlockPos pos = new BlockPos(x, y, z);
             BlockState state = level.getBlockState(pos);

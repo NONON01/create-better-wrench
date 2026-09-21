@@ -9,6 +9,10 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 ## [0.5.0+mc1.21.1] - unreleased
 
 ### Added
+- **A config file** (`serverconfig/create_better_wrench-server.toml`) for the values that used to be hardcoded:
+  deconstruct selection limit & batch size, connect corner/segment/total-block limits and end-point distance.
+  Every option carries a **bilingual (English + Chinese) comment**, and the in-game config screen (built into
+  NeoForge — no extra dependency) shows them, so players can tune the mod without editing code.
 - **Wrench mode** (leftmost, the default): passes right-clicks through to Create's standard wrench behaviour.
 - **Connect mode**: pick a start, any number of air-cell corners, then an end; the drivetrain is
   routed per segment (same axis = straight, same plane = one automatic 90° turn, non-planar = refused)

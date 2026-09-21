@@ -1,6 +1,7 @@
 package com.nonono.createbetterwrench.network;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.deconstruct.DeconstructJob;
 import com.nonono.createbetterwrench.deconstruct.DeconstructLogic;
 import com.nonono.createbetterwrench.mode.DeconstructScope;
@@ -44,8 +45,8 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
         return TYPE;
     }
 
-    /** 单个轴向上的最大边长(用户指定: 选区最大 64×64×64)。超过则拒绝, 不再进入任何循环。 */
-    private static final int MAX_EDGE = 64;
+    // 单轴最大边长改为**读配置**: config/WrenchConfig → deconstruct.max_edge(默认 64)。
+    // 客户端 client/DeconstructSelectionHandler 读的是同一份配置, 因此不会再出现"两份常量不同步"的问题。
 
     public void handle(IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
@@ -60,11 +61,12 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
             // ⚠️ 2026-09-20(用户约定): 扳手在副手时"只作普通扳手", 不参与本模组的模式功能
             if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH))
                 return;
-            // ③ 选区尺寸上限: 每轴 ≤ 64(挡住"改包发超大区域 ⇒ 服务端长时间遍历"的卡服路径)
+            // ③ 选区尺寸上限: 每轴 ≤ 配置值(默认 64) —— 挡住"改包发超大区域 ⇒ 服务端长时间遍历"的卡服路径
+            int maxEdge = WrenchConfig.deconstructMaxEdge();
             int dx = Math.abs(cornerA.getX() - cornerB.getX()) + 1;
             int dy = Math.abs(cornerA.getY() - cornerB.getY()) + 1;
             int dz = Math.abs(cornerA.getZ() - cornerB.getZ()) + 1;
-            if (dx > MAX_EDGE || dy > MAX_EDGE || dz > MAX_EDGE) {
+            if (dx > maxEdge || dy > maxEdge || dz > maxEdge) {
                 // 用户要求: 选区过大时明确提示(客户端那边同时会把选区框画成红色)
                 sp.displayClientMessage(
                     Component.translatable("msg." + BetterWrenchMod.MODID + ".deconstruct.too_large"), true);

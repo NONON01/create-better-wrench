@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.mode.ConnectCorner;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllItems;
@@ -35,7 +36,7 @@ import net.neoforged.neoforge.event.EventHooks;
  * 「连接」模式的服务端核心 —— 拐点数量不限, 每段边按几何自动路由。
  *
  * <p>交互(用户 2026-09-07 重定义):
- * 起点 S(机械动力方块) → 若干普通方块拐点 c1..ck(最多 32 个, 见 ConnectPayload.MAX_CORNERS) → 终点 E(机械动力方块)。</p>
+ * 起点 S(机械动力方块) → 若干普通方块拐点 c1..ck(数量上限见 {@link ConnectPayload#maxCorners()}, 可在配置里调) → 终点 E(机械动力方块)。</p>
  *
  * <p>每段相邻节点 a→b 的边按三档自动路由:
  * <ul>
@@ -51,7 +52,7 @@ import net.neoforged.neoforge.event.EventHooks;
  */
 public final class ConnectLogic {
 
-    private static final int MAX_LEG = 64;
+    // 单段轴长上限改为读配置: config/WrenchConfig → connect.max_leg_length(默认 64)。
 
     private ConnectLogic() {
     }
@@ -135,8 +136,14 @@ public final class ConnectLogic {
         return world.getBlockEntity(pos) instanceof KineticBlockEntity;
     }
 
-    /** 单次连接最多允许铺设的方块总数(轴+齿轮箱+大齿轮), 服务端安全上限。 */
-    public static final int MAX_TOTAL_BLOCKS = 256;
+    /**
+     * 单次连接最多允许铺设的方块总数(轴 + 齿轮箱 + 大齿轮), 服务端安全上限。
+     *
+     * <p>★ 可在配置里调: {@code config/WrenchConfig} → {@code connect.max_total_blocks}(默认 256)。</p>
+     */
+    public static int maxTotalBlocks() {
+        return WrenchConfig.connectMaxTotalBlocks();
+    }
 
     /** 单次 plan() 内最多组装多少次候选走法(阶段 1 的贪心组装算 1 次); 超预算即放弃 → SELF_CONFLICT。 */
     private static final int MAX_PLAN_ATTEMPTS = 64;
@@ -571,7 +578,7 @@ public final class ConnectLogic {
         Direction dir = directionBetween(from, to);
         int guard = 0;
         for (BlockPos p = from.relative(dir); !p.equals(to); p = p.relative(dir)) {
-            if (++guard > MAX_LEG)
+            if (++guard > WrenchConfig.connectMaxLegLength())
                 return null;
             out.add(p.immutable());
         }
@@ -598,7 +605,7 @@ public final class ConnectLogic {
 
         // 服务端安全: 单次请求能铺设的方块总数上限(挡住"拐点多 × 每段最长 64"叠出的超大工程把服务端卡住)
         int totalBlocks = plan.shaftPositions.size() + plan.gearboxes.size() + plan.cogs.size();
-        if (totalBlocks > MAX_TOTAL_BLOCKS)
+        if (totalBlocks > maxTotalBlocks())
             return Result.TOO_LONG;
 
         // 审计 A-3: 每个将要落块的坐标都要先过原版交互权限(服务端实现里含出生点保护与世界边界)。

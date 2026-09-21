@@ -25,7 +25,7 @@
 
   "hint.create_better_wrench.deconstruct": "Deconstruct: %s",
   "hint.create_better_wrench.corner": "Corner: %s",
-  "hint.create_better_wrench.connect.corner_limit": "Corner limit reached (max 32)",
+  "hint.create_better_wrench.connect.corner_limit": "Corner limit reached (max %s)",
   "hint.create_better_wrench.stay": "Product stay: %s",
   "hint.create_better_wrench.combat.on": "Combat Mode",
   "hint.create_better_wrench.combat.off": "Normal Mode",
