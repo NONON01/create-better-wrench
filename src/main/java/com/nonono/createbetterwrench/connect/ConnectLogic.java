@@ -22,7 +22,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -46,7 +45,8 @@ import net.neoforged.neoforge.event.EventHooks;
  * </ul></p>
  *
  * <p>每个方向改变处(被点拐点 + 每条拐弯边的自动角点)放一个齿轮箱。默认材料: 轴 create:shaft +
- * 齿轮箱 create:gearbox(水平转) / create:vertical_gearbox(涉竖直转); 副手持轴变体则优先用副手。
+ * 齿轮箱 create:gearbox(水平转) / create:vertical_gearbox(涉竖直转)。
+ * ⚠️ 2026-09-20: 原先「副手持"轴变体"则优先用副手」这个特性**已按用户要求移除** —— 轴材质**固定**为 create:shaft。
  * 放置前按 Item 聚合校验材料足量, 不足整拒不部分放; 扣料只按逐格校验通过的实际落块数。</p>
  */
 public final class ConnectLogic {
@@ -613,14 +613,13 @@ public final class ConnectLogic {
             if (!world.mayInteract(player, c.pos))
                 return Result.PROTECTED;
 
-        Item shaftItem = resolveShaftItem(player);
         Item gearboxItem = AllBlocks.GEARBOX.asItem();
         Item verticalItem = AllItems.VERTICAL_GEARBOX.get();
         Item cogItem = AllBlocks.LARGE_COGWHEEL.asItem();
 
-        // 审计 A-1: 材料需求先按 Item 聚合再一次性校验 —— 副手持"轴变体"(AbstractSimpleShaftBlock,
-        // 含 create:cogwheel / create:large_cogwheel)时 shaftItem 可能与 cogItem 是同一个 Item,
-        // 分头校验会造成"放 7 块只扣 5 个"的凭空造物。
+        // 审计 A-1: 材料需求先按 Item **聚合**再一次性校验(而不是按用途分头校验)。
+        // 这条口径在 2026-09-20 之前是用来防"副手持轴变体(齿轮)当轴用 ⇒ 同一堆叠被两个用途重复计入"的复制漏洞;
+        // 现在那个副手特性**已移除**(轴固定 create:shaft), 但聚合校验保留 —— 它本来就是正确的记账方式。
         if (!hasMaterials(player, plan))
             return Result.MATERIALS;
 
@@ -629,7 +628,7 @@ public final class ConnectLogic {
         //
         // 每格还会**补发原版的 EntityPlaceEvent**(审计 A-3 残留修复): 只监听该事件的领地/保护插件
         // 从此也能拦住; 一旦被拦 => **逆序整体还原 + 拒连**(世上不留半截传动结构, 也不扣料)。
-        BlockState shaftBase = shaftBlockState(shaftItem);
+        BlockState shaftBase = AllBlocks.SHAFT.getDefaultState();
         Map<Item, Integer> placedItems = new LinkedHashMap<>();
         List<BlockSnapshot> undo = new ArrayList<>();
         for (int i = 0; i < plan.shaftPositions.size(); i++) {
@@ -643,7 +642,7 @@ public final class ConnectLogic {
                 return Result.PROTECTED;
             }
             if (outcome == PlaceOutcome.OK)
-                addDemand(placedItems, shaftItem, 1);
+                addDemand(placedItems, AllBlocks.SHAFT.asItem(), 1);
         }
         for (GearboxPlace g : plan.gearboxes) {
             BlockState st = AllBlocks.GEARBOX.getDefaultState()
@@ -741,10 +740,10 @@ public final class ConnectLogic {
         return true;
     }
 
-    /** 本单按 Item 聚合的需求量(同一 Item 的多项用途必须累加, 见审计 A-1)。 */
-    private static Map<Item, Integer> demandOf(Plan plan, Item shaftItem) {
+    /** 本单按 Item 聚合的需求量(同一 Item 的多项用途必须累加, 见审计 A-1)。轴固定用 create:shaft。 */
+    private static Map<Item, Integer> demandOf(Plan plan) {
         Map<Item, Integer> demand = new LinkedHashMap<>();
-        addDemand(demand, shaftItem, plan.shaftPositions.size());
+        addDemand(demand, AllBlocks.SHAFT.asItem(), plan.shaftPositions.size());
         addDemand(demand, AllBlocks.GEARBOX.asItem(), gearboxCount(plan.gearboxes, false));
         addDemand(demand, AllItems.VERTICAL_GEARBOX.get(), gearboxCount(plan.gearboxes, true));
         addDemand(demand, AllBlocks.LARGE_COGWHEEL.asItem(), plan.cogs.size());
@@ -768,26 +767,10 @@ public final class ConnectLogic {
     public static boolean hasMaterials(Player player, Plan plan) {
         if (player.isCreative())
             return true;
-        for (Map.Entry<Item, Integer> e : demandOf(plan, resolveShaftItem(player)).entrySet())
+        for (Map.Entry<Item, Integer> e : demandOf(plan).entrySet())
             if (countItem(player, e.getKey()) < e.getValue())
                 return false;
         return true;
-    }
-
-    private static BlockState shaftBlockState(Item shaftItem) {
-        if (shaftItem instanceof BlockItem bi) {
-            BlockState s = bi.getBlock().defaultBlockState();
-            if (s.hasProperty(BlockStateProperties.AXIS))
-                return s;
-        }
-        return AllBlocks.SHAFT.getDefaultState();
-    }
-
-    private static Item resolveShaftItem(Player player) {
-        Item off = player.getOffhandItem().getItem();
-        if (off instanceof BlockItem bi && bi.getBlock() instanceof AbstractSimpleShaftBlock)
-            return off;
-        return AllBlocks.SHAFT.asItem();
     }
 
     private static int countItem(Player player, Item item) {

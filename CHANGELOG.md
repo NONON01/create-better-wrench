@@ -2,10 +2,11 @@
 
 All notable changes to Create Better Wrench are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
-Versions are SemVer; from `1.0.0-beta` on we no longer append the Create version
-(earlier releases used `<mod version>+create<Create version>`, e.g. `0.4.0+create6.0.10`).
+Versions are SemVer; the current scheme is `<mod version>+mc<Minecraft version>` (e.g. `0.5.0+mc1.21.1`) —
+everything after `+` is build metadata. Earlier releases used `<mod version>+create<Create version>`
+(e.g. `0.4.0+create6.0.10`), and `1.0.0-beta` was a short-lived prerelease-style label.
 
-## [1.0.0-beta] - unreleased
+## [0.5.0+mc1.21.1] - unreleased
 
 ### Added
 - **Wrench mode** (leftmost, the default): passes right-clicks through to Create's standard wrench behaviour.
@@ -18,13 +19,22 @@ Versions are SemVer; from `1.0.0-beta` on we no longer append the Create version
 - **Process mode**: lock a Depot, then right-click it with an item in hand to act as a Deployer,
   Spout or axe. Supports `create:sequenced_assembly`, `create:deploying` / `create:item_application`,
   vanilla log stripping and `create:filling` (batch filling by actual fluid amount).
-  Raw / working / done are shown as three spots around the depot.
+  The raw pile sits beside the depot as a separate drop; the depot itself shows the item being worked on.
 - **Mod Info mode**: placeholder info page.
 - Bottom tool-select HUD adapted from Create's blueprint bar (ALT to focus, scroll to cycle,
   multi-line descriptions, `[]`/`{}` spans rendered bold + hint-blue).
 - Combat-mode easter egg behind the `cbw.battlemode` permission node (default: operators only).
 
+### Removed
+- **Connect mode: the "offhand shaft variant" feature is gone.** The shaft material is now always
+  `create:shaft`; the offhand is no longer inspected to pick the shaft item.
+- **Process mode: the separate "done pile" was removed** (in practice it was a no-op). Finished products
+  are ordinary drops now: pickable, and they despawn like any other dropped item after 5 minutes.
+  Unlocking a depot therefore returns only the item on the depot plus the raw pile.
+- The F9 "export wrench icon" developer tool (and its two lang keys) no longer ships in the jar.
+
 ### Changed
+- Version scheme is `<mod version>+mc<Minecraft version>` again → **`0.5.0+mc1.21.1`**.
 - Renamed the mod to **Universal Wrench** (`mod_name`; the `mod_id` stays `create_better_wrench`).
   ⚠️ Renamed **again** to **Create Better Wrench** in the same release — `Universal Wrench` collided with
   an existing Modrinth project of the same name and niche. The **item** is still called
@@ -37,8 +47,8 @@ Versions are SemVer; from `1.0.0-beta` on we no longer append the Create version
   before popping out. Ctrl+Scroll cycles No stay / Short / Medium (default) / Long = 0 / 2 / 4 / 8 ticks.
 - Process mode: the depot is **automatically refilled** from the raw pile after every step, so a batch
   can be worked through without re-placing material.
-- Unlocking a depot now **returns everything to your inventory** — the item on the depot plus both
-  piles, including products that had been popped out.
+- Unlocking a depot now **returns everything it still owns to your inventory** — the item on the depot
+  plus the raw pile. Finished products are ordinary drops (see below) and stay in the world.
 - The `create` dependency no longer forces a load order (`ordering` is now `NONE`).
 - **Licensing consolidated into a single `LICENSE.md`** (previously `LICENSE` + `THIRD_PARTY_NOTICES.md`
   + `licenses/Create-MIT.txt`): our terms, every third-party notice, and Create's MIT notice
@@ -46,8 +56,40 @@ Versions are SemVer; from `1.0.0-beta` on we no longer append the Create version
   mod menu's `license` field points at (`Read attached LICENSE.md`).
 - `neoforge.mods.toml`: the `credits` field was removed and the description reduced to a single
   line, matching how Create itself presents its own mod entry.
+- **Connect mode: automatic corner orientation is now *searched*** (bounded to 64 attempts) instead of the
+  connection being refused on the first self-conflict. The preferred route's behaviour is byte-for-byte
+  unchanged; the search is memoised so the client ghost preview stays cheap.
+- **Connect mode: stricter server-side checks** — distance to the end point, `mayInteract` per placed block,
+  and every placement posts `BlockEvent.EntityPlaceEvent` (a cancellation reverts everything already placed).
+  Rejections are reported distinctly: `PROTECTED` / `SELF_CONFLICT` / `TOO_FAR`.
+- **Process mode: while you hold the wrench in your *main* hand the click is still consumed (lock/unlock),
+  but a wrench in the offhand no longer swallows it** — so "wrench in offhand + material in main hand" can
+  actually apply the material. Finished products now pop out as ordinary drops (stay time still configurable).
+- Deconstruct mode: the reported count now equals the blocks actually removed, including Create's
+  multi-block cascade.
+- Deprecation cleanup: `@EventBusSubscriber(bus = ...)` is gone (16 annotations simplified, 2 mod-bus
+  listeners now registered explicitly from the client-only entry point `BetterWrenchClient`) — the build
+  compiles with zero warnings.
+- **Shift + right-click now cancels** an unfinished Connect / Deconstruct selection.
 
 ### Fixed
+- **Connect mode: item duplication fixed.** Material requirements are now totalled per item before placing,
+  so a plan can never place more blocks than it charges for.
+- **Connect mode: no more getting disconnected** after picking more than 32 corners (the client now mirrors
+  the server's cap and tells you instead).
+- Connect mode: a route that would need two different blocks in one cell, or that would overwrite the start /
+  end block, is now re-routed automatically or refused cleanly instead of corrupting the structure.
+- Connect mode: every cell on the path is checked against already-loaded chunks, so planning can no longer
+  force-load or generate terrain, and the ghost preview matches the server's material/length rules.
+- **Process mode: the "stay, then pop" queue remembers which item it queued** and is cancelled when the depot
+  is unlocked / broken / blown up — it can no longer pop whatever happens to be on the depot by then.
+- Process mode: filling no longer silently loses the input it took from the raw pile if the first fill fails.
+- Process mode: a pile holding a foreign item can no longer be consumed without being credited.
+- Client state: unfinished selections are also cleared when **changing dimension** (previously only on logout),
+  and the toolbar highlight resets together with the mode.
+- Deconstruct mode: reported count fixed, and the **Redstone only** filter now also matches tripwires,
+  daylight detectors, hoppers and rails.
+- Deconstruct mode: the block-break event is posted for the wrench-pickup branch, so protection plugins work.
 - **Security**: connect / deconstruct payloads are validated server-side (volume cap, corner-count cap,
   `mayBuild`, spectator check, wrench-in-hand check); connection corners are checked for occupancy;
   the wrench-pickup branch now posts `BlockEvent.BreakEvent` so land-protection plugins can block it.
