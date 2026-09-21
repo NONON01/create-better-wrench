@@ -39,6 +39,8 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 - The F9 "export wrench icon" developer tool (and its two lang keys) no longer ships in the jar.
 
 ### Changed
+- **The Wrench mode's tool-bar description is always centred** — even though it now has two lines, it is a
+  per-mode exception to the usual "multi-line = left aligned" rule for the tool-tip panel.
 - **The wrench now only works as a mode tool in your main hand.** Held in the **offhand** it is just a
   normal Create wrench: no tool bar, ALT+Scroll does not switch modes, no mode feature applies, and the
   combat easter egg is off (all client handlers, the three server payload checks and the combat gate now

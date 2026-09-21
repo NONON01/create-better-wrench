@@ -94,9 +94,8 @@ public final class WrenchToolSelection {
         // 下方 tooltip(描述)面板: 面板与**文字**一起淡入(yOffset 越大越不透明)
         float toolTipAlpha = yOffset / 10;
         if (toolTipAlpha > 0.25f) {
-            // 描述支持多行: 语言文件里写 \n 换行, 过长的行再由字体按面板宽度自动折行
-            // 对齐规则: **多行左对齐**(两行居中会参差, 且 [右键]/[滚轮] 前缀左对齐更好读);
-            //           **单行居中**(视觉上更平衡)。
+            // 描述支持多行: 语言文件里写 \n 换行, 过长的行再由字体按面板宽度自动折行。
+            // (对齐规则见下面 centerText 那段注释。)
             List<FormattedCharSequence> lines = mc.font.split(modes.get(selection).description(), w - 20);
             RenderSystem.setShaderColor(.7f, .7f, .8f, toolTipAlpha);
             // 面板高度与原版一致写死为 h + 22(不随行数增长!)—— 早先按行数加高会把面板往下撑,
@@ -107,11 +106,18 @@ public final class WrenchToolSelection {
 
             // 文字自身也带 alpha(与 Create 一样把 alpha 编进颜色), 否则面板在淡入而字是硬邦邦蹦出来的
             int textAlpha = ((int) (toolTipAlpha * 0xFF)) << 24;
-            boolean multiLine = lines.size() > 1;
-            int leftX = x - 15 + 10; // 面板左内边距
+
+            // 对齐规则:
+            //   ① 默认 —— **多行左对齐**(两行居中会参差, 且 [右键]/[滚轮] 前缀左对齐更好读), **单行居中**;
+            //   ② 特例 —— **[扳手] 模式永远居中**(用户 2026-09-20 要求): 它的描述现在是两行
+            //      (第二行写着"若此物品在副手，则只为此功能"), 用户明确要这一个模式单独居中,
+            //      不受"多行左对齐"这条通用规则约束。
+            boolean centerText = modes.get(selection) == WrenchMode.WRENCH || lines.size() <= 1;
+            int leftX = x - 15 + 10; // 面板左内边距(多行左对齐时用)
             int textY = y + 38;
             for (FormattedCharSequence line : lines) {
-                int lineX = multiLine ? leftX : screenW / 2 - mc.font.width(line) / 2;
+                // 居中位置 = 屏幕中心 = 面板中心(面板本身水平居中, 所以两者等价)
+                int lineX = centerText ? screenW / 2 - mc.font.width(line) / 2 : leftX;
                 graphics.drawString(mc.font, line, lineX, textY, 0xEEEEEE + textAlpha, false);
                 textY += 12;
             }
