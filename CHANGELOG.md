@@ -35,6 +35,10 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 - The F9 "export wrench icon" developer tool (and its two lang keys) no longer ships in the jar.
 
 ### Changed
+- **The wrench now only works as a mode tool in your main hand.** Held in the **offhand** it is just a
+  normal Create wrench: no tool bar, ALT+Scroll does not switch modes, no mode feature applies, and the
+  combat easter egg is off (all client handlers, the three server payload checks and the combat gate now
+  require the main hand). The Wrench mode description gained a second line saying exactly that.
 - Version scheme is `<mod version>+mc<Minecraft version>` again → **`0.5.0+mc1.21.1`**.
 - Renamed the mod to **Universal Wrench** (`mod_name`; the `mod_id` stays `create_better_wrench`).
   ⚠️ Renamed **again** to **Create Better Wrench** in the same release — `Universal Wrench` collided with

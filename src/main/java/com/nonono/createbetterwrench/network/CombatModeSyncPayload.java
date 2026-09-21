@@ -19,7 +19,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 public record CombatModeSyncPayload(boolean combat, boolean announce) implements CustomPacketPayload {
 
     public static final Type<CombatModeSyncPayload> TYPE = new Type<>(
-        ResourceLocation.fromNamespaceAndPath(BetterWrenchMod.MODID, "COMBAT_MODE_sync"));
+        ResourceLocation.fromNamespaceAndPath(BetterWrenchMod.MODID, "combat_mode_sync"));
 
     public static final StreamCodec<ByteBuf, CombatModeSyncPayload> STREAM_CODEC = StreamCodec.composite(
         ByteBufCodecs.BOOL, CombatModeSyncPayload::combat,
