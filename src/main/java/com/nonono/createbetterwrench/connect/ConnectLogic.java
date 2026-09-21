@@ -1,6 +1,7 @@
 package com.nonono.createbetterwrench.connect;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +65,8 @@ public final class ConnectLogic {
         PATH_BLOCKED,
         PROTECTED,
         CORNER_NO_ROOM,
+        /** 所有候选走法组合都试过了(或在预算内无解), 路线仍然自相冲突: 同格要放两种不同东西 / 计划格撞上起点或终点。 */
+        SELF_CONFLICT,
         MATERIALS,
         TOO_LONG
     }
@@ -135,6 +138,9 @@ public final class ConnectLogic {
     /** 单次连接最多允许铺设的方块总数(轴+齿轮箱+大齿轮), 服务端安全上限。 */
     public static final int MAX_TOTAL_BLOCKS = 256;
 
+    /** 单次 plan() 内最多组装多少次候选走法(阶段 1 的贪心组装算 1 次); 超预算即放弃 → SELF_CONFLICT。 */
+    private static final int MAX_PLAN_ATTEMPTS = 64;
+
     /** 计算铺设计划(只读, 不改世界)。corners 为按序点击的拐点(可为空=直线直达); cornerType=拐角用齿轮箱还是大齿轮。 */
     public static ResultOutcome plan(Level world, BlockPos start, List<BlockPos> corners, BlockPos end,
                                      ConnectCorner cornerType) {
@@ -157,29 +163,127 @@ public final class ConnectLogic {
         if (!isKineticEnd(world, start) || !isKineticEnd(world, end))
             return new ResultOutcome(Result.NOT_KINETIC, null);
 
-        // 逐边路由成直线轴段列表
-        List<Leg> legs = new ArrayList<>();
+        // 每条边的候选走法(按偏好排序: 第 0 个与改动前的 routeEdge 选择逐字段一致)
+        BlockState startState = world.getBlockState(start);
+        List<List<Leg[]>> variants = new ArrayList<>();
         for (int i = 0; i < chain.size() - 1; i++) {
-            boolean first = i == 0;
-            Leg[] edge = routeEdge(world, chain.get(i), chain.get(i + 1), first,
-                start, end, world.getBlockState(start));
-            if (edge == null)
+            List<Leg[]> cands = routeEdgeVariants(world, chain.get(i), chain.get(i + 1), i == 0,
+                start, end, startState);
+            if (cands.isEmpty())
                 return new ResultOutcome(edgeResult(world, chain.get(i), chain.get(i + 1)), null);
-            for (Leg l : edge)
-                legs.add(l);
+            variants.add(cands);
         }
 
+        // 一次 plan() 内的读世界记忆化: plan() 每 tick 被客户端幽灵预览调用, 而阶段 2 的回溯会反复
+        // 询问同一批坐标, 所以 occupied()/hasChunkAt() 的结果在本次调用内缓存(世界在 plan() 期间
+        // 不会被改动, 缓存恒有效; 普通路径的读取次数只会不增)。
+        Map<BlockPos, Boolean> occupiedCache = new HashMap<>();
+        Map<BlockPos, Boolean> loadedCache = new HashMap<>();
+
+        // ===== 阶段 1: 每条边都取第一候选 —— 与改动前的贪心路线完全一致 =====
+        Attempt greedy = assemble(world, start, end, assembleLegs(variants, null, null), cornerType,
+            occupiedCache, loadedCache);
+        if (greedy.result == Result.SUCCESS)
+            return new ResultOutcome(Result.SUCCESS, greedy.plan);
+
+        // ===== 阶段 2: 首选走法失败后, 对"有多个候选"的边做有界回溯 =====
+        // 被已有方块挡住 / 终点轴口不过 / 某段过长 / 中间格未加载 / 自相冲突 —— 这些**都可能随 L 取向改变**,
+        // 所以统一进来搜一遍(若某类失败其实与取向无关, 搜索只是白跑几趟, 结论不变)。
+        List<Integer> varEdges = new ArrayList<>();
+        for (int e = 0; e < variants.size(); e++)
+            if (variants.get(e).size() > 1)
+                varEdges.add(e); // n==1 的边只有 1 个候选, 固定不参与搜索
+
+        int attempts = 1; // 阶段 1 的贪心组装已经算 1 次
+        if (!varEdges.isEmpty()) {
+            int[] slotOfEdge = new int[variants.size()];
+            for (int e = 0; e < slotOfEdge.length; e++)
+                slotOfEdge[e] = -1;
+            for (int k = 0; k < varEdges.size(); k++)
+                slotOfEdge[varEdges.get(k)] = k;
+
+            int[] choice = new int[varEdges.size()];
+            while (attempts < MAX_PLAN_ATTEMPTS) {
+                // 里程表式推进: 最靠后的可变边先换候选(= DFS 的回溯顺序); 全 0 组合是阶段 1, 已跳过
+                int k = varEdges.size() - 1;
+                while (k >= 0 && choice[k] + 1 >= variants.get(varEdges.get(k)).size()) {
+                    choice[k] = 0;
+                    k--;
+                }
+                if (k < 0)
+                    break; // 所有候选组合都试过了
+                choice[k]++;
+
+                attempts++;
+                Attempt retry = assemble(world, start, end, assembleLegs(variants, slotOfEdge, choice),
+                    cornerType, occupiedCache, loadedCache);
+                if (retry.result == Result.SUCCESS)
+                    return new ResultOutcome(Result.SUCCESS, retry.plan);
+            }
+        }
+
+        // 所有候选走法都试过(或超出预算)仍不行: 报**首选走法**的失败原因 ——
+        // 比"一律报自相冲突"更贴合实际(例如其实是"被方块挡住"), 且世界零改动(阶段 2 只做计划)。
+        return new ResultOutcome(greedy.result, null);
+    }
+
+    /** 按 choice(可为 null = 全取第一候选)把各边的候选拼成一整条轴段序列。 */
+    private static List<Leg> assembleLegs(List<List<Leg[]>> variants, int[] slotOfEdge, int[] choice) {
+        List<Leg> legs = new ArrayList<>();
+        for (int e = 0; e < variants.size(); e++) {
+            int ci = 0;
+            if (choice != null && slotOfEdge[e] >= 0)
+                ci = choice[slotOfEdge[e]];
+            for (Leg l : variants.get(e).get(ci))
+                legs.add(l);
+        }
+        return legs;
+    }
+
+    /** 一次候选走法的组装结果(内部使用): 成功时带 Plan, 否则带失败原因。 */
+    private static final class Attempt {
+        final Result result;
+        final Plan plan;
+
+        private Attempt(Result result, Plan plan) {
+            this.result = result;
+            this.plan = plan;
+        }
+
+        static Attempt success(Plan plan) {
+            return new Attempt(Result.SUCCESS, plan);
+        }
+
+        static Attempt failure(Result result) {
+            return new Attempt(result, null);
+        }
+
+        /** 同格要放两种不同东西 / 计划格撞上 start、end —— 换一种 L 取向有可能绕开。 */
+        static Attempt conflict() {
+            return new Attempt(Result.SELF_CONFLICT, null);
+        }
+    }
+
+    /**
+     * 组装并校验一条候选走法(只读世界, 绝不改世界)。
+     *
+     * <p>阶段 1 与阶段 2 共用; 检查顺序与改动前逐一对应:
+     * 端点轴口 → 每段中间格(超长/未加载) → 每个节点(大齿轮/齿轮箱) → 各段剩余中间格铺轴。</p>
+     */
+    private static Attempt assemble(Level world, BlockPos start, BlockPos end, List<Leg> legs,
+                                    ConnectCorner cornerType, Map<BlockPos, Boolean> occupiedCache,
+                                    Map<BlockPos, Boolean> loadedCache) {
         // 端点轴口校验
         Leg firstLeg = legs.get(0);
         BlockState startState = world.getBlockState(start);
         if (!portOpen(world, start, startState, firstLeg.axis,
             directionBetween(start, firstLeg.to)))
-            return new ResultOutcome(Result.NOT_KINETIC, null);
+            return Attempt.failure(Result.NOT_KINETIC);
         Leg lastLeg = legs.get(legs.size() - 1);
         BlockState endState = world.getBlockState(end);
         if (!portOpen(world, end, endState, lastLeg.axis,
             directionBetween(lastLeg.from, end).getOpposite()))
-            return new ResultOutcome(Result.NOT_KINETIC, null);
+            return Attempt.failure(Result.NOT_KINETIC);
 
         // 【已移除】原先的"双源方向冲突"校验: 穿过齿轮箱/拐弯本就会反转转向, 会误伤正常接入, 改由 Create 运行时合并。
 
@@ -188,12 +292,12 @@ public final class ConnectLogic {
         for (Leg leg : legs) {
             List<BlockPos> cells = interiorCells(leg.from, leg.to, leg.axis);
             if (cells == null)
-                return new ResultOutcome(Result.TOO_LONG, null);
+                return Attempt.failure(Result.TOO_LONG);
             // 审计 A-5: 中间格也必须已加载 —— Level#getBlockState 会阻塞式加载/生成区块,
             // 所以绝不能让它走到后面的 occupied()。节点级校验(上方 isLoaded)挡不住路径穿的未加载区。
             for (BlockPos p : cells)
-                if (!world.hasChunkAt(p))
-                    return new ResultOutcome(Result.UNLOADED, null);
+                if (!loadedCached(world, p, loadedCache))
+                    return Attempt.failure(Result.UNLOADED);
             legCells.add(cells);
         }
 
@@ -213,17 +317,17 @@ public final class ConnectLogic {
                 List<BlockPos> c1 = legCells.get(i);
                 List<BlockPos> c2 = legCells.get(i + 1);
                 if (c1.isEmpty() || c2.isEmpty())
-                    return new ResultOutcome(Result.CORNER_NO_ROOM, null);
+                    return Attempt.failure(Result.CORNER_NO_ROOM);
                 BlockPos l1 = c1.remove(c1.size() - 1);
                 BlockPos l2 = c2.remove(0);
                 // 审计发现 #7: 这两格是从 legCells 里"吃掉"的, 不会进入下面的 occupied 校验循环,
                 // 所以必须在这里单独校验, 否则大齿轮会直接覆盖掉角上的既有方块。
-                if (occupied(world, l1) || occupied(world, l2))
-                    return new ResultOutcome(Result.PATH_BLOCKED, null);
+                if (occupiedCached(world, l1, occupiedCache) || occupiedCached(world, l2, occupiedCache))
+                    return Attempt.failure(Result.PATH_BLOCKED);
                 int r1 = registerCell(planned, l1, "COG:" + cur.axis, start, end);
                 int r2 = registerCell(planned, l2, "COG:" + next.axis, start, end);
                 if (r1 == CELL_CONFLICT || r2 == CELL_CONFLICT)
-                    return new ResultOutcome(Result.PATH_BLOCKED, null);
+                    return Attempt.conflict();
                 if (r1 != CELL_DUPLICATE)
                     plan.cogs.add(new CogPlace(l1, cur.axis));
                 if (r2 != CELL_DUPLICATE)
@@ -231,14 +335,14 @@ public final class ConnectLogic {
             } else {
                 // 齿轮箱节点: 允许把**可替换方块/已有轴**换成齿轮箱, 但**不能无条件覆盖**别的东西
                 // (审计发现 #7: 原来这里完全不校验, 角点落在箱子等机器上会直接把方块抹掉)
-                if (!world.hasChunkAt(jp))
-                    return new ResultOutcome(Result.UNLOADED, null);
-                if (occupied(world, jp))
-                    return new ResultOutcome(Result.PATH_BLOCKED, null);
+                if (!loadedCached(world, jp, loadedCache))
+                    return Attempt.failure(Result.UNLOADED);
+                if (occupiedCached(world, jp, occupiedCache))
+                    return Attempt.failure(Result.PATH_BLOCKED);
                 Axis gax = junctionAxis(cur.axis, next.axis);
                 int r = registerCell(planned, jp, "GEARBOX:" + gax, start, end);
                 if (r == CELL_CONFLICT)
-                    return new ResultOutcome(Result.PATH_BLOCKED, null);
+                    return Attempt.conflict();
                 if (r != CELL_DUPLICATE)
                     plan.gearboxes.add(new GearboxPlace(jp, gax, gax != Axis.Y));
             }
@@ -248,11 +352,11 @@ public final class ConnectLogic {
         for (int i = 0; i < legCells.size(); i++) {
             Axis ax = legs.get(i).axis;
             for (BlockPos p : legCells.get(i)) {
-                if (occupied(world, p))
-                    return new ResultOutcome(Result.PATH_BLOCKED, null);
+                if (occupiedCached(world, p, occupiedCache))
+                    return Attempt.failure(Result.PATH_BLOCKED);
                 int r = registerCell(planned, p, "SHAFT:" + ax, start, end);
                 if (r == CELL_CONFLICT)
-                    return new ResultOutcome(Result.PATH_BLOCKED, null);
+                    return Attempt.conflict();
                 if (r != CELL_DUPLICATE) {
                     plan.shaftPositions.add(p);
                     plan.shaftAxes.add(ax);
@@ -260,7 +364,27 @@ public final class ConnectLogic {
             }
         }
 
-        return new ResultOutcome(Result.SUCCESS, plan);
+        return Attempt.success(plan);
+    }
+
+    /** occupied() 在**一次 plan() 调用内**的记忆化(阶段 2 的回溯会反复问同一批坐标)。 */
+    private static boolean occupiedCached(Level world, BlockPos pos, Map<BlockPos, Boolean> cache) {
+        Boolean hit = cache.get(pos);
+        if (hit != null)
+            return hit;
+        boolean value = occupied(world, pos);
+        cache.put(pos.immutable(), value);
+        return value;
+    }
+
+    /** hasChunkAt() 的记忆化(同上, 且不让 A-5 的校验被回溯放大)。 */
+    private static boolean loadedCached(Level world, BlockPos pos, Map<BlockPos, Boolean> cache) {
+        Boolean hit = cache.get(pos);
+        if (hit != null)
+            return hit;
+        boolean value = world.hasChunkAt(pos);
+        cache.put(pos.immutable(), value);
+        return value;
     }
 
     /**
@@ -288,24 +412,31 @@ public final class ConnectLogic {
             return Result.SAME_POS;
         if (n >= 3)
             return Result.NON_PLANAR;
-        // 1 或 2 维的 routeEdge 返回 null, 只可能是首段起点轴口不被满足 → 报"无法接轴"
+        // 1 或 2 维的 routeEdgeVariants 返回空列表, 只可能是首段起点轴口不被满足 → 报"无法接轴"
         return Result.NOT_KINETIC;
     }
 
-    /** 路由一条边: 返回 1(直线)或 2(一次拐弯)个轴段; 无法路由返回 null。 */
-    private static Leg[] routeEdge(Level world, BlockPos a, BlockPos b, boolean first,
-                                   BlockPos start, BlockPos end, BlockState startState) {
+    /**
+     * 路由一条边, 返回**按偏好排序的全部候选走法**(第 0 个与改动前 {@code routeEdge} 选出的完全一致)。
+     *
+     * <p>n==1: 只有 1 个候选(直线); n==2: 两种 L 取向里能接上起点轴口的都作为候选
+     * (第 0 个 = 原偏好逻辑选中的那个, 第 1 个 = 另一种取向)。返回空列表 = 两种取向都不可用。</p>
+     */
+    private static List<Leg[]> routeEdgeVariants(Level world, BlockPos a, BlockPos b, boolean first,
+                                                 BlockPos start, BlockPos end, BlockState startState) {
+        List<Leg[]> out = new ArrayList<>();
         List<Axis> ds = differingAxes(a, b);
         int n = ds.size();
         if (n == 0 || n >= 3)
-            return null;
+            return out;
 
         if (n == 1) {
             Axis ax = ds.get(0);
-            return new Leg[] { new Leg(ax, a, b) };
+            out.add(new Leg[] { new Leg(ax, a, b) });
+            return out;
         }
 
-        // n == 2 (同一平面): 两种 L 取向, 选一种
+        // n == 2 (同一平面): 两种 L 取向, 先按原偏好逻辑定"第一候选", 另一种能用的排在其后
         Axis p = ds.get(0);
         Axis q = ds.get(1);
         // 拐点要"先沿 a 的轴"(首段)再转 b 的轴: 即拐点保留 a 的其它坐标、把首段轴坐标换成 b 的
@@ -322,7 +453,7 @@ public final class ConnectLogic {
             // 只有一种取向可用
             useP = pOk;
         } else if (!pOk) {
-            return null; // 两种都不可用
+            return out; // 两种都不可用
         } else {
             // 两种都可用: 先避开"自动拐点正好落在起点/终点上"的取向
             // (审计 A-4: 那样的拐点会变成齿轮箱, 把起点/终点方块覆盖掉), 再按分数与起点旋转轴挑
@@ -345,10 +476,17 @@ public final class ConnectLogic {
             }
         }
 
-        Axis firstAxis = useP ? p : q;
-        Axis secondAxis = useP ? q : p;
-        BlockPos corner = useP ? cornerP : cornerQ;
-        return new Leg[] { new Leg(firstAxis, a, corner), new Leg(secondAxis, corner, b) };
+        // 第一候选 = 旧 routeEdge 的返回; 另一种取向只在它自己也通过起点轴口时才作为候选
+        if (useP) {
+            out.add(new Leg[] { new Leg(p, a, cornerP), new Leg(q, cornerP, b) });
+            if (qOk)
+                out.add(new Leg[] { new Leg(q, a, cornerQ), new Leg(p, cornerQ, b) });
+        } else {
+            out.add(new Leg[] { new Leg(q, a, cornerQ), new Leg(p, cornerQ, b) });
+            if (pOk)
+                out.add(new Leg[] { new Leg(p, a, cornerP), new Leg(q, cornerP, b) });
+        }
+        return out;
     }
 
     /**

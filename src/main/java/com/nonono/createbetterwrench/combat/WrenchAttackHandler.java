@@ -24,7 +24,7 @@ import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
  * 专用服务器就会在注册时 {@code NoClassDefFoundError}。
  * 移到通用包后, 这个隐患从结构上消失(见 docs/07 §6 B-1)。</p>
  */
-@EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = BetterWrenchMod.MODID)
 public final class WrenchAttackHandler {
 
     private WrenchAttackHandler() {

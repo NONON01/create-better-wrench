@@ -20,7 +20,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * 客户端: 本地玩家按战斗模式开关应用加成(与 HUD 显示一致); 进入世界时把开关同步给服务端。
  */
 @OnlyIn(Dist.CLIENT)
-@EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+@EventBusSubscriber(modid = BetterWrenchMod.MODID, value = Dist.CLIENT)
 public final class WrenchCombatClient {
 
     private WrenchCombatClient() {

@@ -11,7 +11,7 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 /**
  * 服务端: 每 tick 依据该玩家的战斗模式开关(与是否持扳手)应用/移除战斗加成; 玩家登出时清理记录。
  */
-@EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = BetterWrenchMod.MODID)
 public final class WrenchCombatServer {
 
     private WrenchCombatServer() {

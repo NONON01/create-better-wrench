@@ -35,7 +35,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * 置物台上执行加工。旧实现只要"任一只手"拿扳手就吃掉且不发包, 于是副手扳手 + 主手材料
  * 完全无法加工(服务端其实是允许的, 见 {@code AssemblePayload} 的双手校验)。</p>
  */
-@EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+@EventBusSubscriber(modid = BetterWrenchMod.MODID, value = Dist.CLIENT)
 public final class AssembleSelectionHandler {
 
     private AssembleSelectionHandler() {

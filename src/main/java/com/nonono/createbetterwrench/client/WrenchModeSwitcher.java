@@ -12,8 +12,6 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 
 /**
@@ -61,15 +59,9 @@ public final class WrenchModeSwitcher {
         combatMode = false;
     }
 
-    @EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
-    public static final class Register {
-        private Register() {
-        }
-
-        @SubscribeEvent
-        public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
-            event.register(TOOLS_KEY);
-        }
+    /** MOD 总线: 注册"呼出工具条"按键。由 {@code client/BetterWrenchClient} 显式注册(不再用已废弃的 bus())。 */
+    public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
+        event.register(TOOLS_KEY);
     }
 
     /** 滚轮循环切换模式(direction>0 向前)。 */

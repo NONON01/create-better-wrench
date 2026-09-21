@@ -11,7 +11,7 @@ import net.neoforged.neoforge.client.event.InputEvent;
 /**
  * 客户端 GAME 总线(NeoForge.EVENT_BUS)输入事件:ALT 聚焦时用滚轮循环切换扳手模式。
  */
-@EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+@EventBusSubscriber(modid = BetterWrenchMod.MODID, value = Dist.CLIENT)
 public final class WrenchInputHandler {
 
     private WrenchInputHandler() {

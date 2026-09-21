@@ -44,7 +44,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * </ol>
  * 每段相邻点的边按"同轴=直线 / 同平面=自动一次 90° 拐弯 / 非平面=拒连"由服务端路由; 放置前校验背包材料。
  */
-@EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+@EventBusSubscriber(modid = BetterWrenchMod.MODID, value = Dist.CLIENT)
 public final class ConnectSelectionHandler {
 
     private static final Object START_KEY = "connect_start";

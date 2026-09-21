@@ -204,7 +204,7 @@ public final class DeconstructJob {
         }
     }
 
-    @EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+    @EventBusSubscriber(modid = BetterWrenchMod.MODID)
     public static final class Events {
         private Events() {
         }

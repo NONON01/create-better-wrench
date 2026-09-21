@@ -22,8 +22,10 @@ import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
  * <p>仅在玩家手持扳手时绘制。平时很淡/几乎隐藏, 按住 TOOLS_KEY(默认 ALT)聚焦后变清晰,
  * 松开后逐渐淡出(淡入淡出靠 displayAlpha / yOffset 每帧插值)。
  * 底部横条中央显示各模式(当前项上浮高亮), Ctrl+滚轮/ALT+滚轮 切换见 WrenchInputHandler。</p>
+ *
+ * <p>ℹ️ HUD 层的注册走**显式注册**(见 {@code client/BetterWrenchClient} 的 {@code @Mod(dist = Dist.CLIENT)} 入口) ——
+ * NeoForge 21.1 已把 {@code @EventBusSubscriber(bus = ...)} 标记为待删除, MOD 总线的事件不再用注解订阅。</p>
  */
-@EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public final class WrenchHud {
 
     private static final ResourceLocation LAYER_ID =
@@ -37,7 +39,7 @@ public final class WrenchHud {
     private WrenchHud() {
     }
 
-    @SubscribeEvent
+    /** MOD 总线: 把工具条注册到最顶层。由 {@code client/BetterWrenchClient} 显式注册。 */
     public static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
         event.registerAboveAll(LAYER_ID, WrenchHud::renderLayer);
     }
@@ -73,7 +75,7 @@ public final class WrenchHud {
     }
 
     /** GAME 总线: 每客户端刻推进动画状态(与原版 SchematicHandler 同一节奏)。 */
-    @EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+    @EventBusSubscriber(modid = BetterWrenchMod.MODID, value = Dist.CLIENT)
     public static final class Tick {
         private Tick() {
         }

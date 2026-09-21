@@ -44,15 +44,14 @@
   "msg.create_better_wrench.connect.too_long": "Connect failed: a segment is too long",
   "msg.create_better_wrench.connect.too_far": "Connect failed: too far away",
   "msg.create_better_wrench.connect.protected": "Connect failed: target position is protected",
+  "msg.create_better_wrench.connect.self_conflict": "Connect failed: the route conflicts with itself; move or add a corner",
   "msg.create_better_wrench.deconstruct.count": "Removed %s blocks",
   "msg.create_better_wrench.deconstruct.batching": "Large area (~%s blocks): removing in batches...",
   "msg.create_better_wrench.deconstruct.too_large": "Selection too large",
   "msg.create_better_wrench.assemble.locked": "Depot locked",
   "msg.create_better_wrench.assemble.unlocked": "Depot unlocked",
   "msg.create_better_wrench.combat_no_permission": "You don't have permission to enable Combat Mode (OP required)",
-  "msg.create_better_wrench.icon_export.running": "Exporting wrench icon render...",
 
   "key.create_better_wrench.tools": "Focus Wrench Mode Bar",
-  "key.create_better_wrench.export_icon": "Export wrench icon render (asset tool)",
   "key.categories.create_better_wrench": "Universal Wrench"
 }

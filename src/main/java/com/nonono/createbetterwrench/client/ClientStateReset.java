@@ -28,7 +28,7 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
  * <p>统一放在这一处, 而不是分散到各个类里各写一个监听器(那样很容易漏掉新加的状态)。</p>
  */
 @OnlyIn(Dist.CLIENT)
-@EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+@EventBusSubscriber(modid = BetterWrenchMod.MODID, value = Dist.CLIENT)
 public final class ClientStateReset {
 
     private ClientStateReset() {

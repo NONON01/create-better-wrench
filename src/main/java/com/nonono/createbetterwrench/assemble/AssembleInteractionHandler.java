@@ -24,7 +24,7 @@ import net.neoforged.neoforge.event.level.ExplosionEvent;
  * <p>另外负责**置物台被破坏/炸毁时释放料堆** —— 否则那两个掉落物实体会永久停留在
  * {@code pickupDelay=32767} + {@code age=-32768}(既拿不走也不会消失), 玩家直接丢东西。</p>
  */
-@EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = BetterWrenchMod.MODID)
 public final class AssembleInteractionHandler {
 
     private AssembleInteractionHandler() {

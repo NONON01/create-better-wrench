@@ -32,7 +32,7 @@ public final class AssembleStayClient {
     }
 
     /** 进入世界时补发一次: 服务端只存内存, 重连后要重新同步。 */
-    @EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+    @EventBusSubscriber(modid = BetterWrenchMod.MODID, value = Dist.CLIENT)
     public static final class Join {
         private Join() {
         }

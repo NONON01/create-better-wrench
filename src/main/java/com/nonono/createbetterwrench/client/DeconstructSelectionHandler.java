@@ -32,7 +32,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * <p>交互: 第一次右键定 A, 之后移动视角会用 catnip Outliner 画蓝色选区框(A → 当前视线块);
  * 第二次右键定 B 并立即向服务端发送 DeconstructPayload 执行拆除。</p>
  */
-@EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+@EventBusSubscriber(modid = BetterWrenchMod.MODID, value = Dist.CLIENT)
 public final class DeconstructSelectionHandler {
 
     private static final Object OUTLINE_KEY = "deconstruct_select";

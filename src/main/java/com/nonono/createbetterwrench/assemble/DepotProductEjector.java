@@ -95,7 +95,7 @@ public final class DepotProductEjector {
     }
 
     /** 每服务端刻检查一次有没有到期的成品要弹出。 */
-    @EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+    @EventBusSubscriber(modid = BetterWrenchMod.MODID)
     public static final class Tick {
         private Tick() {
         }

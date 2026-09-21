@@ -21,7 +21,7 @@ import net.neoforged.neoforge.server.permission.nodes.PermissionTypes;
  *
  * <p>注意: 节点通过 {@link PermissionGatherEvent.Nodes} 注册, 该事件在 <b>NeoForge.EVENT_BUS(GAME 总线)</b> 上触发。</p>
  */
-@EventBusSubscriber(modid = BetterWrenchMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = BetterWrenchMod.MODID)
 public final class WrenchPermissions {
 
     /** OP 判定阈值: 权限等级 ≥ 2(与原版"可执行多数管理指令"的等级一致)。 */
