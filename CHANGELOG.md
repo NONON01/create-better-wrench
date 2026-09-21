@@ -27,7 +27,8 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 
 ### Removed
 - **Connect mode: the "offhand shaft variant" feature is gone.** The shaft material is now always
-  `create:shaft`; the offhand is no longer inspected to pick the shaft item.
+  `create:shaft`; the offhand is no longer inspected to pick the shaft item, **and it is no longer
+  counted or consumed as a material source** — connect uses your main inventory only.
 - **Process mode: the separate "done pile" was removed** (in practice it was a no-op). Finished products
   are ordinary drops now: pickable, and they despawn like any other dropped item after 5 minutes.
   Unlocking a depot therefore returns only the item on the depot plus the raw pile.

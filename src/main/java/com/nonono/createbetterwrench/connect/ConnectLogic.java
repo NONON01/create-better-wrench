@@ -773,18 +773,22 @@ public final class ConnectLogic {
         return true;
     }
 
+    /**
+     * 统计玩家**主背包**里某物品的数量(不含副手)。
+     *
+     * <p>⚠️ 2026-09-20(用户要求): 连接模式的材料来源**限定为主背包** ——
+     * 原先会额外把副手也算进来("副手放材料"), 现按用户要求去掉:
+     * 副手既不参与计数, 也不参与扣除({@link #consumeItem})。客户端预览与服务端用的是**同一个函数**, 口径一致。</p>
+     */
     private static int countItem(Player player, Item item) {
         int count = 0;
         for (ItemStack stack : player.getInventory().items)
             if (stack.getItem() == item)
                 count += stack.getCount();
-        ItemStack off = player.getOffhandItem();
-        if (off.getItem() == item)
-            count += off.getCount();
         return count;
     }
 
-    /** 从背包(含副手)扣除指定物品; 扣不满返回 false(调用方须记录日志, 不静默吞掉)。 */
+    /** 从**主背包**扣除指定物品; 扣不满返回 false(调用方须记录日志, 不静默吞掉)。副手不参与。 */
     private static boolean consumeItem(Player player, Item item, int count) {
         int remain = count;
         for (int i = player.getInventory().items.size() - 1; i >= 0 && remain > 0; i--) {
@@ -794,14 +798,6 @@ public final class ConnectLogic {
             int take = Math.min(remain, stack.getCount());
             stack.shrink(take);
             remain -= take;
-        }
-        if (remain > 0) {
-            ItemStack off = player.getOffhandItem();
-            if (off.getItem() == item) {
-                int take = Math.min(remain, off.getCount());
-                off.shrink(take);
-                remain -= take;
-            }
         }
         return remain <= 0;
     }
