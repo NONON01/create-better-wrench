@@ -378,6 +378,14 @@ public final class AssembleLogic {
         //    原料堆里的异类型物品**原样放回**(与 trySpoutFilling 同样的防丢料处理)。
         int limit = Math.max(1, WrenchConfig.assembleFanBatchLimit());
         ItemStack batch = current.copy();
+        // 台面那一摞若超过上限(把配置调小于台面数量): 只有 batch 这部分会被转换, 多出来的部分
+        // **先留在这个局部变量里、不碰世界** —— 成功后才退回原料堆; 失败时台面原封不动。
+        // ⚠️ 千万别在这里就 deposit: 那样"先退料、后失败"会让台面那一摞**重复一份**(退走的 + 台面上的)。
+        ItemStack overflow = ItemStack.EMPTY;
+        if (batch.getCount() > limit) {
+            overflow = batch.copyWithCount(batch.getCount() - limit);
+            batch = batch.copyWithCount(limit);
+        }
         int fromPile = 0;
         if (batch.getCount() < limit) {
             ItemStack extra = DepotPiles.take(level, pos, limit - batch.getCount());
@@ -405,6 +413,12 @@ public final class AssembleLogic {
 
         // ④ 产出**全部直接弹出**: 与其它路径的成品观感一致 —— 台面正上方发出、带向上的初速。
         //    台面上一个都不留, 多结果(洗涤灵魂沙 → 4 石英 + 金粒)才能一次性全部弹出去。
+        //
+        // ⚠️ 先处理"台面超出上限的那部分": 它随台面那一摞一起被下面的 consumeAndRefill 覆盖掉,
+        //    若不在这里退回原料堆就是**静默丢失**。(失败分支不会走到这里, 所以它那时仍在台面上。)
+        if (!overflow.isEmpty())
+            DepotPiles.deposit(level, pos, overflow);
+
         Vec3 ejectFrom = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
         for (ItemStack stack : out)
             if (!stack.isEmpty())
