@@ -93,10 +93,10 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   out from above the depot just like the other paths, so multi-result recipes (washing soul sand ⇒ quartz + gold
   nugget) leave in one go and the depot is instantly free for the next item.
   ⚠️ This supersedes the earlier "products stay on the depot" wording in the 0.5.0 entry above.
-- **No deprecated API use left.** NeoForge deprecated the whole `LevelReader#hasChunk*` family
+- **No deprecated API use left.** Minecraft itself deprecated the whole `LevelReader#hasChunk*` family
   (`hasChunk`, `hasChunkAt(BlockPos)`, `hasChunkAt(int,int)`, `hasChunksAt(...)`); the 8 call sites
   (connect, deconstruct and the three payloads) now use `Level#isLoaded(BlockPos)` — the same API Create uses.
-  A full recompile with `-Xlint:deprecation` is now completely silent.
+  A full recompile with `-Xlint:all` is now completely silent.
 - Deconstruct mode: the reported count now equals the blocks actually removed, including Create's
   multi-block cascade.
 - Deprecation cleanup: `@EventBusSubscriber(bus = ...)` is gone (16 annotations simplified, 2 mod-bus
