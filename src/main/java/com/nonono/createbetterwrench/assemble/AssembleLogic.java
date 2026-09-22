@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.simibubi.create.AllRecipeTypes;
 import com.simibubi.create.content.fluids.spout.FillingBySpout;
 import com.simibubi.create.content.fluids.transfer.GenericItemEmptying;
@@ -55,7 +56,9 @@ import net.neoforged.neoforge.items.wrapper.RecipeWrapper;
  *   <li><b>注液</b> —— {@code create:filling}, 等价于注液器(Spout)。</li>
  *   <li><b>批量鼓风处理</b>(2026-09-20 新增) —— 模仿 Create 鼓风机: 水桶 ⇒ 洗涤({@code create:splashing})、
  *       岩浆桶 ⇒ 熔炼(熔炉/高炉)、打火石 ⇒ 烟熏; 若置物台**下方**是灵魂沙/灵魂土/灵魂火则 ⇒ 缠魂
- *       ({@code create:haunting})。一次把**整摞**台面物品完全转换, 转换后**不弹出**。见 {@link #tryFanProcessing}。</li>
+ *       ({@code create:haunting}), 缠魂没配方时**回退烟熏**。一次把**一整摞**物品完全转换
+ *       (台面那一摞 + 原料堆里的同类, 上限见配置 {@code assemble.fan_batch_limit}), 产出**全部弹出**。
+ *       见 {@link #tryFanProcessing}。</li>
  * </ol>
  *
  * <h2>两个位置</h2>
@@ -314,16 +317,22 @@ public final class AssembleLogic {
 
     /**
      * 第 5 条路径: 用**水桶 / 岩浆桶 / 打火石**模拟 Create 鼓风机的一次性处理,
-     * 但对**整摞**台面物品一次性完成 —— 洗涤({@code create:splashing})、熔炼(原版熔炉/高炉)、
+     * 但对**一整摞**物品一次性完成 —— 洗涤({@code create:splashing})、熔炼(原版熔炉/高炉)、
      * 烟熏(原版烟熏炉)、缠魂({@code create:haunting})。
      *
-     * <p>三种手持物的含义:</p>
+     * <p>三种手持物的含义(候选类型按序尝试):</p>
      * <ul>
      *   <li>{@link Items#WATER_BUCKET} → 洗涤({@code SPLASHING});</li>
      *   <li>{@link Items#LAVA_BUCKET} → 熔炼({@code BLASTING});</li>
-     *   <li>{@link Items#FLINT_AND_STEEL} → 置物台**下方**是灵魂沙 / 灵魂土 / 灵魂火时是缠魂
-     *       ({@code HAUNTING}), 否则是烟熏({@code SMOKING})。</li>
+     *   <li>{@link Items#FLINT_AND_STEEL} → 置物台**下方**是灵魂沙 / 灵魂土 / 灵魂火时**先试缠魂**
+     *       ({@code HAUNTING}), 缠魂没配方(例如台面是食物)再**回退烟熏**({@code SMOKING});
+     *       下方不是灵魂底座时只试烟熏。</li>
      * </ul>
+     *
+     * <p><b>一次转换多少:</b> 台面那一摞 + 原料堆里的**同类**物品, 合计上限为
+     * {@link WrenchConfig#assembleFanBatchLimit()}(配置项 {@code assemble.fan_batch_limit}, 默认 64)。
+     * 也就是"一次右击 = 一整摞"。原料堆取来的部分只在与台面物品**物品+组件完全一致**时才并入,
+     * 且**加工失败时原样退回原料堆**(与 {@code trySpoutFilling} 的做法一致, 绝不静默吞料)。</p>
      *
      * <p><b>为什么在 filling 之后:</b> 注液(岩浆桶 → 烈焰蛋糕等)是已实机验证过的路径,
      * 必须先给它机会; 本路径只作为"注液没命中"时的兜底。详见 {@link #tryAssemble} 的调用点注释。</p>
@@ -334,9 +343,9 @@ public final class AssembleLogic {
      * 本模组**刻意反过来**: 一律当作"不适用", **保持台面物品原样、绝不销毁玩家物品**。</p>
      *
      * <p><b>消耗:</b> 水桶 / 岩浆桶**完全不消耗**(也不给空桶); 打火石只走
-     * {@link #consumeHeld} 的耐久分支 —— 无论台面上有多少个, 都只扣 **1 点耐久**。</p>
+     * {@link #consumeHeld} 的耐久分支 —— 无论一次转换多少个, 都只扣 **1 点耐久**。</p>
      *
-     * <p><b>产出:</b> 整摞交给 {@code process} 一次即代表"整摞完全转换"
+     * <p><b>产出:</b> 整批交给 {@code process} 一次即代表"整批完全转换"
      * ({@code RecipeApplier.applyRecipeOn} 内部按 {@code getCount()} 逐份掷结果, 并把同类产出
      * 合并成尽量满的堆叠)。所有结果**全部直接弹出** —— 与其它路径的成品一致: 从台面正上方发出、
      * 带向上初速的普通掉落物(即 {@link #dropProduct} 的 {@code launched=true} 形态)。
@@ -349,25 +358,53 @@ public final class AssembleLogic {
         if (level.isClientSide)
             return false;
 
-        FanProcessingType type = fanTypeFor(level, pos, held);
+        List<FanProcessingType> candidates = fanTypesFor(level, pos, held);
+        if (candidates.isEmpty())
+            return false;
+
+        // ① 先只拿**台面那个**探配方(canProcess 与数量无关) —— 这样"没配方"时不会白动原料堆。
+        FanProcessingType type = null;
+        for (FanProcessingType candidate : candidates) {
+            if (candidate.canProcess(current, level)) {
+                type = candidate;
+                break;
+            }
+        }
+        // 所有候选都不适用: 不消耗、不提示, 让别的路径继续尝试(与改动前一致)
         if (type == null)
             return false;
 
-        // canProcess == false 时什么都不做(不消耗、不提示), 让别的路径继续尝试
-        if (!type.canProcess(current, level))
-            return false;
+        // ② 并入**原料堆**里的同类物品, 合计凑到上限(默认 64 = 一整摞; 上限可配置)。
+        //    原料堆里的异类型物品**原样放回**(与 trySpoutFilling 同样的防丢料处理)。
+        int limit = Math.max(1, WrenchConfig.assembleFanBatchLimit());
+        ItemStack batch = current.copy();
+        int fromPile = 0;
+        if (batch.getCount() < limit) {
+            ItemStack extra = DepotPiles.take(level, pos, limit - batch.getCount());
+            if (!extra.isEmpty()) {
+                if (ItemStack.isSameItemSameComponents(batch, extra)) {
+                    fromPile = extra.getCount();
+                    batch.grow(fromPile);
+                } else {
+                    DepotPiles.deposit(level, pos, extra);
+                }
+            }
+        }
 
-        int count = current.getCount();
-        // process 可能返回 null(无配方)或空列表(不适用, 在 Create 里表示"销毁") —— 两者都按"不适用"处理
-        List<ItemStack> out = type.process(current.copy(), level);
+        // ③ process 可能返回 null(无配方)或空列表(不适用, 在 Create 里表示"销毁") —— 两者都按"不适用"处理
+        List<ItemStack> out = type.process(batch.copy(), level);
         if (out == null || out.isEmpty()) {
+            // ⚠️ 失败时**必须把从原料堆取来的那部分原样退回** —— 那些物品已经离开料堆实体、
+            //    只存在于 batch 里, 直接 return 就静默丢了。(台面那部分没动过, 不用管。)
+            if (fromPile > 0)
+                DepotPiles.deposit(level, pos, current.copyWithCount(fromPile));
             player.displayClientMessage(
                 Component.translatable("msg." + BetterWrenchMod.MODID + ".assemble.fan_none"), true);
             return true; // 这次手势已被本模组消费: 保持台面原样
         }
 
-        // 产出**全部直接弹出**: 与其它路径的成品观感一致 —— 台面正上方发出、带向上的初速。
-        // 台面上一个都不留, 多结果(洗涤灵魂沙 → 4 石英 + 金粒)才能一次性全部弹出去。
+        // ④ 产出**全部直接弹出**: 与其它路径的成品观感一致 —— 台面正上方发出、带向上的初速。
+        //    台面上一个都不留, 多结果(洗涤灵魂沙 → 4 石英 + 金粒)才能一次性全部弹出去。
         Vec3 ejectFrom = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
         for (ItemStack stack : out)
             if (!stack.isEmpty())
@@ -383,27 +420,30 @@ public final class AssembleLogic {
         if (held.is(Items.FLINT_AND_STEEL))
             consumeHeld(player, held, hand, false);
 
+        // 提示里报的是**这一次真正转换掉的数量**(台面 + 并入的原料堆)
         player.displayClientMessage(
-            Component.translatable("msg." + BetterWrenchMod.MODID + ".assemble.fan_done", count), true);
+            Component.translatable("msg." + BetterWrenchMod.MODID + ".assemble.fan_done", batch.getCount()), true);
         return true;
     }
 
     /**
-     * 手持物 → 鼓风处理类型; 不适用则返回 {@code null}(调用方直接跳过本路径)。
+     * 手持物 → **候选**鼓风处理类型列表(按序尝试, 取第一个既 {@code canProcess} 又有配方的);
+     * 手持物不是这三种之一则返回空列表(调用方直接跳过本路径)。
      *
      * <p>打火石要看**置物台下方**的方块: 灵魂沙 / 灵魂土(原版 {@code BlockTags.SOUL_FIRE_BASE_BLOCKS},
-     * 灵魂火就架在这两种方块上)或灵魂火本身 ⇒ 缠魂, 否则 ⇒ 烟熏。</p>
+     * 灵魂火就架在这两种方块上)或灵魂火本身 ⇒ **先试缠魂、再回退烟熏** —— 灵魂底座上烤食物时
+     * 缠魂本来就没配方, 回退烟熏才不会"占着路径不干活"(2026-09-20 用户要求)。</p>
      */
-    private static FanProcessingType fanTypeFor(Level level, BlockPos pos, ItemStack held) {
+    private static List<FanProcessingType> fanTypesFor(Level level, BlockPos pos, ItemStack held) {
         if (held.is(Items.WATER_BUCKET))
-            return AllFanProcessingTypes.SPLASHING;
+            return List.of(AllFanProcessingTypes.SPLASHING);
         if (held.is(Items.LAVA_BUCKET))
-            return AllFanProcessingTypes.BLASTING;
+            return List.of(AllFanProcessingTypes.BLASTING);
         if (!held.is(Items.FLINT_AND_STEEL))
-            return null;
+            return List.of();
         return isSoulBase(level, pos.below())
-            ? AllFanProcessingTypes.HAUNTING
-            : AllFanProcessingTypes.SMOKING;
+            ? List.of(AllFanProcessingTypes.HAUNTING, AllFanProcessingTypes.SMOKING)
+            : List.of(AllFanProcessingTypes.SMOKING);
     }
 
     /** 该方块是否属于"灵魂火底座": 灵魂沙 / 灵魂土(vanilla tag), 外加灵魂火本身。 */

@@ -38,6 +38,8 @@ public final class WrenchConfig {
     public static final int DEFAULT_CONNECT_MAX_TOTAL_BLOCKS = 256;
     /** 连接: 终点与玩家的最大距离(格)。 */
     public static final double DEFAULT_CONNECT_MAX_END_DISTANCE = 8.0;
+    /** 加工: 「类鼓风处理」一次右击最多转换多少个物品。 */
+    public static final int DEFAULT_ASSEMBLE_FAN_BATCH_LIMIT = 64;
 
     public static final ModConfigSpec SPEC;
 
@@ -47,6 +49,7 @@ public final class WrenchConfig {
     private static final ModConfigSpec.IntValue CONNECT_MAX_LEG_LENGTH;
     private static final ModConfigSpec.IntValue CONNECT_MAX_TOTAL_BLOCKS;
     private static final ModConfigSpec.DoubleValue CONNECT_MAX_END_DISTANCE;
+    private static final ModConfigSpec.IntValue ASSEMBLE_FAN_BATCH_LIMIT;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -124,6 +127,25 @@ public final class WrenchConfig {
 
         b.pop();
 
+        // ------------------------------------------------------------ 加工 / Assemble
+        b.comment(
+                "[加工] Assemble (物品置物台)",
+                "★ 只影响'类鼓风处理'(水桶/岩浆桶/打火石)一次能转换多少物品。",
+                "★ Only affects how many items the fan-style path (water bucket / lava bucket / flint & steel) converts per click.")
+            .push("assemble");
+
+        ASSEMBLE_FAN_BATCH_LIMIT = b
+            .comment(
+                "类鼓风处理: 一次右击最多转换多少个物品(台面那一摞 + 从原料堆并入的同类物品), 默认 64。",
+                "★ 默认 64 = '一整摞'。原料堆里的同类物品会补足到上限, 所以一个台面能连续按 64 个一批地处理。",
+                "★ 调大 = 一次转换更多(会一次生成更多掉落物实体, 极端值可能造成卡顿); 调小 = 每批更少、更有节奏。",
+                "Fan-style processing: maximum items converted by one right-click (the depot stack plus same-kind items merged from the raw pile), default 64.",
+                "★ The default 64 means 'one full stack'; same-kind items in the raw pile are merged up to this cap.",
+                "★ Higher converts more per click (and spawns more dropped-item entities at once, which can cause lag at extreme values); lower makes each batch smaller.")
+            .defineInRange("fan_batch_limit", DEFAULT_ASSEMBLE_FAN_BATCH_LIMIT, 1, 4096);
+
+        b.pop();
+
         SPEC = b.build();
     }
 
@@ -167,5 +189,10 @@ public final class WrenchConfig {
     public static double connectMaxEndDistanceSqr() {
         double d = connectMaxEndDistance();
         return d * d;
+    }
+
+    /** 加工: 「类鼓风处理」一次右击最多转换多少个物品(台面 + 原料堆并入)。 */
+    public static int assembleFanBatchLimit() {
+        return SPEC.isLoaded() ? ASSEMBLE_FAN_BATCH_LIMIT.get() : DEFAULT_ASSEMBLE_FAN_BATCH_LIMIT;
     }
 }

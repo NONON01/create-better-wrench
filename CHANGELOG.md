@@ -10,16 +10,18 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 
 ### Added
 - **Process mode: batch fan-style processing.** Hold **water bucket ⇒ washing**, **lava bucket ⇒ blasting/smelting**,
-  **flint & steel ⇒ smoking** — or **haunting** when the block *below* the depot is soul sand / soul soil / soul fire.
-  The whole stack on the depot is converted in one click, using Create's own fan-processing recipes
+  **flint & steel ⇒ smoking** — or, when the block *below* the depot is soul sand / soul soil / soul fire,
+  **haunting first and smoking as a fallback** (so food still smokes on a soul base).
+  One click converts a **whole stack**: the depot stack plus same-kind items merged from the raw pile, capped by
+  `assemble.fan_batch_limit` (default 64). Create's own fan-processing recipes are used
   (`create:splashing` / `create:haunting` / vanilla smoking / smelting). Buckets are **not consumed** and flint & steel
-  only loses **1 durability**. Unlike Create's fan, an empty result **never destroys** the item; every product is
-  **ejected** (it pops out from above the depot like the other paths), so multi-result recipes such as washing
-  soul sand (quartz + gold nugget) leave in one go.
+  only loses **1 durability**. Unlike Create's fan, an empty result **never destroys** the item (and material pulled
+  from the pile is put back); every product is **ejected** (it pops out from above the depot like the other paths),
+  so multi-result recipes such as washing soul sand (quartz + gold nugget) leave in one go.
 - **A config file** (`serverconfig/create_better_wrench-server.toml`) for the values that used to be hardcoded:
-  deconstruct selection limit & batch size, connect corner/segment/total-block limits and end-point distance.
-  Every option carries a **bilingual (English + Chinese) comment**, and the in-game config screen (built into
-  NeoForge — no extra dependency) shows them, so players can tune the mod without editing code.
+  deconstruct selection limit & batch size, connect corner/segment/total-block limits, end-point distance and the
+  fan-style batch limit. Every option carries a **bilingual (English + Chinese) comment**, and the in-game config
+  screen (built into NeoForge — no extra dependency) shows them, so players can tune the mod without editing code.
 - **Wrench mode** (leftmost, the default): passes right-clicks through to Create's standard wrench behaviour.
 - **Connect mode**: pick a start, any number of air-cell corners, then an end; the drivetrain is
   routed per segment (same axis = straight, same plane = one automatic 90° turn, non-planar = refused)
