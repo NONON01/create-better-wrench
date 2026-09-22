@@ -18,6 +18,8 @@ import com.simibubi.create.foundation.recipe.RecipeApplier;
 
 import net.createmod.catnip.data.Pair;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -43,6 +45,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.wrapper.RecipeWrapper;
+import org.joml.Vector3f;
 
 /**
  * 「工作」(内部 id 仍为 {@code assemble})模式的服务端核心: 在**已锁定的置物台**上,
@@ -351,6 +354,11 @@ public final class AssembleLogic {
      * 带向上初速的普通掉落物(即 {@link #dropProduct} 的 {@code launched=true} 形态)。
      * 台面上**一个都不留**, 所以多结果(洗涤灵魂沙 → 4 石英 + 金粒)能一次性全部弹出去;
      * 弹出的同时立刻从原料堆续下一份原料占住台面, 产出落地时不会被置物台吸回去。</p>
+     *
+     * <p><b>反馈(2026-09-20 追加, 用户要求):</b> 成功时播**原版音效** —— 水桶 ⇒ {@code BUCKET_EMPTY}(倒水)、
+     * 岩浆桶 ⇒ {@code BUCKET_EMPTY_LAVA}、打火石 ⇒ {@code FLINTANDSTEEL_USE}; 同时喷洒与 Create 鼓风机
+     * **同款**的粒子(洗涤 = 蓝色尘 + {@code SPIT}, 熔炼 = {@code LARGE_SMOKE}, 烟熏 = {@code POOF},
+     * 缠魂 = {@code SOUL_FIRE_FLAME} + {@code SMOKE})。详见 {@link #playFanFeedback}。</p>
      */
     private static boolean tryFanProcessing(Level level, BlockPos pos, DepotBlockEntity depot,
                                             Player player, ItemStack held, InteractionHand hand,
@@ -427,7 +435,7 @@ public final class AssembleLogic {
         // 台面清空 + 立刻续上原料堆的下一个。
         // ⚠️ 顺序不能反: 台面被下一份原料占用着, 刚弹出的产出落地时才不会被置物台吸回去。
         consumeAndRefill(level, pos, depot);
-        playPickup(level, pos);
+        playFanFeedback(level, pos, held, type);
 
         // 打火石: 只扣 1 点耐久(consumeHeld 内部: 创造模式 / keepHeld 直接返回, 否则走 hurtAndBreak);
         // 水桶与岩浆桶**刻意不消耗** —— 不 shrink、不给空桶。
@@ -464,6 +472,66 @@ public final class AssembleLogic {
     private static boolean isSoulBase(Level level, BlockPos below) {
         BlockState state = level.getBlockState(below);
         return state.is(BlockTags.SOUL_FIRE_BASE_BLOCKS) || state.is(Blocks.SOUL_FIRE);
+    }
+
+    /**
+     * 类鼓风成功时的**一次性反馈**: 原版音效 + 与 Create 鼓风机**同款**的粒子。
+     *
+     * <h2>音效(用户指定: 就用原版这三个)</h2>
+     * <ul>
+     *   <li>水桶 ⇒ {@link SoundEvents#BUCKET_EMPTY}(和原版倒水一样);</li>
+     *   <li>岩浆桶 ⇒ {@link SoundEvents#BUCKET_EMPTY_LAVA};</li>
+     *   <li>打火石 ⇒ {@link SoundEvents#FLINTANDSTEEL_USE}(音高照原版 {@code FlintAndSteelItem} 那样随机抖动)。</li>
+     * </ul>
+     * 本路径**不再**播拾取音({@link #playPickup}) —— 与上面的音效叠在一起会很浑。
+     *
+     * <h2>粒子(照抄 Create 的 `FanProcessingType#spawnProcessingParticles`)</h2>
+     * 逐个类型核对过上游 `AllFanProcessingTypes` 里四个实现, 只保留**粒子种类与颜色**(含 y 偏移):
+     * <ul>
+     *   <li>洗涤 `SplashingType`(417-425 行): {@code DustParticleOptions(0x0055FF, 1)} + {@code SPIT}, 台面上方 0.5;</li>
+     *   <li>熔炼 `BlastingType`(170-174 行): {@code LARGE_SMOKE}, 上方 0.25;</li>
+     *   <li>烟熏 `SmokingType`(356-360 行): {@code POOF}, 上方 0.25;</li>
+     *   <li>缠魂 `HauntingType`(236-246 行): {@code SOUL_FIRE_FLAME}(上方 0.45) + 一半概率的 {@code SMOKE}(上方 0.25)。</li>
+     * </ul>
+     * <p><b>两处刻意不同(其余照搬):</b></p>
+     * <ol>
+     *   <li>上游是**每 tick**调一次、且自带 {@code random.nextInt(8) != 0 → return}(1/8 概率)的门槛,
+     *       而且用的是 {@code level.addParticle}(**只在客户端有效**, 服务端是空实现)。
+     *       我们这边是"一次右击 = 一次转换", 所以改成**服务端 {@code sendParticles} 喷一小撮**:
+     *       附近所有玩家都能看见、也无需新增网络包。</li>
+     *   <li>上游靠 {@code (0, 1/16, 0)} 这类微小初速; 这个 API 只能给"随机速度", 给不了固定向上初速 ——
+     *       但这几种粒子本身就有上浮/扩散的物理(LARGE_SMOKE/POOF/SOUL_FIRE_FLAME 上浮, SPIT 受重力),
+     *       观感与鼓风机一致, 故不再为它绕道自定义网络包。</li>
+     * </ol>
+     */
+    private static void playFanFeedback(Level level, BlockPos pos, ItemStack held, FanProcessingType type) {
+        // ---- 音效 ----
+        if (held.is(Items.WATER_BUCKET))
+            level.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1f, 1f);
+        else if (held.is(Items.LAVA_BUCKET))
+            level.playSound(null, pos, SoundEvents.BUCKET_EMPTY_LAVA, SoundSource.BLOCKS, 1f, 1f);
+        else if (held.is(Items.FLINT_AND_STEEL))
+            level.playSound(null, pos, SoundEvents.FLINTANDSTEEL_USE, SoundSource.BLOCKS, 1f,
+                level.random.nextFloat() * 0.4f + 0.8f);
+
+        // ---- 粒子(远端半径内所有玩家都看得见) ----
+        if (!(level instanceof ServerLevel serverLevel))
+            return;
+        double x = pos.getX() + 0.5;
+        double y = pos.getY() + 1.0;   // 置物台台面正上方, 与产出弹出的锚点一致
+        double z = pos.getZ() + 0.5;
+        if (type == AllFanProcessingTypes.SPLASHING) {
+            serverLevel.sendParticles(new DustParticleOptions(new Vector3f(0f, 0x55 / 255f, 1f), 1f),
+                x, y + 0.5, z, 8, 0.25, 0.05, 0.25, 0.05);
+            serverLevel.sendParticles(ParticleTypes.SPIT, x, y + 0.5, z, 8, 0.25, 0.05, 0.25, 0.05);
+        } else if (type == AllFanProcessingTypes.BLASTING) {
+            serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, x, y + 0.25, z, 8, 0.2, 0.05, 0.2, 0.02);
+        } else if (type == AllFanProcessingTypes.SMOKING) {
+            serverLevel.sendParticles(ParticleTypes.POOF, x, y + 0.25, z, 8, 0.2, 0.05, 0.2, 0.02);
+        } else if (type == AllFanProcessingTypes.HAUNTING) {
+            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y + 0.45, z, 8, 0.15, 0.05, 0.15, 0.01);
+            serverLevel.sendParticles(ParticleTypes.SMOKE, x, y + 0.25, z, 4, 0.15, 0.05, 0.15, 0.01);
+        }
     }
 
     private static long countRaw(Level level, BlockPos pos) {

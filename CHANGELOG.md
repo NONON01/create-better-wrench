@@ -18,6 +18,9 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   only loses **1 durability**. Unlike Create's fan, an empty result **never destroys** the item (and material pulled
   from the pile is put back); every product is **ejected** (it pops out from above the depot like the other paths),
   so multi-result recipes such as washing soul sand (quartz + gold nugget) leave in one go.
+  Each successful conversion also gives **feedback**: a **vanilla sound** (water bucket ⇒ bucket-empty,
+  lava bucket ⇒ lava-bucket-empty, flint & steel ⇒ flint-and-steel) and a small burst of the **same particles
+  Create's fan uses** (washing ⇒ blue dust + spit, blasting ⇒ large smoke, smoking ⇒ poof, haunting ⇒ soul fire).
 - **A config file** (`serverconfig/create_better_wrench-server.toml`) for the values that used to be hardcoded:
   deconstruct selection limit & batch size, connect corner/segment/total-block limits, end-point distance and the
   fan-style batch limit. Every option carries a **bilingual (English + Chinese) comment**, and the in-game config
