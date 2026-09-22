@@ -132,6 +132,14 @@ public final class DeconstructJob {
         for (int i = 0; i < blocksPerTick && !done; i++) {
             int x = minX + cx, y = minY + cy, z = minZ + cz;
             BlockPos pos = new BlockPos(x, y, z);
+            // ⚠️ 口径必须与 countNonAir() 一致(2026-09-20 审计发现的不一致): 那边特意跳过未加载区块,
+            //    这里原先却直接 level.getBlockState(pos) —— 而 Level#getBlockState 走的是 requireChunk=true 的
+            //    getChunk, 会**同步强制加载/生成区块**(改包客户端可发"两角已加载、中间跨未加载缝隙"的选区
+            //    反复触发 ⇒ 服务端卡顿/额外落盘)。合法玩家碰不到(两角都在触及距离内 ⇒ 整框都在已加载区)。
+            if (!level.isLoaded(pos)) {
+                advance();
+                continue;
+            }
             BlockState state = level.getBlockState(pos);
             if (!state.isAir() && DeconstructLogic.matchesScope(state, scope)
                 && DeconstructLogic.deconstructBlock(level, pos, player)) {
@@ -163,7 +171,7 @@ public final class DeconstructJob {
             for (int y = minY; y < minY + sizeY; y++)
                 for (int z = minZ; z < minZ + sizeZ; z++) {
                     BlockPos pos = new BlockPos(x, y, z);
-                    // isLoaded: hasChunkAt 家族已被 NeoForge 弃用(见 ConnectLogic#loadedCached 的说明)
+                    // isLoaded: hasChunkAt 家族已被弃用(原版, 见 ConnectLogic#loadedCached 的说明)
                     if (level.isLoaded(pos) && !level.getBlockState(pos).isAir())
                         n++;
                 }

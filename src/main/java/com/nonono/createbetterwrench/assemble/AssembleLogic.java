@@ -407,9 +407,19 @@ public final class AssembleLogic {
             }
         }
 
-        // ③ process 可能返回 null(无配方)或空列表(不适用, 在 Create 里表示"销毁") —— 两者都按"不适用"处理
+        // ③ process 可能返回 null(无配方)或空列表(不适用, 在 Create 里表示"销毁") —— 两者都按"不适用"处理。
+        //    ⚠️ 还要挡住"列表非空、但元素全是空栈"的情形: 上游 {@code ItemHelper.multipliedOutput} 在产物为空时
+        //    会无条件 add 一个 count=0 的栈(ItemHelper.java:49-59), 而 BlastingType.process 只判"配方是否存在"。
+        //    只判 out.isEmpty() 的话, 这种批次会走"成功"分支被**静默丢掉**(不投物、无提示) ⇒ 要求至少一个非空产出。
         List<ItemStack> out = type.process(batch.copy(), level);
-        if (out == null || out.isEmpty()) {
+        boolean anyOutput = false;
+        if (out != null)
+            for (ItemStack stack : out)
+                if (!stack.isEmpty()) {
+                    anyOutput = true;
+                    break;
+                }
+        if (!anyOutput) {
             // ⚠️ 失败时**必须把从原料堆取来的那部分原样退回** —— 那些物品已经离开料堆实体、
             //    只存在于 batch 里, 直接 return 就静默丢了。(台面那部分没动过, 不用管。)
             if (fromPile > 0)
@@ -424,6 +434,8 @@ public final class AssembleLogic {
         //
         // ⚠️ 先处理"台面超出上限的那部分": 它随台面那一摞一起被下面的 consumeAndRefill 覆盖掉,
         //    若不在这里退回原料堆就是**静默丢失**。(失败分支不会走到这里, 所以它那时仍在台面上。)
+        // ⚠️ **顺序必须在此、不能挪到 consumeAndRefill 之后**(审计 L-3 讨论过): 反过来时若原料堆原本是空的,
+        //    续料会先 take 到空 ⇒ 台面被留白, 退回的那几十个全进料堆 ⇒ 破坏"台面不会空着"这条保证。
         if (!overflow.isEmpty())
             DepotPiles.deposit(level, pos, overflow);
 
@@ -491,7 +503,8 @@ public final class AssembleLogic {
      *   <li>洗涤 `SplashingType`(417-425 行): {@code DustParticleOptions(0x0055FF, 1)} + {@code SPIT}, 台面上方 0.5;</li>
      *   <li>熔炼 `BlastingType`(170-174 行): {@code LARGE_SMOKE}, 上方 0.25;</li>
      *   <li>烟熏 `SmokingType`(356-360 行): {@code POOF}, 上方 0.25;</li>
-     *   <li>缠魂 `HauntingType`(236-246 行): {@code SOUL_FIRE_FLAME}(上方 0.45) + 一半概率的 {@code SMOKE}(上方 0.25)。</li>
+     *   <li>缠魂 `HauntingType`(236-246 行): {@code SOUL_FIRE_FLAME}(上方 0.45) + {@code SMOKE}
+     *       (上游是 {@code random.nextInt(2) == 0} 的 1/2 概率, 这里按"一半量级"取定量 4 个)。</li>
      * </ul>
      * <p><b>两处刻意不同(其余照搬):</b></p>
      * <ol>

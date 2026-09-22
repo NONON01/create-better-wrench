@@ -115,6 +115,20 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   force-load or generate terrain, and the ghost preview matches the server's material/length rules.
 - **Process mode: the "stay, then pop" queue remembers which item it queued** and is cancelled when the depot
   is unlocked / broken / blown up — it can no longer pop whatever happens to be on the depot by then.
+- **Connect mode: an unusable node is now always explained.** The server-side "are all nodes inside loaded
+  chunks?" gate silently returned before; it now sends the same `connect.unloaded` action-bar message the
+  planner would have sent. This matters at the top of the world, where a corner picked in open air can sit
+  above the build limit (the swapped-in `Level#isLoaded` also checks build height).
+- **Deconstruct mode: the per-tick removal loop no longer force-loads chunks.** It used to call
+  `Level#getBlockState` for every cell, which goes through a `requireChunk = true` lookup and therefore
+  synchronously loads/generates terrain — while the counting pass right above it deliberately skipped
+  unloaded chunks ("don't load chunks as a side effect"). A crafted selection whose two (loaded) corners
+  straddle an unloaded gap could repeat that every tick. Both passes now share one rule.
+- **Process mode: a fan-style conversion is only treated as successful if the recipe actually yielded
+  at least one non-empty stack.** Previously a result list that contained nothing but empty stacks
+  (possible with pathological datapack recipes — `ItemHelper.multipliedOutput` adds a count-0 stack when the
+  product is empty) would take the success path and silently drop the batch. It now shows the usual
+  "cannot process this way" message and keeps your items.
 - Process mode: filling no longer silently loses the input it took from the raw pile if the first fill fails.
 - Process mode: a pile holding a foreign item can no longer be consumed without being credited.
 - Client state: unfinished selections are also cleared when **changing dimension** (previously only on logout),

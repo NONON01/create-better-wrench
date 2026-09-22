@@ -182,7 +182,7 @@ public final class ConnectLogic {
         }
 
         // 一次 plan() 内的读世界记忆化: plan() 每 tick 被客户端幽灵预览调用, 而阶段 2 的回溯会反复
-        // 询问同一批坐标, 所以 occupied()/hasChunkAt() 的结果在本次调用内缓存(世界在 plan() 期间
+        // 询问同一批坐标, 所以 occupied()/isLoaded() 的结果在本次调用内缓存(世界在 plan() 期间
         // 不会被改动, 缓存恒有效; 普通路径的读取次数只会不增)。
         Map<BlockPos, Boolean> occupiedCache = new HashMap<>();
         Map<BlockPos, Boolean> loadedCache = new HashMap<>();
@@ -389,9 +389,15 @@ public final class ConnectLogic {
         Boolean hit = cache.get(pos);
         if (hit != null)
             return hit;
-        // ⚠️ 2026-09-20: 原来是 world.hasChunkAt(pos) —— NeoForge 把 LevelReader 的整个 hasChunk* 家族
-        //    都标了 @Deprecated, 官方替代是 Level#isLoaded(BlockPos)(= getChunkSource().hasChunk(区块坐标)),
-        //    语义一致(只多一条"超出建筑高度 ⇒ false"), Create 本体也全用 isLoaded。
+        // ⚠️ 2026-09-20: 原来是 world.hasChunkAt(pos)。`LevelReader` 的整个 hasChunk* 家族
+        //    (hasChunk / hasChunkAt / hasChunksAt)都带 @Deprecated —— 经核实**来源是原版 1.21.1**,
+        //    不是 NeoForge: 补丁前的产物里就已经带注解, 而 NeoForge 的 LevelReader 补丁只有 600 余字符、
+        //    仅追加 ILevelReaderExtension 接口(见 neoforge-*-userdev.jar 内 patches/.../LevelReader.java.patch)。
+        //    原版没有给出替代说明, 这里取**语义最近且更保守**的 Level#isLoaded(BlockPos)
+        //    (= getChunkSource().hasChunk(区块坐标) + 一条"超出建筑高度 ⇒ false"); Create 本体也全用 isLoaded
+        //    (world/level.isLoaded(...) 60+ 处, hasChunkAt 0 处)。
+        //    ⚠️ 顺带修掉一个**客户端**语义坑: ClientLevel.hasChunk() 恒为 true ⇒ 旧的 hasChunkAt 在客户端
+        //    形同没查; 换成 isLoaded 后, 幽灵预览里的"区块已加载"判定才真正生效(与服务端 A-5 同口径)。
         boolean value = world.isLoaded(pos);
         cache.put(pos.immutable(), value);
         return value;

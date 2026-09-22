@@ -137,10 +137,12 @@ public final class WrenchConfig {
         ASSEMBLE_FAN_BATCH_LIMIT = b
             .comment(
                 "类鼓风处理: 一次右击最多转换多少个物品(台面那一摞 + 从原料堆并入的同类物品), 默认 64。",
-                "★ 默认 64 = '一整摞'。原料堆里的同类物品会补足到上限, 所以一个台面能连续按 64 个一批地处理。",
+                "★ 默认 64 = '一整摞'。当台面那一摞不足上限时, 原料堆里的同类物品会补足到上限。",
+                "★ 台面那一摞本身就超过上限时(例如把上限调到 1 而台面有 64 个): 只转换上限那么多, 多出的部分退回原料堆。",
                 "★ 调大 = 一次转换更多(会一次生成更多掉落物实体, 极端值可能造成卡顿); 调小 = 每批更少、更有节奏。",
                 "Fan-style processing: maximum items converted by one right-click (the depot stack plus same-kind items merged from the raw pile), default 64.",
-                "★ The default 64 means 'one full stack'; same-kind items in the raw pile are merged up to this cap.",
+                "★ The default 64 means 'one full stack'. When the depot stack is below the cap, same-kind items in the raw pile are merged up to it.",
+                "★ If the depot stack alone already exceeds the cap (e.g. cap set to 1 with 64 on the depot), only the cap is converted and the remainder goes back to the raw pile.",
                 "★ Higher converts more per click (and spawns more dropped-item entities at once, which can cause lag at extreme values); lower makes each batch smaller.")
             .defineInRange("fan_batch_limit", DEFAULT_ASSEMBLE_FAN_BATCH_LIMIT, 1, 4096);
 

@@ -106,12 +106,22 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
                 return;
             }
             // ⑤ 所有节点所在区块必须已加载(避免被用来强制生成/加载区块)
-            //    isLoaded: hasChunkAt 家族已被 NeoForge 弃用(见 ConnectLogic#loadedCached 的说明)
-            if (!sp.level().isLoaded(start) || !sp.level().isLoaded(end))
+            //    isLoaded: hasChunkAt 家族已被弃用(原版, 见 ConnectLogic#loadedCached 的说明) ——
+            //    它比 hasChunkAt 多一条"超出建筑高度 ⇒ false": 站在世界顶端对着开阔空气选拐点时, 那个拐点可能
+            //    落在建筑高度之外, 于是这里就会拦下(以前是后面的 plan() 用 UNLOADED 拦)。
+            //    ⚠️ 因此拦下时**必须给出与 plan() 相同的提示**: 否则玩家只看到红框、没有任何文字反馈(审计发现)。
+            boolean nodesLoaded = sp.level().isLoaded(start) && sp.level().isLoaded(end);
+            if (nodesLoaded)
+                for (BlockPos c : corners)
+                    if (!sp.level().isLoaded(c)) {
+                        nodesLoaded = false;
+                        break;
+                    }
+            if (!nodesLoaded) {
+                sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "msg." + BetterWrenchMod.MODID + ".connect.unloaded"), true);
                 return;
-            for (BlockPos c : corners)
-                if (!sp.level().isLoaded(c))
-                    return;
+            }
 
             ConnectCorner cornerType = ConnectCorner.byName(cornerTypeName);
 

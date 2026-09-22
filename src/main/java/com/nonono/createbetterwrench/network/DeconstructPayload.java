@@ -72,7 +72,9 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
                     Component.translatable("msg." + BetterWrenchMod.MODID + ".deconstruct.too_large"), true);
                 return;
             }
-            // isLoaded: hasChunkAt 家族已被 NeoForge 弃用(见 ConnectLogic#loadedCached 的说明)
+            // isLoaded: hasChunkAt 家族已被弃用(原版, 见 ConnectLogic#loadedCached 的说明) ——
+            // 它多一条"超出建筑高度 ⇒ false", 所以**越界的角点现在会被整单拦下**(以前会照跑并拆掉高度内的那部分);
+            // 合法客户端不可能产生越界角点(角点只来自 {@code mc.hitResult} 的方块命中), 故这是纯粹的加固。
             if (!sp.level().isLoaded(cornerA) || !sp.level().isLoaded(cornerB))
                 return;
 
