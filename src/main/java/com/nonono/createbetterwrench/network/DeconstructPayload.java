@@ -72,7 +72,8 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
                     Component.translatable("msg." + BetterWrenchMod.MODID + ".deconstruct.too_large"), true);
                 return;
             }
-            if (!sp.level().hasChunkAt(cornerA) || !sp.level().hasChunkAt(cornerB))
+            // isLoaded: hasChunkAt 家族已被 NeoForge 弃用(见 ConnectLogic#loadedCached 的说明)
+            if (!sp.level().isLoaded(cornerA) || !sp.level().isLoaded(cornerB))
                 return;
 
             DeconstructScope scope;

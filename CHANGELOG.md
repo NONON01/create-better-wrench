@@ -13,7 +13,9 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   **flint & steel ⇒ smoking** — or **haunting** when the block *below* the depot is soul sand / soul soil / soul fire.
   The whole stack on the depot is converted in one click, using Create's own fan-processing recipes
   (`create:splashing` / `create:haunting` / vanilla smoking / smelting). Buckets are **not consumed** and flint & steel
-  only loses **1 durability**. Unlike Create's fan, an empty result **never destroys** the item; products stay on the depot.
+  only loses **1 durability**. Unlike Create's fan, an empty result **never destroys** the item; every product is
+  **ejected** (it pops out from above the depot like the other paths), so multi-result recipes such as washing
+  soul sand (quartz + gold nugget) leave in one go.
 - **A config file** (`serverconfig/create_better_wrench-server.toml`) for the values that used to be hardcoded:
   deconstruct selection limit & batch size, connect corner/segment/total-block limits and end-point distance.
   Every option carries a **bilingual (English + Chinese) comment**, and the in-game config screen (built into
@@ -81,6 +83,15 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 - **Process mode: while you hold the wrench in your *main* hand the click is still consumed (lock/unlock),
   but a wrench in the offhand no longer swallows it** — so "wrench in offhand + material in main hand" can
   actually apply the material. Finished products now pop out as ordinary drops (stay time still configurable).
+- **Process mode, fan-style path revised: all products are now ejected.** Water bucket / lava bucket / flint & steel
+  processing used to leave the first result on the depot and drop the rest without any motion; every result now pops
+  out from above the depot just like the other paths, so multi-result recipes (washing soul sand ⇒ quartz + gold
+  nugget) leave in one go and the depot is instantly free for the next item.
+  ⚠️ This supersedes the earlier "products stay on the depot" wording in the 0.5.0 entry above.
+- **No deprecated API use left.** NeoForge deprecated the whole `LevelReader#hasChunk*` family
+  (`hasChunk`, `hasChunkAt(BlockPos)`, `hasChunkAt(int,int)`, `hasChunksAt(...)`); the 8 call sites
+  (connect, deconstruct and the three payloads) now use `Level#isLoaded(BlockPos)` — the same API Create uses.
+  A full recompile with `-Xlint:deprecation` is now completely silent.
 - Deconstruct mode: the reported count now equals the blocks actually removed, including Create's
   multi-block cascade.
 - Deprecation cleanup: `@EventBusSubscriber(bus = ...)` is gone (16 annotations simplified, 2 mod-bus

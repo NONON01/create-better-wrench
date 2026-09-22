@@ -106,10 +106,11 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
                 return;
             }
             // ⑤ 所有节点所在区块必须已加载(避免被用来强制生成/加载区块)
-            if (!sp.level().hasChunkAt(start) || !sp.level().hasChunkAt(end))
+            //    isLoaded: hasChunkAt 家族已被 NeoForge 弃用(见 ConnectLogic#loadedCached 的说明)
+            if (!sp.level().isLoaded(start) || !sp.level().isLoaded(end))
                 return;
             for (BlockPos c : corners)
-                if (!sp.level().hasChunkAt(c))
+                if (!sp.level().isLoaded(c))
                     return;
 
             ConnectCorner cornerType = ConnectCorner.byName(cornerTypeName);

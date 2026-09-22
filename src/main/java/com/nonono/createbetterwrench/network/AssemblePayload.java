@@ -63,7 +63,7 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
                 > MAX_INTERACTION_DISTANCE_SQR)
                 return;
             // ④ 区块已加载 + 目标确实是置物台
-            if (!sp.level().hasChunkAt(pos))
+            if (!sp.level().isLoaded(pos))
                 return;
             if (!(sp.level().getBlockEntity(pos) instanceof DepotBlockEntity depot))
                 return;

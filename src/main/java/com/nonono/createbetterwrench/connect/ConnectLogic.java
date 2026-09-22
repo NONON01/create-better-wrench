@@ -384,12 +384,15 @@ public final class ConnectLogic {
         return value;
     }
 
-    /** hasChunkAt() 的记忆化(同上, 且不让 A-5 的校验被回溯放大)。 */
+    /** isLoaded() 的记忆化(同上, 且不让 A-5 的校验被回溯放大)。 */
     private static boolean loadedCached(Level world, BlockPos pos, Map<BlockPos, Boolean> cache) {
         Boolean hit = cache.get(pos);
         if (hit != null)
             return hit;
-        boolean value = world.hasChunkAt(pos);
+        // ⚠️ 2026-09-20: 原来是 world.hasChunkAt(pos) —— NeoForge 把 LevelReader 的整个 hasChunk* 家族
+        //    都标了 @Deprecated, 官方替代是 Level#isLoaded(BlockPos)(= getChunkSource().hasChunk(区块坐标)),
+        //    语义一致(只多一条"超出建筑高度 ⇒ false"), Create 本体也全用 isLoaded。
+        boolean value = world.isLoaded(pos);
         cache.put(pos.immutable(), value);
         return value;
     }

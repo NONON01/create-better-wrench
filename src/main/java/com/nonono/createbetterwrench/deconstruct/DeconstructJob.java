@@ -163,7 +163,8 @@ public final class DeconstructJob {
             for (int y = minY; y < minY + sizeY; y++)
                 for (int z = minZ; z < minZ + sizeZ; z++) {
                     BlockPos pos = new BlockPos(x, y, z);
-                    if (level.hasChunkAt(pos) && !level.getBlockState(pos).isAir())
+                    // isLoaded: hasChunkAt 家族已被 NeoForge 弃用(见 ConnectLogic#loadedCached 的说明)
+                    if (level.isLoaded(pos) && !level.getBlockState(pos).isAir())
                         n++;
                 }
         return n;

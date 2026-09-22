@@ -337,9 +337,11 @@ public final class AssembleLogic {
      * {@link #consumeHeld} 的耐久分支 —— 无论台面上有多少个, 都只扣 **1 点耐久**。</p>
      *
      * <p><b>产出:</b> 整摞交给 {@code process} 一次即代表"整摞完全转换"
-     * ({@code RecipeApplier.applyRecipeOn} 内部按 {@code getCount()} 逐份处理);
-     * 结果 {@code get(0)} 放回台面, 其余每个结果作为**普通掉落物**投放 ——
-     * **不调用 {@link #holdThenEject}**, 所以本路径"转换后不弹出"。</p>
+     * ({@code RecipeApplier.applyRecipeOn} 内部按 {@code getCount()} 逐份掷结果, 并把同类产出
+     * 合并成尽量满的堆叠)。所有结果**全部直接弹出** —— 与其它路径的成品一致: 从台面正上方发出、
+     * 带向上初速的普通掉落物(即 {@link #dropProduct} 的 {@code launched=true} 形态)。
+     * 台面上**一个都不留**, 所以多结果(洗涤灵魂沙 → 4 石英 + 金粒)能一次性全部弹出去;
+     * 弹出的同时立刻从原料堆续下一份原料占住台面, 产出落地时不会被置物台吸回去。</p>
      */
     private static boolean tryFanProcessing(Level level, BlockPos pos, DepotBlockEntity depot,
                                             Player player, ItemStack held, InteractionHand hand,
@@ -364,10 +366,16 @@ public final class AssembleLogic {
             return true; // 这次手势已被本模组消费: 保持台面原样
         }
 
-        setDepot(depot, out.get(0));
-        for (int i = 1; i < out.size(); i++)
-            if (!out.get(i).isEmpty())
-                dropProduct(level, productDropPos(pos), out.get(i).copy(), false);
+        // 产出**全部直接弹出**: 与其它路径的成品观感一致 —— 台面正上方发出、带向上的初速。
+        // 台面上一个都不留, 多结果(洗涤灵魂沙 → 4 石英 + 金粒)才能一次性全部弹出去。
+        Vec3 ejectFrom = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
+        for (ItemStack stack : out)
+            if (!stack.isEmpty())
+                dropProduct(level, ejectFrom, stack.copy(), true);
+
+        // 台面清空 + 立刻续上原料堆的下一个。
+        // ⚠️ 顺序不能反: 台面被下一份原料占用着, 刚弹出的产出落地时才不会被置物台吸回去。
+        consumeAndRefill(level, pos, depot);
         playPickup(level, pos);
 
         // 打火石: 只扣 1 点耐久(consumeHeld 内部: 创造模式 / keepHeld 直接返回, 否则走 hurtAndBreak);
