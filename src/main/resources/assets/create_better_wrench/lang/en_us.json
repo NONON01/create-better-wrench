@@ -50,6 +50,8 @@
   "msg.create_better_wrench.deconstruct.too_large": "Selection too large",
   "msg.create_better_wrench.assemble.locked": "Depot locked",
   "msg.create_better_wrench.assemble.unlocked": "Depot unlocked",
+  "msg.create_better_wrench.assemble.fan_done": "Converted %s items",
+  "msg.create_better_wrench.assemble.fan_none": "These items cannot be processed this way",
   "msg.create_better_wrench.combat_no_permission": "You don't have permission to enable Combat Mode (OP required)",
 
   "key.create_better_wrench.tools": "Focus Wrench Mode Bar",

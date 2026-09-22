@@ -9,6 +9,11 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 ## [0.5.0+mc1.21.1] - unreleased
 
 ### Added
+- **Process mode: batch fan-style processing.** Hold **water bucket ⇒ washing**, **lava bucket ⇒ blasting/smelting**,
+  **flint & steel ⇒ smoking** — or **haunting** when the block *below* the depot is soul sand / soul soil / soul fire.
+  The whole stack on the depot is converted in one click, using Create's own fan-processing recipes
+  (`create:splashing` / `create:haunting` / vanilla smoking / smelting). Buckets are **not consumed** and flint & steel
+  only loses **1 durability**. Unlike Create's fan, an empty result **never destroys** the item; products stay on the depot.
 - **A config file** (`serverconfig/create_better_wrench-server.toml`) for the values that used to be hardcoded:
   deconstruct selection limit & batch size, connect corner/segment/total-block limits and end-point distance.
   Every option carries a **bilingual (English + Chinese) comment**, and the in-game config screen (built into

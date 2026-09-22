@@ -9,16 +9,20 @@ import com.simibubi.create.content.fluids.spout.FillingBySpout;
 import com.simibubi.create.content.fluids.transfer.GenericItemEmptying;
 import com.simibubi.create.content.kinetics.deployer.DeployerApplicationRecipe;
 import com.simibubi.create.content.kinetics.deployer.ItemApplicationRecipe;
+import com.simibubi.create.content.kinetics.fan.processing.AllFanProcessingTypes;
+import com.simibubi.create.content.kinetics.fan.processing.FanProcessingType;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 import com.simibubi.create.content.processing.sequenced.SequencedAssemblyRecipe;
 import com.simibubi.create.foundation.recipe.RecipeApplier;
 
 import net.createmod.catnip.data.Pair;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -27,10 +31,12 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -39,7 +45,7 @@ import net.neoforged.neoforge.items.wrapper.RecipeWrapper;
 
 /**
  * 「工作」(内部 id 仍为 {@code assemble})模式的服务端核心: 在**已锁定的置物台**上,
- * 用手代替机器, 依次尝试四种原版机制(全部走 Create 自己的配方体系, 不硬编码具体配方):
+ * 用手代替机器, 依次尝试五种机制(全部走 Create/原版自己的配方体系, 不硬编码具体配方):
  *
  * <ol>
  *   <li><b>序列装配</b> —— {@code create:sequenced_assembly}, 等价于发射器(Deployer)推进装配。</li>
@@ -47,6 +53,9 @@ import net.neoforged.neoforge.items.wrapper.RecipeWrapper;
  *       查找顺序与优先级完全照搬 {@code DeployerBlockEntity#getRecipe}。</li>
  *   <li><b>原木去皮</b> —— 原版 {@link AxeItem} 机制(Create 只在 JEI 里展示这条"隐式配方")。</li>
  *   <li><b>注液</b> —— {@code create:filling}, 等价于注液器(Spout)。</li>
+ *   <li><b>批量鼓风处理</b>(2026-09-20 新增) —— 模仿 Create 鼓风机: 水桶 ⇒ 洗涤({@code create:splashing})、
+ *       岩浆桶 ⇒ 熔炼(熔炉/高炉)、打火石 ⇒ 烟熏; 若置物台**下方**是灵魂沙/灵魂土/灵魂火则 ⇒ 缠魂
+ *       ({@code create:haunting})。一次把**整摞**台面物品完全转换, 转换后**不弹出**。见 {@link #tryFanProcessing}。</li>
  * </ol>
  *
  * <h2>两个位置</h2>
@@ -95,6 +104,10 @@ public final class AssembleLogic {
         if (tryStrippingLog(level, pos, depot, player, held, hand, current))
             return true;
         if (trySpoutFilling(level, pos, depot, player, held, hand, current))
+            return true;
+        // ⚠️ 必须排在 trySpoutFilling **之后**: 岩浆桶 → 烈焰蛋糕那条注液路径是已实机验证过的功能,
+        // 放前面会把水桶/岩浆桶的注液用途整个抢掉(鼓风处理会先判 canProcess)。
+        if (tryFanProcessing(level, pos, depot, player, held, hand, current))
             return true;
         return false;
     }
@@ -295,6 +308,100 @@ public final class AssembleLogic {
         consumeAndRefill(level, pos, depot);
         level.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1f, 1f);
         return true;
+    }
+
+    // ---------------------------------------------------------------- 5. 鼓风处理(批量)
+
+    /**
+     * 第 5 条路径: 用**水桶 / 岩浆桶 / 打火石**模拟 Create 鼓风机的一次性处理,
+     * 但对**整摞**台面物品一次性完成 —— 洗涤({@code create:splashing})、熔炼(原版熔炉/高炉)、
+     * 烟熏(原版烟熏炉)、缠魂({@code create:haunting})。
+     *
+     * <p>三种手持物的含义:</p>
+     * <ul>
+     *   <li>{@link Items#WATER_BUCKET} → 洗涤({@code SPLASHING});</li>
+     *   <li>{@link Items#LAVA_BUCKET} → 熔炼({@code BLASTING});</li>
+     *   <li>{@link Items#FLINT_AND_STEEL} → 置物台**下方**是灵魂沙 / 灵魂土 / 灵魂火时是缠魂
+     *       ({@code HAUNTING}), 否则是烟熏({@code SMOKING})。</li>
+     * </ul>
+     *
+     * <p><b>为什么在 filling 之后:</b> 注液(岩浆桶 → 烈焰蛋糕等)是已实机验证过的路径,
+     * 必须先给它机会; 本路径只作为"注液没命中"时的兜底。详见 {@link #tryAssemble} 的调用点注释。</p>
+     *
+     * <p><b>⚠️ 与 Create 的语义差异(很重要):</b> 上游 {@code FanProcessingType#process} 返回
+     * <b>null</b> 或 <b>空列表</b> 时, Create 的 {@code FanProcessing.applyProcessing} 会
+     * {@code entity.discard()} —— 也就是**销毁物品**(例如被岩浆烧掉的非防火物品)。
+     * 本模组**刻意反过来**: 一律当作"不适用", **保持台面物品原样、绝不销毁玩家物品**。</p>
+     *
+     * <p><b>消耗:</b> 水桶 / 岩浆桶**完全不消耗**(也不给空桶); 打火石只走
+     * {@link #consumeHeld} 的耐久分支 —— 无论台面上有多少个, 都只扣 **1 点耐久**。</p>
+     *
+     * <p><b>产出:</b> 整摞交给 {@code process} 一次即代表"整摞完全转换"
+     * ({@code RecipeApplier.applyRecipeOn} 内部按 {@code getCount()} 逐份处理);
+     * 结果 {@code get(0)} 放回台面, 其余每个结果作为**普通掉落物**投放 ——
+     * **不调用 {@link #holdThenEject}**, 所以本路径"转换后不弹出"。</p>
+     */
+    private static boolean tryFanProcessing(Level level, BlockPos pos, DepotBlockEntity depot,
+                                            Player player, ItemStack held, InteractionHand hand,
+                                            ItemStack current) {
+        if (level.isClientSide)
+            return false;
+
+        FanProcessingType type = fanTypeFor(level, pos, held);
+        if (type == null)
+            return false;
+
+        // canProcess == false 时什么都不做(不消耗、不提示), 让别的路径继续尝试
+        if (!type.canProcess(current, level))
+            return false;
+
+        int count = current.getCount();
+        // process 可能返回 null(无配方)或空列表(不适用, 在 Create 里表示"销毁") —— 两者都按"不适用"处理
+        List<ItemStack> out = type.process(current.copy(), level);
+        if (out == null || out.isEmpty()) {
+            player.displayClientMessage(
+                Component.translatable("msg." + BetterWrenchMod.MODID + ".assemble.fan_none"), true);
+            return true; // 这次手势已被本模组消费: 保持台面原样
+        }
+
+        setDepot(depot, out.get(0));
+        for (int i = 1; i < out.size(); i++)
+            if (!out.get(i).isEmpty())
+                dropProduct(level, productDropPos(pos), out.get(i).copy(), false);
+        playPickup(level, pos);
+
+        // 打火石: 只扣 1 点耐久(consumeHeld 内部: 创造模式 / keepHeld 直接返回, 否则走 hurtAndBreak);
+        // 水桶与岩浆桶**刻意不消耗** —— 不 shrink、不给空桶。
+        if (held.is(Items.FLINT_AND_STEEL))
+            consumeHeld(player, held, hand, false);
+
+        player.displayClientMessage(
+            Component.translatable("msg." + BetterWrenchMod.MODID + ".assemble.fan_done", count), true);
+        return true;
+    }
+
+    /**
+     * 手持物 → 鼓风处理类型; 不适用则返回 {@code null}(调用方直接跳过本路径)。
+     *
+     * <p>打火石要看**置物台下方**的方块: 灵魂沙 / 灵魂土(原版 {@code BlockTags.SOUL_FIRE_BASE_BLOCKS},
+     * 灵魂火就架在这两种方块上)或灵魂火本身 ⇒ 缠魂, 否则 ⇒ 烟熏。</p>
+     */
+    private static FanProcessingType fanTypeFor(Level level, BlockPos pos, ItemStack held) {
+        if (held.is(Items.WATER_BUCKET))
+            return AllFanProcessingTypes.SPLASHING;
+        if (held.is(Items.LAVA_BUCKET))
+            return AllFanProcessingTypes.BLASTING;
+        if (!held.is(Items.FLINT_AND_STEEL))
+            return null;
+        return isSoulBase(level, pos.below())
+            ? AllFanProcessingTypes.HAUNTING
+            : AllFanProcessingTypes.SMOKING;
+    }
+
+    /** 该方块是否属于"灵魂火底座": 灵魂沙 / 灵魂土(vanilla tag), 外加灵魂火本身。 */
+    private static boolean isSoulBase(Level level, BlockPos below) {
+        BlockState state = level.getBlockState(below);
+        return state.is(BlockTags.SOUL_FIRE_BASE_BLOCKS) || state.is(Blocks.SOUL_FIRE);
     }
 
     private static long countRaw(Level level, BlockPos pos) {
