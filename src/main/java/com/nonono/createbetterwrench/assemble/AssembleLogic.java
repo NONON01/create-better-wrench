@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Optional;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
-import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.simibubi.create.AllRecipeTypes;
 import com.simibubi.create.content.fluids.spout.FillingBySpout;
 import com.simibubi.create.content.fluids.transfer.GenericItemEmptying;
@@ -332,9 +331,8 @@ public final class AssembleLogic {
      *       下方不是灵魂底座时只试烟熏。</li>
      * </ul>
      *
-     * <p><b>一次转换多少:</b> 台面那一摞 + 原料堆里的**同类**物品, 合计上限为
-     * {@link WrenchConfig#assembleFanBatchLimit()}(配置项 {@code assemble.fan_batch_limit}, 默认 64)。
-     * 也就是"一次右击 = 一整摞"。原料堆取来的部分只在与台面物品**物品+组件完全一致**时才并入,
+     * <p><b>一次转换多少:</b> 台面那一摞 + 原料堆里的**同类**物品, 合计上限 = **该物品的最大堆叠数**
+     * (置物台本身的理论上限, 原版即 64)。也就是"一次右击 = 一整摞"。原料堆取来的部分只在与台面物品**物品+组件完全一致**时才并入,
      * 且**加工失败时原样退回原料堆**(与 {@code trySpoutFilling} 的做法一致, 绝不静默吞料)。</p>
      *
      * <p><b>为什么在 filling 之后:</b> 注液(岩浆桶 → 烈焰蛋糕等)是已实机验证过的路径,
@@ -382,9 +380,11 @@ public final class AssembleLogic {
         if (type == null)
             return false;
 
-        // ② 并入**原料堆**里的同类物品, 合计凑到上限(默认 64 = 一整摞; 上限可配置)。
+        // ② 并入**原料堆**里的同类物品, 合计凑到**置物台本身的理论上限**(= 该物品的最大堆叠数, 原版即 64)。
         //    原料堆里的异类型物品**原样放回**(与 trySpoutFilling 同样的防丢料处理)。
-        int limit = Math.max(1, WrenchConfig.assembleFanBatchLimit());
+        //    ℹ️ 2026-09-22: 这里原来读配置项 `assemble.fan_batch_limit` —— 用户指出"置物台本身上限就是 64",
+        //       没必要做成配置 ⇒ 已删除该配置项, 直接取物品自己的最大堆叠数。
+        int limit = Math.max(1, current.getMaxStackSize());
         ItemStack batch = current.copy();
         // 台面那一摞若超过上限(把配置调小于台面数量): 只有 batch 这部分会被转换, 多出来的部分
         // **先留在这个局部变量里、不碰世界** —— 成功后才退回原料堆; 失败时台面原封不动。

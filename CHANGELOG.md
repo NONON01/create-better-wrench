@@ -22,9 +22,15 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   lava bucket ⇒ lava-bucket-empty, flint & steel ⇒ flint-and-steel) and a small burst of the **same particles
   Create's fan uses** (washing ⇒ blue dust + spit, blasting ⇒ large smoke, smoking ⇒ poof, haunting ⇒ soul fire).
 - **A config file** (`serverconfig/create_better_wrench-server.toml`) for the values that used to be hardcoded:
-  deconstruct selection limit & batch size, connect corner/segment/total-block limits, end-point distance and the
-  fan-style batch limit. Every option carries a **bilingual (English + Chinese) comment**, and the in-game config
-  screen (built into NeoForge — no extra dependency) shows them, so players can tune the mod without editing code.
+  deconstruct selection limit & batch size, connect corner/segment/total-block limits and end-point distance.
+  Every option carries a **bilingual (English + Chinese) comment**, so players can tune the mod without editing code.
+- **A dedicated config screen of our own** (Tweakeroo/malilib-style, drawn with vanilla widgets — still no extra
+  dependency): opened with **B + C** (both keys rebindable in Controls, category "Universal Wrench") or from the
+  mod list's Config button. It has a **search box**, a **scrollable option list** (slider + `-`/`+` fine-tuning per
+  row, Shift ×10 / Ctrl ×100, tooltips on hover) and **Reset to defaults** / **Done** buttons. Values are read from
+  and written through the NeoForge spec, so ranges/defaults cannot drift from the TOML file; a change applies
+  **immediately** (no rejoin needed) and is written to disk when you close the page. On a dedicated server, where
+  the client cannot see the server config, the page turns **read-only** instead of failing.
 - **Wrench mode** (leftmost, the default): passes right-clicks through to Create's standard wrench behaviour.
 - **Connect mode**: pick a start, any number of air-cell corners, then an end; the drivetrain is
   routed per segment (same axis = straight, same plane = one automatic 90° turn, non-planar = refused)
@@ -42,6 +48,10 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 - Combat-mode easter egg behind the `cbw.battlemode` permission node (default: operators only).
 
 ### Removed
+- **The `assemble.fan_batch_limit` option is gone.** One fan-style conversion is now simply capped at
+  **the item's own max stack size** — i.e. what the depot itself can hold (64 for vanilla items) — so there is
+  nothing to tune. The "depot stack already above the cap ⇒ return the remainder to the raw pile" branch is kept,
+  because modded items can stack higher than 64.
 - **Connect mode: the "offhand shaft variant" feature is gone.** The shaft material is now always
   `create:shaft`; the offhand is no longer inspected to pick the shaft item, **and it is no longer
   counted or consumed as a material source** — connect uses your main inventory only.

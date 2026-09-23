@@ -1,5 +1,7 @@
 package com.nonono.createbetterwrench.config;
 
+import java.util.List;
+
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
@@ -38,8 +40,6 @@ public final class WrenchConfig {
     public static final int DEFAULT_CONNECT_MAX_TOTAL_BLOCKS = 256;
     /** 连接: 终点与玩家的最大距离(格)。 */
     public static final double DEFAULT_CONNECT_MAX_END_DISTANCE = 8.0;
-    /** 加工: 「类鼓风处理」一次右击最多转换多少个物品。 */
-    public static final int DEFAULT_ASSEMBLE_FAN_BATCH_LIMIT = 64;
 
     public static final ModConfigSpec SPEC;
 
@@ -49,7 +49,6 @@ public final class WrenchConfig {
     private static final ModConfigSpec.IntValue CONNECT_MAX_LEG_LENGTH;
     private static final ModConfigSpec.IntValue CONNECT_MAX_TOTAL_BLOCKS;
     private static final ModConfigSpec.DoubleValue CONNECT_MAX_END_DISTANCE;
-    private static final ModConfigSpec.IntValue ASSEMBLE_FAN_BATCH_LIMIT;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -127,26 +126,9 @@ public final class WrenchConfig {
 
         b.pop();
 
-        // ------------------------------------------------------------ 加工 / Assemble
-        b.comment(
-                "[加工] Assemble (物品置物台)",
-                "★ 只影响'类鼓风处理'(水桶/岩浆桶/打火石)一次能转换多少物品。",
-                "★ Only affects how many items the fan-style path (water bucket / lava bucket / flint & steel) converts per click.")
-            .push("assemble");
-
-        ASSEMBLE_FAN_BATCH_LIMIT = b
-            .comment(
-                "类鼓风处理: 一次右击最多转换多少个物品(台面那一摞 + 从原料堆并入的同类物品), 默认 64。",
-                "★ 默认 64 = '一整摞'。当台面那一摞不足上限时, 原料堆里的同类物品会补足到上限。",
-                "★ 台面那一摞本身就超过上限时(例如把上限调到 1 而台面有 64 个): 只转换上限那么多, 多出的部分退回原料堆。",
-                "★ 调大 = 一次转换更多(会一次生成更多掉落物实体, 极端值可能造成卡顿); 调小 = 每批更少、更有节奏。",
-                "Fan-style processing: maximum items converted by one right-click (the depot stack plus same-kind items merged from the raw pile), default 64.",
-                "★ The default 64 means 'one full stack'. When the depot stack is below the cap, same-kind items in the raw pile are merged up to it.",
-                "★ If the depot stack alone already exceeds the cap (e.g. cap set to 1 with 64 on the depot), only the cap is converted and the remainder goes back to the raw pile.",
-                "★ Higher converts more per click (and spawns more dropped-item entities at once, which can cause lag at extreme values); lower makes each batch smaller.")
-            .defineInRange("fan_batch_limit", DEFAULT_ASSEMBLE_FAN_BATCH_LIMIT, 1, 4096);
-
-        b.pop();
+        // ℹ️ 2026-09-22: 这里曾有一个 `assemble.fan_batch_limit`(类鼓风一次转换上限)。
+        //    用户指出"**置物台本身的理论上限就是 64**(一整摞)", 没必要做成配置 ⇒ 已删除该配置项,
+        //    代码改为直接取物品自己的最大堆叠数(见 AssembleLogic#tryFanProcessing)。
 
         SPEC = b.build();
     }
@@ -193,8 +175,87 @@ public final class WrenchConfig {
         return d * d;
     }
 
-    /** 加工: 「类鼓风处理」一次右击最多转换多少个物品(台面 + 原料堆并入)。 */
-    public static int assembleFanBatchLimit() {
-        return SPEC.isLoaded() ? ASSEMBLE_FAN_BATCH_LIMIT.get() : DEFAULT_ASSEMBLE_FAN_BATCH_LIMIT;
+    // ---------------------------------------------------------------- 自绘配置界面用的选项表
+
+    /**
+     * 一个**可编辑项**的描述 —— 供 {@code client.gui.WrenchConfigScreen} 使用。
+     *
+     * <p>范围/默认值全部从 NeoForge 的 spec 里取({@code getSpec().getRange()} / {@code getDefault()}),
+     * 所以**不存在"界面里写死的范围与 TOML 不一致"**这种漂移。</p>
+     */
+    public record Option(String path, ModConfigSpec.ConfigValue<?> value) {
+
+        public boolean isDouble() {
+            return value instanceof ModConfigSpec.DoubleValue;
+        }
+
+        public String labelKey() {
+            return "gui.create_better_wrench.config.opt." + path;
+        }
+
+        public String descKey() {
+            return "gui.create_better_wrench.config.desc." + path;
+        }
+
+        /**
+         * 当前值。⚠️ **未加载时返回默认值**: 专用服务器上的客户端拿不到 SERVER 配置,
+         * {@code ConfigValue#get()} 会抛异常, 而配置界面照旧要把行画出来(只读)。
+         */
+        public double get() {
+            return SPEC.isLoaded() ? ((Number) value.get()).doubleValue() : getDefault();
+        }
+
+        /** 默认值({@code getDefault()} 不需要配置已加载, 任何情况都能读)。 */
+        public double getDefault() {
+            return ((Number) value.getDefault()).doubleValue();
+        }
+
+        /** 下限({@code getSpec().getRange()} 同样不依赖"已加载")。 */
+        public double min() {
+            return ((Number) value.getSpec().getRange().getMin()).doubleValue();
+        }
+
+        /** 上限。 */
+        public double max() {
+            return ((Number) value.getSpec().getRange().getMax()).doubleValue();
+        }
+
+        /**
+         * 写**内存**: NeoForge 的 {@code ConfigValue#set} 会同步更新缓存 ⇒ 本 mod 的 getter **立即生效**
+         * (不需要重进世界)。落盘见 {@link WrenchConfig#saveAll()}(界面关闭时调用一次)。
+         * 未加载(专用服务器客户端)时**什么都不做** —— 那时根本没有可写的服务端配置。
+         */
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        public void set(double v) {
+            if (!SPEC.isLoaded())
+                return;
+            ModConfigSpec.ConfigValue raw = value;
+            if (isDouble())
+                raw.set(v);
+            else
+                raw.set((int) Math.round(v));
+        }
+    }
+
+    /** 配置界面要展示的全部选项(顺序 = 界面里的顺序)。 */
+    public static List<Option> options() {
+        return List.of(
+            new Option("deconstruct.max_edge", DECONSTRUCT_MAX_EDGE),
+            new Option("deconstruct.blocks_per_tick", DECONSTRUCT_BLOCKS_PER_TICK),
+            new Option("connect.max_corners", CONNECT_MAX_CORNERS),
+            new Option("connect.max_leg_length", CONNECT_MAX_LEG_LENGTH),
+            new Option("connect.max_total_blocks", CONNECT_MAX_TOTAL_BLOCKS),
+            new Option("connect.max_end_distance", CONNECT_MAX_END_DISTANCE));
+    }
+
+    /** 当前进程能不能改这些值(专用服务器上的客户端拿不到 SERVER 配置 ⇒ false, 界面自动变只读)。 */
+    public static boolean isWritable() {
+        return SPEC.isLoaded();
+    }
+
+    /** 把内存里的值写进配置文件(界面关闭时调用一次, 避免拖动过程中反复写盘)。 */
+    public static void saveAll() {
+        if (SPEC.isLoaded())
+            SPEC.save();
     }
 }

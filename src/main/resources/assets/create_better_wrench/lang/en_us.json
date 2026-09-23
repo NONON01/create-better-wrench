@@ -55,5 +55,28 @@
   "msg.create_better_wrench.combat_no_permission": "You don't have permission to enable Combat Mode (OP required)",
 
   "key.create_better_wrench.tools": "Focus Wrench Mode Bar",
-  "key.categories.create_better_wrench": "Universal Wrench"
+  "key.create_better_wrench.config_page": "Open config page (hold with the key below)",
+  "key.create_better_wrench.config_page_modifier": "Config page combo key (hold with the key above)",
+  "key.categories.create_better_wrench": "Universal Wrench",
+
+  "gui.create_better_wrench.config.title": "Universal Wrench · Config",
+  "gui.create_better_wrench.config.search": "Search options...",
+  "gui.create_better_wrench.config.reset": "Reset to defaults",
+  "gui.create_better_wrench.config.reset.tip": "Restore every option to its default value (saved when you close the page)",
+  "gui.create_better_wrench.config.done": "Done",
+  "gui.create_better_wrench.config.hint": "Drag the sliders; - / + fine-tune (Shift x10, Ctrl x100); saved when you close the page",
+  "gui.create_better_wrench.config.readonly": "Read-only: the server provides this config, the client cannot change it",
+  "gui.create_better_wrench.config.step.tip": "Click to fine-tune: hold Shift for x10, Ctrl for x100",
+  "gui.create_better_wrench.config.opt.deconstruct.max_edge": "Deconstruct: max edge of a selection (blocks)",
+  "gui.create_better_wrench.config.desc.deconstruct.max_edge": "If any axis of the selection is longer, the request is rejected (nothing is removed) and the client draws the box red.",
+  "gui.create_better_wrench.config.opt.deconstruct.blocks_per_tick": "Deconstruct: blocks per tick",
+  "gui.create_better_wrench.config.desc.deconstruct.blocks_per_tick": "Higher removes faster but makes a single tick heavier; lower is smoother but takes longer.",
+  "gui.create_better_wrench.config.opt.connect.max_corners": "Connect: max corner points",
+  "gui.create_better_wrench.config.desc.connect.max_corners": "Beyond this you cannot add more corners (an action-bar hint appears).",
+  "gui.create_better_wrench.config.opt.connect.max_leg_length": "Connect: max length of one segment (blocks)",
+  "gui.create_better_wrench.config.desc.connect.max_leg_length": "Maximum straight length between two nodes; add a corner to go farther.",
+  "gui.create_better_wrench.config.opt.connect.max_total_blocks": "Connect: max total blocks",
+  "gui.create_better_wrench.config.desc.connect.max_total_blocks": "Maximum blocks placed by one connection (shafts/gearboxes/large cogwheels); also a server-side safety cap.",
+  "gui.create_better_wrench.config.opt.connect.max_end_distance": "Connect: max end-point distance (blocks)",
+  "gui.create_better_wrench.config.desc.connect.max_end_distance": "Only the final end-click is checked (start/corners are not limited); raising it allows finishing from farther away."
 }

@@ -55,5 +55,28 @@
   "msg.create_better_wrench.combat_no_permission": "你没有权限打开战斗模式(需要OP权限)",
 
   "key.create_better_wrench.tools": "呼出扳手模式工具条",
-  "key.categories.create_better_wrench": "万能扳手"
+  "key.create_better_wrench.config_page": "打开配置页面(与下面的键同时按)",
+  "key.create_better_wrench.config_page_modifier": "配置页面组合键(与上面的键同时按)",
+  "key.categories.create_better_wrench": "万能扳手",
+
+  "gui.create_better_wrench.config.title": "万能扳手 · 配置",
+  "gui.create_better_wrench.config.search": "搜索选项…",
+  "gui.create_better_wrench.config.reset": "重置为默认",
+  "gui.create_better_wrench.config.reset.tip": "把所有选项恢复为默认值(关闭页面时保存)",
+  "gui.create_better_wrench.config.done": "完成",
+  "gui.create_better_wrench.config.hint": "拖动滑块修改; - / + 微调(Shift ×10, Ctrl ×100); 关闭页面时自动保存",
+  "gui.create_better_wrench.config.readonly": "只读: 配置由服务器提供, 客户端无法修改",
+  "gui.create_better_wrench.config.step.tip": "单击微调: 按住 Shift ×10, 按住 Ctrl ×100",
+  "gui.create_better_wrench.config.opt.deconstruct.max_edge": "拆除: 选区单轴上限(格)",
+  "gui.create_better_wrench.config.desc.deconstruct.max_edge": "选区的任意一条边超过这个值就会被拒绝(不会拆任何方块), 客户端会把选区框画成红色。",
+  "gui.create_better_wrench.config.opt.deconstruct.blocks_per_tick": "拆除: 每刻处理格数",
+  "gui.create_better_wrench.config.desc.deconstruct.blocks_per_tick": "越大拆得越快、单刻越卡; 越小越平滑、总时间越长。",
+  "gui.create_better_wrench.config.opt.connect.max_corners": "连接: 拐点数量上限",
+  "gui.create_better_wrench.config.desc.connect.max_corners": "超过就点不下新拐点了(actionbar 会提示)。",
+  "gui.create_better_wrench.config.opt.connect.max_leg_length": "连接: 单段轴长上限(格)",
+  "gui.create_better_wrench.config.desc.connect.max_leg_length": "单段两个节点之间的直线长度上限; 想连更远就多加拐点。",
+  "gui.create_better_wrench.config.opt.connect.max_total_blocks": "连接: 单次方块总数上限",
+  "gui.create_better_wrench.config.desc.connect.max_total_blocks": "一次连接最多铺设多少方块(轴/齿轮箱/大齿轮), 同时也是服务端安全上限。",
+  "gui.create_better_wrench.config.opt.connect.max_end_distance": "连接: 终点最远距离(格)",
+  "gui.create_better_wrench.config.desc.connect.max_end_distance": "只校验最后那次点终点(起点/拐点不受限); 调大等于允许隔空收尾。"
 }
