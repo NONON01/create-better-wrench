@@ -143,6 +143,12 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   *empty* locked depot while holding anything no longer swallows the click, so Create places the stack on it (leaving the
   wrench out would have made "wrench in hand + right-click" a dead interaction with no feedback). A non-empty depot behaves
   as before, and the wrench click in Process mode is still the lock/unlock gesture, which the client handles separately.
+  The placement branch is only taken when processing did nothing, so "empty depot + tool in hand + stock in the raw pile"
+  still refills and works as before instead of dropping the tool onto the depot.
+- **Process mode: **sneak + right-click takes the item off a locked depot** without unlocking it.** Only that one item moves
+  (the raw pile stays), the depot stays locked, and anything that does not fit goes to your feet. Outside of that one
+  gesture nothing changes: a plain right-click still processes/applies, and sneak + right-click on any *other* block in
+  Process mode is still swallowed instead of turning into Create's sneak-wrench behaviour.
 - Process mode: filling no longer silently loses the input it took from the raw pile if the first fill fails.
 - Process mode: a pile holding a foreign item can no longer be consumed without being credited.
 - Client state: unfinished selections are also cleared when **changing dimension** (previously only on logout),

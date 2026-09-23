@@ -67,6 +67,16 @@ public final class AssembleSelectionHandler {
         if (hit == null || hit.getType() != HitResult.Type.BLOCK)
             return;
 
+        // ⚠️ 2026-09-22(用户要求): **潜行 + 右键置物台 = 从锁定台面上取回物品**, 由服务端
+        //    ({@code AssembleInteractionHandler}) 处理 ⇒ 这里**必须放行**, 否则那次点击被吃掉、服务端永远收不到。
+        //    刻意**只对"潜行 + 目标是置物台"放行**(而不是对所有潜行放行): 这样加工模式下
+        //    "潜行 + 右键其它方块"仍然是原来的"吃掉点击", 不会突然变成 Create 的潜行扳手语义(拆方块)。
+        if (mc.player.isShiftKeyDown() && WrenchModeSwitcher.current == WrenchMode.ASSEMBLE) {
+            BlockPos pos = ((BlockHitResult) hit).getBlockPos();
+            if (mc.level.getBlockState(pos).getBlock() instanceof DepotBlock)
+                return;
+        }
+
         // [加工] 且目标是置物台 -> 请求切换锁定
         if (WrenchModeSwitcher.current == WrenchMode.ASSEMBLE) {
             BlockPos pos = ((BlockHitResult) hit).getBlockPos();

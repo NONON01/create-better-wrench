@@ -44,18 +44,30 @@ public final class AssembleInteractionHandler {
         Player player = event.getEntity();
         ItemStack held = event.getItemStack();
 
-        // ⚠️ 2026-09-22(用户要求): **锁定的台面空着时, 允许往上放东西** —— **包括本模组的扳手**。
-        //    以前锁定后右键一律被吃掉 ⇒ 台面一空就再也放不上去(只能解锁→放料→再锁)。
-        //    条件 = 台面空 && 手上拿着非空物品; 不吃掉这次交互 ⇒ 交给 Create 的置物台把手上那一摞放上台面。
-        //    ℹ️ 为什么**不再排除扳手**(用户反馈: 排除会造成尴尬): 那会留下"手持扳手右键空台面 ⇒ 什么也不发生"的死区,
-        //       而"持扳手右击已锁定的置物台 = 上锁/解锁"是**客户端**在加工模式下处理的
-        //       (`AssembleSelectionHandler` 发包并吃掉那次点击), 根本走不到这里 ⇒ 去掉排除**不影响**上锁/解锁手势。
-        //    (原料堆还有货时台面通常不会空着 —— 每次加工结束都会自动续料; 空着说明玩家就是想自己放。)
-        if (depot.getHeldItem().isEmpty() && !held.isEmpty())
+        // ① ⚠️ 2026-09-22(用户要求): **潜行 + 右键 = 从锁定台面上取回当前那一个**(不需要先解锁)。
+        //    与"解锁返还"不同: 这里**只动台面那一个**, 保持锁定、原料堆原地不动。
+        //    装不下的部分由原版 placeItemBackInInventory 掉在脚下, **不会丢**。
+        //    若该坐标上还有"停留后弹出"的待弹条目, 到点时因台面物品对不上会被自动跳过(DepotProductEjector 的 A-6 守卫)。
+        if (player.isShiftKeyDown() && !depot.getHeldItem().isEmpty()) {
+            ItemStack taken = depot.getHeldItem().copy();
+            AssembleLogic.setDepot(depot, ItemStack.EMPTY);            // 同包, 会顺带 notifyUpdate
+            player.getInventory().placeItemBackInInventory(taken);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            event.setCanceled(true);
+            return;
+        }
+
+        // ② 老逻辑: 在已锁定的置物台上尝试加工/施加
+        boolean acted = AssembleLogic.tryAssemble(level, pos, depot, player, held, event.getHand());
+
+        // ③ 加工没有发生 + 台面**仍然是空的** + 手上拿着东西 + **没有潜行** ⇒ 不吃掉这次交互,
+        //    交给 Create 的置物台把手上那一摞放上台面(2026-09-22 用户要求; 含扳手, 见 docs/03)。
+        //    ⚠️ 判定放在 tryAssemble **之后**: 这样"台面空但原料堆有货 + 手持工具"仍会先自动续料并加工
+        //    (② 会 success), 不会因为这条分支把工具当成材料放上台面、也不会把原料堆的东西倒进玩家背包。
+        if (!acted && !player.isShiftKeyDown() && depot.getHeldItem().isEmpty() && !held.isEmpty())
             return;
 
-        AssembleLogic.tryAssemble(level, pos, depot, player, held, event.getHand());
-        // 锁定的台面: 始终阻止默认交互(取走/放上物品)
+        // 锁定的台面: 其余情况始终阻止默认交互(取走/放上物品)
         event.setCancellationResult(InteractionResult.SUCCESS);
         event.setCanceled(true);
     }
