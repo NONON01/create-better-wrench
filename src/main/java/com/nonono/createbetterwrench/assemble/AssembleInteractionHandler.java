@@ -44,13 +44,14 @@ public final class AssembleInteractionHandler {
         Player player = event.getEntity();
         ItemStack held = event.getItemStack();
 
-        // ⚠️ 2026-09-22(用户要求): **锁定的台面空着时, 允许往上放东西**。
+        // ⚠️ 2026-09-22(用户要求): **锁定的台面空着时, 允许往上放东西** —— **包括本模组的扳手**。
         //    以前锁定后右键一律被吃掉 ⇒ 台面一空就再也放不上去(只能解锁→放料→再锁)。
-        //    条件 = 台面空 && 手上拿着非空、且**不是本模组扳手**的物品 —— 扳手那一次点击属于"解锁"
-        //    (客户端 AssembleSelectionHandler 已发包并吃掉那次点击), 不会走到这里。
-        //    不吃掉这次交互 ⇒ 交给 Create 的置物台正常把手上那一摞放上台面。
+        //    条件 = 台面空 && 手上拿着非空物品; 不吃掉这次交互 ⇒ 交给 Create 的置物台把手上那一摞放上台面。
+        //    ℹ️ 为什么**不再排除扳手**(用户反馈: 排除会造成尴尬): 那会留下"手持扳手右键空台面 ⇒ 什么也不发生"的死区,
+        //       而"持扳手右击已锁定的置物台 = 上锁/解锁"是**客户端**在加工模式下处理的
+        //       (`AssembleSelectionHandler` 发包并吃掉那次点击), 根本走不到这里 ⇒ 去掉排除**不影响**上锁/解锁手势。
         //    (原料堆还有货时台面通常不会空着 —— 每次加工结束都会自动续料; 空着说明玩家就是想自己放。)
-        if (depot.getHeldItem().isEmpty() && !held.isEmpty() && !held.is(BetterWrenchMod.BETTER_WRENCH))
+        if (depot.getHeldItem().isEmpty() && !held.isEmpty())
             return;
 
         AssembleLogic.tryAssemble(level, pos, depot, player, held, event.getHand());

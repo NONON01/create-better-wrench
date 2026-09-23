@@ -139,9 +139,10 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   structural block redirects the wrenching to the master and only self-clears on the *next* tick, so the old
   "blocks before minus blocks after" delta counted the seven leftovers. Leftover structural parts are now cleaned up
   silently without being counted, and the two full-area scans (plus the 32³ cut-off that switched counting modes) are gone.
-- **Process mode: a locked depot that is empty accepts items again.** Right-clicking an *empty* locked depot while holding
-  something (anything except this mod's wrench) no longer swallows the click, so Create places the stack on it; a non-empty
-  depot behaves as before, and the wrench click is still the unlock.
+- **Process mode: a locked depot that is empty accepts items again — including this mod's wrench.** Right-clicking an
+  *empty* locked depot while holding anything no longer swallows the click, so Create places the stack on it (leaving the
+  wrench out would have made "wrench in hand + right-click" a dead interaction with no feedback). A non-empty depot behaves
+  as before, and the wrench click in Process mode is still the lock/unlock gesture, which the client handles separately.
 - Process mode: filling no longer silently loses the input it took from the raw pile if the first fill fails.
 - Process mode: a pile holding a foreign item can no longer be consumed without being credited.
 - Client state: unfinished selections are also cleared when **changing dimension** (previously only on logout),
