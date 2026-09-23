@@ -9,6 +9,8 @@ import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.mode.DeconstructScope;
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
+// ⚠️ 包名注意: 开发源码树里目录叫 waterWheel, 但**正式 jar 里是小写** waterwheel(javap 已确认) —— 必须按 jar 写。
+import com.simibubi.create.content.kinetics.waterwheel.WaterWheelStructuralBlock;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -48,17 +50,6 @@ public final class DeconstructJob {
      */
     private final int blocksPerTick;
 
-    /**
-     * 「实际减少方块数」统计的体量上限。
-     *
-     * <p>为了让 Create 多方块的**连带拆除**也计入上报数(旧实现只给"发起格"+1, 所以大型水车这类结构会少报),
-     * 我们在开始时数一遍选区里的非空气方块、结束时再数一遍, 用差值作为结果。
-     * 两次全量扫描对超大选区(64³ = 262144 格)会有可感知的主线程停顿,
-     * 所以只对 ≤ {@value} 格的选区启用; 更大的选区退回"直接计数"(可能少算连带拆除的格数)。
-     * 详见 docs/07 §6 A-13。</p>
-     */
-    private static final long COUNT_DELTA_MAX_VOLUME = 32768; // 32³
-
     private final ServerLevel level;
     private final UUID playerId;
     private final DeconstructScope scope;
@@ -71,11 +62,15 @@ public final class DeconstructJob {
     private int cx, cy, cz;
     private boolean done;
 
-    /** 直接由本次循环拆掉的格数(**下界**: 不含多方块被连带拆除的那些)。 */
+    /**
+     * 本次要上报的**拆除单元数** —— 一次成功的"扳手操作"记 1。
+     *
+     * <p>⚠️ 2026-09-22 语义变更(用户要求): 以前上报的是"选区里少掉的方块数"(开始时数一遍、结束时再数一遍的差值),
+     * 于是**大型水车这种多方块结构会报 8**(它由 1 个主体 + 7 个 {@code WaterWheelStructuralBlock} 结构块组成)。
+     * 用户要求"**把大水车只视为一个方块**" ⇒ 现在改为**按操作计数**, 结构块残骸另行静默清理且不计数
+     * (见 {@link #runSlice})。顺带好处: 不再有两次全量扫描, 大选区也不会因 32³ 阈值而换算法。</p>
+     */
     private int removed;
-
-    /** 开始时的非空气方块数; {@code -1} = 该选区体量过大, 不启用差值统计。 */
-    private final long blocksBefore;
 
     private static final Map<UUID, DeconstructJob> ACTIVE = new HashMap<>();
 
@@ -89,7 +84,6 @@ public final class DeconstructJob {
         this.sizeY = maxY - minY + 1;
         this.sizeZ = maxZ - minZ + 1;
         this.volume = (long) this.sizeX * this.sizeY * this.sizeZ;
-        this.blocksBefore = this.volume <= COUNT_DELTA_MAX_VOLUME ? countNonAir() : -1L;
         this.blocksPerTick = WrenchConfig.deconstructBlocksPerTick();
     }
 
@@ -141,6 +135,17 @@ public final class DeconstructJob {
                 continue;
             }
             BlockState state = level.getBlockState(pos);
+            // ⚠️ 2026-09-22(用户要求: 大水车只算 1 个方块): 多方块的**结构块残骸**不计入上报数。
+            //    Create 的大水车 = 1 个主体 + 7 个 WaterWheelStructuralBlock; 主体一没, 这 7 块就"失效"了,
+            //    但它们是靠**下一 tick** 的 updateShape→scheduleTick→tick() 才自清的(见其源码 119-164 行),
+            //    而我们的循环在**同一 tick** 就会走到它们 ⇒ 以前会把 7 块残骸也逐块拆掉并计数(合计 8)。
+            //    现在: 遇到"主体已不在"的结构块就**直接静默清掉、不计数**(确定性清理, 不依赖它自己的 tick)。
+            if (state.getBlock() instanceof WaterWheelStructuralBlock wheel
+                && !wheel.stillValid(level, pos, state, false)) {
+                level.removeBlock(pos, false);
+                advance();
+                continue;
+            }
             if (!state.isAir() && DeconstructLogic.matchesScope(state, scope)
                 && DeconstructLogic.deconstructBlock(level, pos, player)) {
                 removed++;
@@ -164,29 +169,13 @@ public final class DeconstructJob {
         }
     }
 
-    /** 选区内的非空气方块数(跳过未加载区块, 避免顺带把区块加载进来)。 */
-    private long countNonAir() {
-        long n = 0;
-        for (int x = minX; x < minX + sizeX; x++)
-            for (int y = minY; y < minY + sizeY; y++)
-                for (int z = minZ; z < minZ + sizeZ; z++) {
-                    BlockPos pos = new BlockPos(x, y, z);
-                    // isLoaded: hasChunkAt 家族已被弃用(原版, 见 ConnectLogic#loadedCached 的说明)
-                    if (level.isLoaded(pos) && !level.getBlockState(pos).isAir())
-                        n++;
-                }
-        return n;
-    }
-
     /**
-     * 上报用的拆除数量: 优先用「开始 − 结束」的非空气方块**差值**, 这样多方块的连带拆除也会被算进来。
-     * 大选区(未启用差值统计)退回直接计数。
+     * 上报用的拆除数量 = **成功的扳手操作次数**(多方块结构算 1)。
+     *
+     * <p>2026-09-22: 旧的"开始−结束方块差值"版本会把大水车报成 8, 已按用户要求改掉(见 {@link #removed})。</p>
      */
     private int reportCount() {
-        if (blocksBefore < 0)
-            return removed;
-        long delta = blocksBefore - countNonAir();
-        return (int) Math.max(removed, Math.max(0L, delta));
+        return removed;
     }
 
     private static void report(ServerPlayer player, int removed) {

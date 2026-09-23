@@ -43,6 +43,16 @@ public final class AssembleInteractionHandler {
 
         Player player = event.getEntity();
         ItemStack held = event.getItemStack();
+
+        // ⚠️ 2026-09-22(用户要求): **锁定的台面空着时, 允许往上放东西**。
+        //    以前锁定后右键一律被吃掉 ⇒ 台面一空就再也放不上去(只能解锁→放料→再锁)。
+        //    条件 = 台面空 && 手上拿着非空、且**不是本模组扳手**的物品 —— 扳手那一次点击属于"解锁"
+        //    (客户端 AssembleSelectionHandler 已发包并吃掉那次点击), 不会走到这里。
+        //    不吃掉这次交互 ⇒ 交给 Create 的置物台正常把手上那一摞放上台面。
+        //    (原料堆还有货时台面通常不会空着 —— 每次加工结束都会自动续料; 空着说明玩家就是想自己放。)
+        if (depot.getHeldItem().isEmpty() && !held.isEmpty() && !held.is(BetterWrenchMod.BETTER_WRENCH))
+            return;
+
         AssembleLogic.tryAssemble(level, pos, depot, player, held, event.getHand());
         // 锁定的台面: 始终阻止默认交互(取走/放上物品)
         event.setCancellationResult(InteractionResult.SUCCESS);

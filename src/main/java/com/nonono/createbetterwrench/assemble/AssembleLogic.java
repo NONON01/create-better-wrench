@@ -350,10 +350,10 @@ public final class AssembleLogic {
      *
      * <p><b>产出:</b> 整批交给 {@code process} 一次即代表"整批完全转换"
      * ({@code RecipeApplier.applyRecipeOn} 内部按 {@code getCount()} 逐份掷结果, 并把同类产出
-     * 合并成尽量满的堆叠)。所有结果**全部直接弹出** —— 与其它路径的成品一致: 从台面正上方发出、
-     * 带向上初速的普通掉落物(即 {@link #dropProduct} 的 {@code launched=true} 形态)。
-     * 台面上**一个都不留**, 所以多结果(洗涤灵魂沙 → 4 石英 + 金粒)能一次性全部弹出去;
-     * 弹出的同时立刻从原料堆续下一份原料占住台面, 产出落地时不会被置物台吸回去。</p>
+     * 合并成尽量满的堆叠)。弹出策略按**本次结果种类数**二分(2026-09-22 用户规则):
+     * <b>多种产品 ⇒ 全部直接弹出</b>(台面只有一个位置, 多产品留不住);
+     * <b>单一产品 ⇒ 稍作停留</b> —— 摆上台面, 按 Ctrl+滚轮**停留档位**(0/2/4/8 tick)到点再弹,
+     * 并在弹出那一刻从原料堆续下一份原料(与其它四条路径完全一致;「不停留」档即等于立刻弹)。</p>
      *
      * <p><b>反馈(2026-09-20 追加, 用户要求):</b> 成功时播**原版音效** —— 水桶 ⇒ {@code BUCKET_EMPTY}(倒水)、
      * 岩浆桶 ⇒ {@code BUCKET_EMPTY_LAVA}、打火石 ⇒ {@code FLINTANDSTEEL_USE}; 同时喷洒与 Create 鼓风机
@@ -429,24 +429,44 @@ public final class AssembleLogic {
             return true; // 这次手势已被本模组消费: 保持台面原样
         }
 
-        // ④ 产出**全部直接弹出**: 与其它路径的成品观感一致 —— 台面正上方发出、带向上的初速。
-        //    台面上一个都不留, 多结果(洗涤灵魂沙 → 4 石英 + 金粒)才能一次性全部弹出去。
+        // ④ 产出弹出策略(2026-09-22 用户规则):
+        //    · **多种产品** ⇒ **全部直接弹出**(台面只有一个位置, 多产品既留不住、也会互相卡位; 弹出后立刻续料);
+        //    · **单一产品** ⇒ **稍作停留**: 摆上台面, 按加工模式 Ctrl+滚轮的**停留档位**(0/2/4/8 tick)到点再弹,
+        //      续料由弹出那一刻的 ejectHeldAndRefill 完成 —— 与其它四条路径**完全一致**。
+        //    ⚠️ 本次修订的来龙去脉: 上一轮按"直接弹出"实现时**绕过了 holdThenEject** ⇒ 用户实测发现"滚轮四档失效";
+        //    但多产品又不能强行占台面, 于是按上面的规则分两种策略。判据用**本次实际结果的种类数**
+        //    (非空栈数量): 概率性副产物这一批没掷出来时就按"单一产品"处理 ⇒ 稍作停留, 无副作用。
         //
-        // ⚠️ 先处理"台面超出上限的那部分": 它随台面那一摞一起被下面的 consumeAndRefill 覆盖掉,
-        //    若不在这里退回原料堆就是**静默丢失**。(失败分支不会走到这里, 所以它那时仍在台面上。)
-        // ⚠️ **顺序必须在此、不能挪到 consumeAndRefill 之后**(审计 L-3 讨论过): 反过来时若原料堆原本是空的,
-        //    续料会先 take 到空 ⇒ 台面被留白, 退回的那几十个全进料堆 ⇒ 破坏"台面不会空着"这条保证。
+        // ⚠️ 先处理"台面超出上限的那部分": 两条策略都会覆盖台面那一摞, 不在这里退回原料堆就是静默丢失。
+        //    (失败分支不会走到这里, 所以它那时仍在台面上。)
         if (!overflow.isEmpty())
             DepotPiles.deposit(level, pos, overflow);
 
         Vec3 ejectFrom = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
-        for (ItemStack stack : out)
-            if (!stack.isEmpty())
-                dropProduct(level, ejectFrom, stack.copy(), true);
+        ItemStack primary = ItemStack.EMPTY;
+        int kinds = 0;
+        for (ItemStack stack : out) {
+            if (stack.isEmpty())
+                continue;
+            kinds++;
+            if (primary.isEmpty())
+                primary = stack.copy();
+        }
 
-        // 台面清空 + 立刻续上原料堆的下一个。
-        // ⚠️ 顺序不能反: 台面被下一份原料占用着, 刚弹出的产出落地时才不会被置物台吸回去。
-        consumeAndRefill(level, pos, depot);
+        if (kinds > 1) {
+            // 多种产品: 全部直接弹(主产出也不再单独留台面)
+            for (ItemStack stack : out)
+                if (!stack.isEmpty())
+                    dropProduct(level, ejectFrom, stack.copy(), true);
+            // 台面清空 + 立刻续料(顺序不能反: 台面被下一份原料占住, 弹出的产出落地才不会被吸回)
+            consumeAndRefill(level, pos, depot);
+        } else {
+            // 单一产品(或万一为空): 稍作停留, 走档位
+            if (primary.isEmpty())
+                consumeAndRefill(level, pos, depot);
+            else
+                holdThenEject(level, pos, depot, primary, player);
+        }
         playFanFeedback(level, pos, held, type);
 
         // 打火石: 只扣 1 点耐久(consumeHeld 内部: 创造模式 / keepHeld 直接返回, 否则走 hurtAndBreak);

@@ -129,6 +129,19 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   (possible with pathological datapack recipes — `ItemHelper.multipliedOutput` adds a count-0 stack when the
   product is empty) would take the success path and silently drop the batch. It now shows the usual
   "cannot process this way" message and keeps your items.
+- **Process mode, fan-style output now follows one rule: many products ⇒ eject at once, one product ⇒ brief stay.**
+  If a conversion yields **more than one kind** of result (e.g. washing soul sand ⇒ quartz + gold nugget), every result is
+  ejected immediately (the depot has room for one, so nothing is left behind); if there is **one** kind, the result is
+  placed on the depot and follows the usual **Ctrl+Scroll stay tier** (0/2/4/8 ticks) before popping — exactly like the
+  other four paths, with the refill happening at pop time. "No stay" therefore reproduces the previous all-instant feel.
+- **Deconstruct mode: the reported count is now "successful wrench operations", so a large water wheel counts as 1**
+  (it used to report 8). Create builds it from one `LargeWaterWheelBlock` plus seven `WaterWheelStructuralBlock`s; a
+  structural block redirects the wrenching to the master and only self-clears on the *next* tick, so the old
+  "blocks before minus blocks after" delta counted the seven leftovers. Leftover structural parts are now cleaned up
+  silently without being counted, and the two full-area scans (plus the 32³ cut-off that switched counting modes) are gone.
+- **Process mode: a locked depot that is empty accepts items again.** Right-clicking an *empty* locked depot while holding
+  something (anything except this mod's wrench) no longer swallows the click, so Create places the stack on it; a non-empty
+  depot behaves as before, and the wrench click is still the unlock.
 - Process mode: filling no longer silently loses the input it took from the raw pile if the first fill fails.
 - Process mode: a pile holding a foreign item can no longer be consumed without being credited.
 - Client state: unfinished selections are also cleared when **changing dimension** (previously only on logout),

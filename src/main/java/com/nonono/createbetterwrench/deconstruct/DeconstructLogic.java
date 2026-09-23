@@ -6,6 +6,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.nonono.createbetterwrench.mode.DeconstructScope;
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
+// ⚠️ 包名注意: 开发源码树里目录叫 waterWheel, 但**正式 jar 里是小写** waterwheel(javap 已确认) —— 必须按 jar 写。
+import com.simibubi.create.content.kinetics.waterwheel.WaterWheelStructuralBlock;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -137,6 +139,17 @@ public final class DeconstructLogic {
                 player.getMainHandItem(),
                 new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
             wrenchable.onSneakWrenched(state, context);
+
+            // ⚠️ 2026-09-22(用户要求: 大水车只算 1 个方块): **代理方块**的程序会把拆除重定向到"主体"
+            //    (Create 的 {@code WaterWheelStructuralBlock#onSneakWrenched} 就是这么干的: 它改成对主体位置
+            //    调用 {@code IWrenchable.super.onSneakWrenched}, 于是被点的这一格自己**还在**, 要等下一 tick
+            //    的 updateShape→scheduleTick→tick() 才自清) ⇒ 只判 {@code isAir()} 会把这次成功的拆除误判成
+            //    "没拆掉"。这里补一条: 结构失效(= 主体已经没了)同样算"拆掉了", 且整座结构只计这 1 次
+            //    (残骸由 {@code DeconstructJob#runSlice} 静默清理、不计数)。
+            if (state.getBlock() instanceof WaterWheelStructuralBlock wheel
+                && !wheel.stillValid(level, pos, state, false))
+                return true;
+
             // 被 BreakEvent 取消时方块还在 -> 计为未拆
             return level.getBlockState(pos).isAir();
         }
