@@ -27,7 +27,7 @@ import net.minecraft.world.level.ItemLike;
  * <pre>
  *   直接附属于万能扳手:  使用万能扳手连接应力 / 使用万能扳手批量拆除
  *   归在置物台(同时也关联到万能扳手):
- *       使用万能扳手进行加工(总述) → 进行装配 / 注液 / 洗涤 / 熔炼 / 烤制 / 缠魂
+ *       使用万能扳手进行加工(总述) → 进行装配 / 注液 / 洗涤 / 冶炼 / 烤制 / 缠魂
  * </pre>
  * 顺序**就是注册顺序**(Create 也不用 {@code orderBefore/orderAfter}, 见 docs/dev/06-ponder.md §13);
  * 所以下面刻意按这个顺序写 {@code addStoryBoard}。

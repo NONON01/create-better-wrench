@@ -57,7 +57,7 @@ import org.joml.Vector3f;
  *   <li><b>原木去皮</b> —— 原版 {@link AxeItem} 机制(Create 只在 JEI 里展示这条"隐式配方")。</li>
  *   <li><b>注液</b> —— {@code create:filling}, 等价于注液器(Spout)。</li>
  *   <li><b>批量鼓风处理</b>(2026-09-20 新增) —— 模仿 Create 鼓风机: 水桶 ⇒ 洗涤({@code create:splashing})、
- *       岩浆桶 ⇒ 熔炼(熔炉/高炉)、打火石 ⇒ 烟熏; 若置物台**下方**是灵魂沙/灵魂土/灵魂火则 ⇒ 缠魂
+ *       岩浆桶 ⇒ 冶炼(熔炉/高炉)、打火石 ⇒ 烟熏; 若置物台**下方**是灵魂沙/灵魂土/灵魂火则 ⇒ 缠魂
  *       ({@code create:haunting}), 缠魂没配方时**回退烟熏**。一次把**一整摞**物品完全转换
  *       (台面那一摞 + 原料堆里的同类, 上限见配置 {@code assemble.fan_batch_limit}), 产出**全部弹出**。
  *       见 {@link #tryFanProcessing}。</li>
@@ -322,13 +322,13 @@ public final class AssembleLogic {
 
     /**
      * 第 5 条路径: 用**水桶 / 岩浆桶 / 打火石**模拟 Create 鼓风机的一次性处理,
-     * 但对**一整摞**物品一次性完成 —— 洗涤({@code create:splashing})、熔炼(原版熔炉/高炉)、
+     * 但对**一整摞**物品一次性完成 —— 洗涤({@code create:splashing})、冶炼(原版熔炉/高炉)、
      * 烟熏(原版烟熏炉)、缠魂({@code create:haunting})。
      *
      * <p>三种手持物的含义(候选类型按序尝试):</p>
      * <ul>
      *   <li>{@link Items#WATER_BUCKET} → 洗涤({@code SPLASHING});</li>
-     *   <li>{@link Items#LAVA_BUCKET} → 熔炼({@code BLASTING});</li>
+     *   <li>{@link Items#LAVA_BUCKET} → 冶炼({@code BLASTING});</li>
      *   <li>{@link Items#FLINT_AND_STEEL} → 置物台**下方**是灵魂沙 / 灵魂土 / 灵魂火时**先试缠魂**
      *       ({@code HAUNTING}), 缠魂没配方(例如台面是食物)再**回退烟熏**({@code SMOKING});
      *       下方不是灵魂底座时只试烟熏。</li>
@@ -358,7 +358,7 @@ public final class AssembleLogic {
      *
      * <p><b>反馈(2026-09-20 追加, 用户要求):</b> 成功时播**原版音效** —— 水桶 ⇒ {@code BUCKET_EMPTY}(倒水)、
      * 岩浆桶 ⇒ {@code BUCKET_EMPTY_LAVA}、打火石 ⇒ {@code FLINTANDSTEEL_USE}; 同时喷洒与 Create 鼓风机
-     * **同款**的粒子(洗涤 = 蓝色尘 + {@code SPIT}, 熔炼 = {@code LARGE_SMOKE}, 烟熏 = {@code POOF},
+     * **同款**的粒子(洗涤 = 蓝色尘 + {@code SPIT}, 冶炼 = {@code LARGE_SMOKE}, 烟熏 = {@code POOF},
      * 缠魂 = {@code SOUL_FIRE_FLAME} + {@code SMOKE})。详见 {@link #playFanFeedback}。</p>
      */
     private static boolean tryFanProcessing(Level level, BlockPos pos, DepotBlockEntity depot,
@@ -529,7 +529,7 @@ public final class AssembleLogic {
      * 逐个类型核对过上游 `AllFanProcessingTypes` 里四个实现, 只保留**粒子种类与颜色**(含 y 偏移):
      * <ul>
      *   <li>洗涤 `SplashingType`(417-425 行): {@code DustParticleOptions(0x0055FF, 1)} + {@code SPIT}, 台面上方 0.5;</li>
-     *   <li>熔炼 `BlastingType`(170-174 行): {@code LARGE_SMOKE}, 上方 0.25;</li>
+     *   <li>冶炼 `BlastingType`(170-174 行): {@code LARGE_SMOKE}, 上方 0.25;</li>
      *   <li>烟熏 `SmokingType`(356-360 行): {@code POOF}, 上方 0.25;</li>
      *   <li>缠魂 `HauntingType`(236-246 行): {@code SOUL_FIRE_FLAME}(上方 0.45) + {@code SMOKE}
      *       (上游是 {@code random.nextInt(2) == 0} 的 1/2 概率, 这里按"一半量级"取定量 4 个)。</li>

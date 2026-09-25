@@ -125,10 +125,12 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 - **Ponder texts are the ones specified by the author** — condition first, action second, with the example kept in
   parentheses ("When a usable assembly material is on the Depot (a Golden Sheet, for example)"). Two duplicates were
   split apart, the caption counts now match the language keys one-to-one (connect 7 / deconstruct 5 / process 3 /
-  assembly 2 / filling 3 / washing 2 / blasting 2 / smoking 2 / haunting 4), every `showText(n)` is followed by at least
+  assembly 2 / filling 3 / washing 2 / smelting 2 / smoking 2 / haunting 4), every `showText(n)` is followed by at least
   `n` ticks of idle so captions never overlap, and the Java defaults are kept byte-identical to `en_us.json`.
-  *Assembly* now runs the real **five-loop Precision Mechanism sequence** (cogwheel, large cogwheel, iron nugget) and
-  the finished product **pops out of the Depot and vanishes**; *filling* shows that a stack is filled per recipe.
+  *Assembly* runs the real **five-loop Precision Mechanism sequence** (cogwheel, large cogwheel, iron nugget) with a
+  pause between every material and **no particles**, *smelting* shows **only raw iron -> iron ingot** and *washing*
+  **only gravel -> flint**, the products **stay on the Depot** instead of popping out, and flint & steel is shown once.
+  The Chinese naming follows Create's own translation, so the lava-bucket path is **冶炼** rather than 熔炼.
 - **Ponder categories: three tags to one.** The *Connect* / *Deconstruct* / *Process* tags are gone (they duplicated the
   scene list without adding navigation). There is now a single **Universal Wrench** tag, attached to **both the wrench and
   the Depot**: hovering a Depot and holding W shows that one entry on the left, and opening it lists the wrench itself --
