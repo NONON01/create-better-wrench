@@ -71,8 +71,13 @@ public final class DepotScenes {
         new ItemStack(Items.IRON_NUGGET)
     };
 
-    /** 装配段每一拍"右击 + 材料"的气泡时长: 上一拍结束的同一 tick 下一拍才开始。 */
-    private static final int TIP_TICKS = 26;
+    /** 装配段每一拍"右击 + 材料"的气泡时长(比原来长, 用户要求"时间再长一点")。 */
+    private static final int TIP_TICKS = 32;
+    /**
+     * 两拍之间的间隔: 上一个气泡的**淡出**要用掉几 tick(LerpedFloat 线性, ~2-3 tick),
+     * 所以必须留一段空档, 否则就是"上一个还在淡出、下一个已经淡入"(用户 2026-09-25 反馈的正是这个)。
+     */
+    private static final int TIP_GAP = 8;
 
     private DepotScenes() {
     }
@@ -154,13 +159,14 @@ public final class DepotScenes {
             .attachKeyFrame();
         scene.idle(30);
 
-        // [右击鼠标][小齿轮] → [右击鼠标][大齿轮] → [右击鼠标][铁粒]: 每拍 26 tick, 首尾相接不重叠
+        // [右击鼠标][小齿轮] → [右击鼠标][大齿轮] → [右击鼠标][铁粒]:
+        // 每拍 32 tick, 之后空 8 tick 让上一拍**彻底淡出**再出下一拍(不重叠、不叠影)
         Vec3 anchor = util.vector().topOf(DEPOT).add(0, 0.55, 0);
         for (ItemStack material : MECHANISM_MATERIALS) {
             scene.overlay().showControls(anchor, Pointing.DOWN, TIP_TICKS)
                 .withItem(material)
                 .rightClick();
-            scene.idle(TIP_TICKS);
+            scene.idle(TIP_TICKS + TIP_GAP);
         }
 
         hold(scene, util, DEPOT, AllItems.PRECISION_MECHANISM.asStack());
