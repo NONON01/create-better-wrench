@@ -2,11 +2,11 @@
 
 All notable changes to Create Better Wrench are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
-Versions are SemVer; the current scheme is `<mod version>+mc<Minecraft version>` (e.g. `0.5.0+mc1.21.1`) —
+Versions are SemVer; the current scheme is `<mod version>+mc<Minecraft version>` (e.g. `1.0.0-beta+mc1.21.1`) —
 everything after `+` is build metadata. Earlier releases used `<mod version>+create<Create version>`
 (e.g. `0.4.0+create6.0.10`), and `1.0.0-beta` was a short-lived prerelease-style label.
 
-## [0.5.0+mc1.21.1] - unreleased
+## [1.0.0-beta+mc1.21.1] - unreleased
 
 ### Added
 - **Feature switches for every wrench function**, all in the server config: a master switch for **Connect**,
@@ -175,7 +175,7 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   normal Create wrench: no tool bar, ALT+Scroll does not switch modes, no mode feature applies, and the
   combat easter egg is off (all client handlers, the three server payload checks and the combat gate now
   require the main hand). The Wrench mode description gained a second line saying exactly that.
-- Version scheme is `<mod version>+mc<Minecraft version>` again → **`0.5.0+mc1.21.1`**.
+- Version scheme is `<mod version>+mc<Minecraft version>` again → **`1.0.0-beta+mc1.21.1`**.
 - Renamed the mod to **Universal Wrench** (`mod_name`; the `mod_id` stays `create_better_wrench`).
   ⚠️ Renamed **again** to **Create Better Wrench** in the same release — `Universal Wrench` collided with
   an existing Modrinth project of the same name and niche. The **item** is still called
@@ -210,7 +210,7 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   processing used to leave the first result on the depot and drop the rest without any motion; every result now pops
   out from above the depot just like the other paths, so multi-result recipes (washing soul sand ⇒ quartz + gold
   nugget) leave in one go and the depot is instantly free for the next item.
-  ⚠️ This supersedes the earlier "products stay on the depot" wording in the 0.5.0 entry above.
+  ⚠️ This supersedes the earlier "products stay on the depot" wording in the entry above.
 - **No deprecated API use left.** Minecraft itself deprecated the whole `LevelReader#hasChunk*` family
   (`hasChunk`, `hasChunkAt(BlockPos)`, `hasChunkAt(int,int)`, `hasChunksAt(...)`); the 8 call sites
   (connect, deconstruct and the three payloads) now use `Level#isLoaded(BlockPos)` — the same API Create uses.
