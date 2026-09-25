@@ -130,7 +130,8 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   *Assembly* runs the real **five-loop Precision Mechanism sequence** (cogwheel, large cogwheel, iron nugget) with a
   pause between every material and **no particles**, *smelting* shows **only raw iron -> iron ingot** and *washing*
   **only gravel -> flint**, the products **stay on the Depot** instead of popping out, and flint & steel is shown once.
-  The Chinese naming follows Create's own translation, so the lava-bucket path is **冶炼** rather than 熔炼.
+  The Chinese naming follows Create's own Ponder wording, so the lava-bucket path is **冶炼** (Create's recipe and tag
+  names still say 熔炼 — upstream is inconsistent; we use one term everywhere).
 - **Ponder categories: three tags to one.** The *Connect* / *Deconstruct* / *Process* tags are gone (they duplicated the
   scene list without adding navigation). There is now a single **Universal Wrench** tag, attached to **both the wrench and
   the Depot**: hovering a Depot and holding W shows that one entry on the left, and opening it lists the wrench itself --
