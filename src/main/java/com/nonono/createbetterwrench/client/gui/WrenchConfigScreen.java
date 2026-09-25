@@ -48,8 +48,8 @@ public final class WrenchConfigScreen extends Screen {
     private static final int HEADER_H = 22;
     /** 列表区域垂直起点(标题与搜索框之下)。 */
     private static final int LIST_TOP = 58;
-    /** 列表区域宽度(水平居中)。 */
-    private static final int LIST_W = 470;
+    /** 列表区域宽度上限(水平居中); 屏幕更窄时由 {@link #listW()} 收窄, 右侧控件贴内边距对齐。 */
+    private static final int LIST_W = 504;
     private static final int LABEL_W = 240;
     private static final int CTL_W = 170;
     private static final int STEP_BTN_W = 22;
@@ -142,6 +142,11 @@ public final class WrenchConfigScreen extends Screen {
         return Math.max(ROW_H, height - LIST_TOP - 46);
     }
 
+    /** 实际列表宽度: 不超过 {@link #LIST_W}; 屏幕更窄时收窄, 保证右侧控件留在面板内。 */
+    private int listW() {
+        return Math.min(LIST_W, Math.max(300, width - 24));
+    }
+
     private int entryHeight(Entry entry) {
         return entry.isHeader ? HEADER_H : ROW_H;
     }
@@ -156,7 +161,7 @@ public final class WrenchConfigScreen extends Screen {
 
     /** 按过滤条件摆放行; 只有**完整落在列表区域内**的行才显示(避免画到标题/按钮上)。 */
     private void layoutRows() {
-        int x = width / 2 - LIST_W / 2;
+        int x = width / 2 - listW() / 2;
         double maxScroll = Math.max(0, visibleHeight() - listHeight());
         scroll = Mth.clamp(scroll, 0, maxScroll);
         int y = (int) Math.round(LIST_TOP - scroll);
@@ -202,15 +207,15 @@ public final class WrenchConfigScreen extends Screen {
 
     @Override
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        int x = width / 2 - LIST_W / 2;
+        int x = width / 2 - listW() / 2;
         int listBottom = LIST_TOP + listHeight();
         g.fill(0, 0, width, height, 0xC0101010);
-        g.fill(x - 6, LIST_TOP - 6, x + LIST_W + 6, listBottom + 6, 0x60202020);
-        g.renderOutline(x - 6, LIST_TOP - 6, LIST_W + 12, listHeight() + 12, 0x60FFFFFF);
+        g.fill(x - 6, LIST_TOP - 6, x + listW() + 6, listBottom + 6, 0x60202020);
+        g.renderOutline(x - 6, LIST_TOP - 6, listW() + 12, listHeight() + 12, 0x60FFFFFF);
 
         int total = visibleHeight();
         if (total > listHeight()) {
-            int barX = x + LIST_W + 2;
+            int barX = x + listW() + 2;
             g.fill(barX, LIST_TOP, barX + 4, listBottom, 0x40FFFFFF);
             int thumbH = Math.max(16, listHeight() * listHeight() / total);
             int thumbY = LIST_TOP + (int) ((listHeight() - thumbH) * (scroll / Math.max(1, total - listHeight())));
@@ -224,12 +229,12 @@ public final class WrenchConfigScreen extends Screen {
 
         g.drawCenteredString(font, title, width / 2, 12, 0xFFFFFF);
 
-        int x = width / 2 - LIST_W / 2;
+        int x = width / 2 - listW() / 2;
         for (Entry entry : entries) {
             if (!entry.shown)
                 continue;
             if (entry.isHeader) {
-                g.fill(x + 4, entry.y + 3, x + LIST_W - 4, entry.y + HEADER_H - 3, 0x40FFFFFF);
+                g.fill(x + 4, entry.y + 3, x + listW() - 4, entry.y + HEADER_H - 3, 0x40FFFFFF);
                 g.drawString(font, entry.groupName(), x + 12, entry.y + 7, 0xFFD070, false);
             } else {
                 // 子项缩进一点, 视觉上从属于上面的分组
@@ -284,9 +289,11 @@ public final class WrenchConfigScreen extends Screen {
             if (isHeader)
                 return;
             boolean writable = WrenchConfig.isWritable();
-            Tooltip tip = Tooltip.create(Component.translatable(row.descKey()));
+            // 说明文本可能被语言文件置空(用户明确不要文字) ⇒ 空说明**不挂 tooltip**, 免得弹出一个空框
+            Component desc = Component.translatable(row.descKey());
+            Tooltip tip = desc.getString().isBlank() ? null : Tooltip.create(desc);
             if (row.isToggle() || row.kind() == WrenchConfig.Kind.LEVEL) {
-                toggle = Button.builder(Component.empty(), b -> {
+                Button.Builder builder = Button.builder(Component.empty(), b -> {
                     if (!WrenchConfig.isWritable())
                         return;
                     if (row.isToggle())
@@ -295,12 +302,16 @@ public final class WrenchConfigScreen extends Screen {
                         // 权限等级只有两档: 0 = 普通玩家, 2 = OP
                         WrenchConfig.applyNumber(row, row.asNumber() >= 1 ? 0 : 2);
                     refreshAll();
-                }).bounds(0, 0, CTL_W, 20).tooltip(tip).build();
+                }).bounds(0, 0, CTL_W, 20);
+                if (tip != null)
+                    builder.tooltip(tip);
+                toggle = builder.build();
                 toggle.active = writable;
                 addRenderableWidget(toggle);
             } else {
                 slider = new Slider(row);
-                slider.setTooltip(tip);
+                if (tip != null)
+                    slider.setTooltip(tip);
                 minus = Button.builder(Component.literal("-"), b -> step(-stepSize()))
                     .tooltip(Tooltip.create(Component.translatable("gui.create_better_wrench.config.step.tip")))
                     .bounds(0, 0, STEP_BTN_W, 20)
@@ -385,14 +396,19 @@ public final class WrenchConfigScreen extends Screen {
             this.y = rowY;
             if (isHeader)
                 return;
+            // 右侧统一贴到面板内边距上: 不管面板多宽, 控件都不可能出界
+            int right = listX + listW() - 20;
+            int ctlX = listX + 20 + LABEL_W;
+            int ctlW = right - ctlX;
             if (toggle != null) {
-                toggle.setPosition(listX + 20 + LABEL_W, rowY + 2);
+                toggle.setWidth(ctlW);
+                toggle.setPosition(ctlX, rowY + 2);
                 return;
             }
-            int sliderX = listX + 20 + LABEL_W + STEP_BTN_W + 6;
-            minus.setPosition(listX + 20 + LABEL_W + 2, rowY + 2);
-            slider.setPosition(sliderX, rowY + 2);
-            plus.setPosition(sliderX + CTL_W + 4, rowY + 2);
+            minus.setPosition(ctlX + 2, rowY + 2);
+            slider.setWidth(ctlW - 2 * (STEP_BTN_W + 6));
+            slider.setPosition(ctlX + STEP_BTN_W + 6, rowY + 2);
+            plus.setPosition(right - STEP_BTN_W, rowY + 2);
         }
     }
 
