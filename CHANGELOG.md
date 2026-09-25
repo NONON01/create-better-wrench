@@ -106,8 +106,8 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   parameter and a dead `DepotSoulFlames.untrack()` were removed.
 
 ### Changed
-- **The first three Ponder scenes were rewritten in Create's own style** (linking stress, processing overview,
-  bulk deconstructing). Structures now grow block by block instead of appearing in one slab; machines start **still**
+- **All nine Ponder scenes were rewritten in Create's own style.** The first batch covered linking stress, processing overview,
+  and bulk deconstructing; the remaining six processing scenes (assembly, filling, washing, blasting, smoking, haunting) followed. instead of appearing in one slab; machines start **still**
   and only spin once the route is linked (setKineticSpeed 0 -> 64); the wrench is shown with `showControls(...).withItem(...)`
   rather than a click animation; text is short and declarative ("Right-clicking a Depot will lock it") instead of
   second-person prose; the extra colour tags, `.independent(...)` paragraphs and `markAsFinished()` calls are gone,

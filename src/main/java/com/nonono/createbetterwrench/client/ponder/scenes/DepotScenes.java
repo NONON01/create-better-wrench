@@ -8,7 +8,6 @@ import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
 
 import net.createmod.catnip.math.Pointing;
-import net.createmod.ponder.api.PonderPalette;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.minecraft.core.BlockPos;
@@ -109,9 +108,8 @@ public final class DepotScenes {
 
         hold(scene, util, AllItems.GOLDEN_SHEET.asStack());
         scene.overlay().showText(80)
-            .text("A half-finished item sits on the Depot - here a Golden Sheet")
+            .text("A half-finished item will stay on the Depot - here a Golden Sheet")
             .attachKeyFrame()
-            .colored(PonderPalette.BLUE)
             .placeNearTarget()
             .pointAt(util.vector().topOf(DEPOT));
         scene.idle(90);
@@ -119,24 +117,18 @@ public final class DepotScenes {
         hold(scene, util, AllItems.INCOMPLETE_PRECISION_MECHANISM.asStack());
         scene.effects().indicateSuccess(DEPOT);
         scene.overlay().showText(80)
-            .text("Right-click with the next material and the sequence advances in place")
-            .colored(PonderPalette.GREEN)
+            .text("Right-clicking with the next material will advance the sequence in place")
             .placeNearTarget()
             .pointAt(util.vector().topOf(DEPOT));
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 40)
-            .withItem(new ItemStack(AllBlocks.COGWHEEL.get()))
-            .rightClick();
+            .withItem(new ItemStack(AllBlocks.COGWHEEL.get()));
         scene.idle(90);
 
         hold(scene, util, AllItems.PRECISION_MECHANISM.asStack());
         scene.effects().indicateSuccess(DEPOT);
         scene.overlay().showText(80)
-            .text("Golden Sheet ... all the way to a Precision Mechanism")
-            .colored(PonderPalette.WHITE)
-            .independent();
+            .text("The Golden Sheet will be worked all the way into a Precision Mechanism");
         scene.idle(90);
-
-        scene.markAsFinished();
     }
 
     // ------------------------------------------------------------------ 进行注液
@@ -147,35 +139,27 @@ public final class DepotScenes {
 
         hold(scene, util, AllItems.BLAZE_CAKE_BASE.asStack());
         scene.overlay().showText(70)
-            .text("Right-click the locked Depot with a Lava Bucket to pour fluid in")
+            .text("Right-clicking it with a Lava Bucket will pour fluid in")
             .attachKeyFrame()
-            .colored(PonderPalette.BLUE)
             .placeNearTarget()
             .pointAt(util.vector().topOf(DEPOT));
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 40)
-            .withItem(new ItemStack(Items.LAVA_BUCKET))
-            .rightClick();
+            .withItem(new ItemStack(Items.LAVA_BUCKET));
         scene.idle(50);
 
-        puff(scene, util, ParticleTypes.FLAME, 8, 25);
-        puff(scene, util, ParticleTypes.LAVA, 2, 5);
+        puff(scene, util, ParticleTypes.FLAME, 1, 60);
+        puff(scene, util, ParticleTypes.LAVA, 1, 60);
         hold(scene, util, AllItems.BLAZE_CAKE.asStack());
         scene.effects().indicateSuccess(DEPOT);
         scene.idle(50);
 
         scene.overlay().showText(80)
-            .text("Blaze Cake Base + Lava becomes a Blaze Cake")
-            .colored(PonderPalette.GREEN)
-            .independent();
+            .text("A Blaze Cake Base will be filled into a Blaze Cake");
         scene.idle(60);
 
         scene.overlay().showText(70)
-            .text("The bucket is not consumed")
-            .colored(PonderPalette.WHITE)
-            .independent();
+            .text("The bucket will not be consumed");
         scene.idle(80);
-
-        scene.markAsFinished();
     }
 
     // ------------------------------------------------------------------ 进行洗涤
@@ -186,23 +170,19 @@ public final class DepotScenes {
 
         hold(scene, util, new ItemStack(Items.GRAVEL));
         scene.overlay().showText(70)
-            .text("Right-click the locked Depot with a Water Bucket to wash it")
+            .text("Right-clicking it with a Water Bucket will wash it")
             .attachKeyFrame()
-            .colored(PonderPalette.BLUE)
             .placeNearTarget()
             .pointAt(util.vector().topOf(DEPOT));
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 40)
-            .withItem(new ItemStack(Items.WATER_BUCKET))
-            .rightClick();
+            .withItem(new ItemStack(Items.WATER_BUCKET));
         scene.idle(40);
 
         wash(scene, util);
         hold(scene, util, new ItemStack(Items.FLINT));
         scene.effects().indicateSuccess(DEPOT);
         scene.overlay().showText(70)
-            .text("Gravel gives Flint (and the odd Iron Nugget)")
-            .colored(PonderPalette.GREEN)
-            .independent();
+            .text("Gravel will be washed into Flint, and the odd Iron Nugget");
         scene.idle(80);
 
         hold(scene, util, new ItemStack(Items.WHITE_CONCRETE_POWDER));
@@ -211,18 +191,12 @@ public final class DepotScenes {
         hold(scene, util, new ItemStack(Items.WHITE_CONCRETE));
         scene.effects().indicateSuccess(DEPOT);
         scene.overlay().showText(70)
-            .text("Concrete Powder gives Concrete")
-            .colored(PonderPalette.GREEN)
-            .independent();
+            .text("Concrete Powder will be washed into Concrete");
         scene.idle(80);
 
         scene.overlay().showText(70)
-            .text("One click handles a whole stack, and the bucket is not consumed")
-            .colored(PonderPalette.WHITE)
-            .independent();
+            .text("One click will wash a whole stack, and the bucket will not be consumed");
         scene.idle(90);
-
-        scene.markAsFinished();
     }
 
     // ------------------------------------------------------------------ 进行熔炼
@@ -233,41 +207,33 @@ public final class DepotScenes {
 
         hold(scene, util, new ItemStack(Items.RAW_IRON));
         scene.overlay().showText(70)
-            .text("Right-click the locked Depot with a Lava Bucket to blast it")
+            .text("Right-clicking it with a Lava Bucket will blast it")
             .attachKeyFrame()
-            .colored(PonderPalette.BLUE)
             .placeNearTarget()
             .pointAt(util.vector().topOf(DEPOT));
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 40)
-            .withItem(new ItemStack(Items.LAVA_BUCKET))
-            .rightClick();
+            .withItem(new ItemStack(Items.LAVA_BUCKET));
         scene.idle(40);
 
-        puff(scene, util, ParticleTypes.LARGE_SMOKE, 8, 25);
+        puff(scene, util, ParticleTypes.LARGE_SMOKE, 1, 60);
         hold(scene, util, new ItemStack(Items.IRON_INGOT));
         scene.effects().indicateSuccess(DEPOT);
         scene.overlay().showText(70)
-            .text("Raw Iron becomes an Iron Ingot")
-            .colored(PonderPalette.GREEN)
-            .independent();
+            .text("Raw Iron will be blasted into an Iron Ingot");
         scene.idle(80);
 
         hold(scene, util, new ItemStack(Items.COBBLESTONE));
         scene.idle(20);
-        puff(scene, util, ParticleTypes.LARGE_SMOKE, 8, 25);
+        puff(scene, util, ParticleTypes.LARGE_SMOKE, 1, 60);
         hold(scene, util, new ItemStack(Items.STONE));
         scene.effects().indicateSuccess(DEPOT);
         scene.idle(30);
-        puff(scene, util, ParticleTypes.LARGE_SMOKE, 8, 25);
+        puff(scene, util, ParticleTypes.LARGE_SMOKE, 1, 60);
         hold(scene, util, new ItemStack(Items.SMOOTH_STONE));
         scene.effects().indicateSuccess(DEPOT);
         scene.overlay().showText(80)
-            .text("Cobblestone can be pushed on to Stone and then Smooth Stone")
-            .colored(PonderPalette.GREEN)
-            .independent();
+            .text("Cobblestone will be blasted into Stone, and Stone into Smooth Stone");
         scene.idle(90);
-
-        scene.markAsFinished();
     }
 
     // ------------------------------------------------------------------ 进行烤制
@@ -278,32 +244,24 @@ public final class DepotScenes {
 
         hold(scene, util, new ItemStack(Items.BEEF));
         scene.overlay().showText(70)
-            .text("Right-click the locked Depot with Flint and Steel to smoke it")
+            .text("Right-clicking it with Flint and Steel will smoke it")
             .attachKeyFrame()
-            .colored(PonderPalette.BLUE)
             .placeNearTarget()
             .pointAt(util.vector().topOf(DEPOT));
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 40)
-            .withItem(new ItemStack(Items.FLINT_AND_STEEL))
-            .rightClick();
+            .withItem(new ItemStack(Items.FLINT_AND_STEEL));
         scene.idle(40);
 
-        puff(scene, util, ParticleTypes.POOF, 8, 25);
+        puff(scene, util, ParticleTypes.POOF, 1, 60);
         hold(scene, util, new ItemStack(Items.COOKED_BEEF));
         scene.effects().indicateSuccess(DEPOT);
         scene.overlay().showText(70)
-            .text("Raw Beef becomes a Steak")
-            .colored(PonderPalette.GREEN)
-            .independent();
+            .text("Raw Beef will be smoked into a Steak");
         scene.idle(80);
 
         scene.overlay().showText(85)
-            .text("On a soul base, Haunting is tried first and Smoking is the fallback")
-            .colored(PonderPalette.WHITE)
-            .independent();
+            .text("On a soul base Haunting will be tried first, and Smoking only as a fallback");
         scene.idle(90);
-
-        scene.markAsFinished();
     }
 
     // ------------------------------------------------------------------ 进行缠魂
@@ -316,9 +274,8 @@ public final class DepotScenes {
 
         hold(scene, util, new ItemStack(Items.SAND));
         scene.overlay().showText(75)
-            .text("Stand the Depot on Soul Sand or Soul Soil")
+            .text("The Depot can be placed on Soul Sand or Soul Soil")
             .attachKeyFrame()
-            .colored(PonderPalette.BLUE)
             .placeNearTarget()
             .pointAt(util.vector().topOf(2, 0, 2));
         scene.idle(70);
@@ -326,33 +283,25 @@ public final class DepotScenes {
         // 台座底下慢慢往上冒的灵魂火焰(游戏里锁定的置物台也会这样, 见 DepotSoulFlames)
         soulFlames(scene, util, 60);
         scene.overlay().showText(75)
-            .text("A locked Depot on a soul base slowly breathes soul flames")
-            .colored(PonderPalette.WHITE)
-            .independent();
+            .text("A locked Depot on a soul base will slowly emit soul flames");
         scene.idle(80);
 
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 40)
-            .withItem(new ItemStack(Items.FLINT_AND_STEEL))
-            .rightClick();
+            .withItem(new ItemStack(Items.FLINT_AND_STEEL));
         scene.overlay().showText(75)
-            .text("Right-click with Flint and Steel to haunt")
+            .text("Right-clicking it with Flint and Steel will haunt it")
             .attachKeyFrame()
-            .colored(PonderPalette.GREEN)
             .placeNearTarget()
             .pointAt(util.vector().topOf(DEPOT));
         scene.idle(40);
 
-        puff(scene, util, ParticleTypes.SOUL_FIRE_FLAME, 8, 30);
-        puff(scene, util, ParticleTypes.SMOKE, 4, 20);
+        puff(scene, util, ParticleTypes.SOUL_FIRE_FLAME, 1, 60);
+        puff(scene, util, ParticleTypes.SMOKE, 1, 60);
         hold(scene, util, new ItemStack(Items.SOUL_SAND));
         scene.effects().indicateSuccess(DEPOT);
         scene.overlay().showText(70)
-            .text("Sand becomes Soul Sand")
-            .colored(PonderPalette.GREEN)
-            .independent();
+            .text("Sand will be haunted into Soul Sand");
         scene.idle(90);
-
-        scene.markAsFinished();
     }
 
     // ------------------------------------------------------------------ 公共套路
@@ -363,9 +312,9 @@ public final class DepotScenes {
         scene.title(titleId, title);
         scene.configureBasePlate(0, 0, 5);
         scene.world().showSection(util.select().layer(0), Direction.UP);
-        scene.idle(10);
+        scene.idle(5);
         scene.world().showSection(util.select().position(DEPOT), Direction.DOWN);
-        scene.idle(15);
+        scene.idle(5);
         return scene;
     }
 
@@ -390,7 +339,7 @@ public final class DepotScenes {
     /** 洗涤专用的蓝色尘 + SPIT(与 {@code AssembleLogic#playFanFeedback} 的洗涤分支一致)。 */
     private static void wash(CreateSceneBuilder scene, SceneBuildingUtil util) {
         puff(scene, util, new DustParticleOptions(new Vector3f(0f, 0x55 / 255f, 1f), 1f), 8, 25);
-        puff(scene, util, ParticleTypes.SPIT, 8, 25);
+        puff(scene, util, ParticleTypes.SPIT, 1, 60);
     }
 
     /**
