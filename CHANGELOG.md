@@ -111,17 +111,24 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   ("Right-clicking a Depot will lock it") instead of second-person prose; the extra colour tags, `.independent(...)`
   paragraphs and `markAsFinished()` calls are gone, and the two shared-text entries (`hold_alt` / `ctrl_scroll`) were
   dropped as unused. (Style rules, measured from Create's 168 scenes: `docs/dev/06-ponder.md` §15.)
-- **Ponder scenes: select first, build later — and show both Ctrl variants in one scene.**
-  *Linking* now only draws **outlines and route guides** while you pick the start, the corners and the end; the missing
-  shafts and the two corner gearboxes are **placed only after the target is chosen**, and the line starts spinning then.
-  The scene then swaps the corner gearbox for the **two-large-cog** corner, so both corner types are visible in one go.
-  *Deconstructing* picks **one corner, then the opposite one**, and the Ctrl filter is demonstrated too: narrowing to a
-  single kind removes the **redstone parts first**, then switching back removes the rest.
-- **Ponder text: no more item examples, no repeats, better timing.** The 34 scene captions now state the **mechanism**
-  ("The assembly will keep going until a product comes out", "Blasting uses the furnace-type recipes") instead of naming
-  specific items, the duplicated Ctrl caption in *Linking* was split into two different lines, and every `showText(n)`
-  is now followed by at least `n` ticks of idle time so captions never overlap. Text key counts and the per-scene
-  `.text()` counts are checked by script, and the Java defaults are kept byte-identical to `en_us.json`.
+- **Ponder scenes: right-click feedback, a green connection preview, and both corner types in one scene.**
+  Every right-click on something that has no effect of its own (the route start / corner / end, and locking a Depot)
+  now shows the **held item with the right-click mark** plus a **gold selection box** (Ponder's palette has no pure
+  yellow — `PonderPalette.OUTPUT`, `0xDDC166`, is the yellow one). *Linking* is a **creative motor driving an encased
+  fan** (`connect.nbt` changed): you select start, two corners and the end with **outlines and guides only**, then the
+  whole route lights up as **one continuous green box**; when it fades the shafts and both corner gearboxes are placed
+  and the line spins up. The scene then switches **both** corners from gearboxes to the **two-large-cog** corner, so
+  both Ctrl variants are demonstrated in place. *Deconstructing* uses a 3x3 patch where **Create blocks and redstone
+  parts are interleaved** (`deconstruct.nbt` changed): it plays the normal flow once, **restores it**, then for the Ctrl
+  demo shows the current scope as a gold highlight and **removes the matching blocks in a single instant** (redstone
+  parts first, then the Create blocks).
+- **Ponder texts are the ones specified by the author** — condition first, action second, with the example kept in
+  parentheses ("When a usable assembly material is on the Depot (a Golden Sheet, for example)"). Two duplicates were
+  split apart, the caption counts now match the language keys one-to-one (connect 7 / deconstruct 5 / process 3 /
+  assembly 2 / filling 3 / washing 2 / blasting 2 / smoking 2 / haunting 4), every `showText(n)` is followed by at least
+  `n` ticks of idle so captions never overlap, and the Java defaults are kept byte-identical to `en_us.json`.
+  *Assembly* now runs the real **five-loop Precision Mechanism sequence** (cogwheel, large cogwheel, iron nugget) and
+  the finished product **pops out of the Depot and vanishes**; *filling* shows that a stack is filled per recipe.
 - **Ponder categories: three tags to one.** The *Connect* / *Deconstruct* / *Process* tags are gone (they duplicated the
   scene list without adding navigation). There is now a single **Universal Wrench** tag, attached to **both the wrench and
   the Depot**: hovering a Depot and holding W shows that one entry on the left, and opening it lists the wrench itself --
