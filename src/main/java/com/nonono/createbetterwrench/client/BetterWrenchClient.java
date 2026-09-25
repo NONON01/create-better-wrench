@@ -2,7 +2,9 @@ package com.nonono.createbetterwrench.client;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.client.gui.WrenchConfigScreen;
+import com.nonono.createbetterwrench.client.ponder.BetterWrenchPonderPlugin;
 
+import net.createmod.ponder.foundation.PonderIndex;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -31,6 +33,11 @@ public final class BetterWrenchClient {
         modEventBus.addListener(WrenchHud::onRegisterGuiLayers);
         modEventBus.addListener(WrenchModeSwitcher::onRegisterKeyMappings);
         modEventBus.addListener(WrenchConfigKeybinds::onRegisterKeyMappings);
+        // 思索(Ponder): 注册本模组的插件(场景 + 标签 + 共享文本)。
+        // ⚠️ 必须客户端 —— 思索索引是**纯客户端**概念(库源码注释: "PonderRegistry can't be loaded on Server Dist"),
+        //    服务端因此零改动, 也符合本项目"通用代码不引用客户端类"的约束(docs/07 §6 B-1)。
+        // 玩家侧: 悬停「万能扳手」按住 W 即可看到场景; 设计与 API 见 docs/13-ponder.md。
+        PonderIndex.addPlugin(new BetterWrenchPonderPlugin());
         // 模组列表里的「配置」按钮 → 本模组**自绘的配置页面**(默认按键 B+C 打开的也是它)。
         // ⚠️ 2026-09-22 变更: 以前这里挂的是 NeoForge 内置的 ConfigurationScreen; 用户要求做一个
         //    Tweakeroo 风格的专用页面, 于是替换为本页面(它一样遍历 WrenchConfig 的 spec, 范围/默认值都取自 spec)。

@@ -78,5 +78,20 @@
   "gui.create_better_wrench.config.opt.connect.max_total_blocks": "Connect: max total blocks",
   "gui.create_better_wrench.config.desc.connect.max_total_blocks": "Maximum blocks placed by one connection (shafts/gearboxes/large cogwheels); also a server-side safety cap.",
   "gui.create_better_wrench.config.opt.connect.max_end_distance": "Connect: max end-point distance (blocks)",
-  "gui.create_better_wrench.config.desc.connect.max_end_distance": "Only the final end-click is checked (start/corners are not limited); raising it allows finishing from farther away."
+  "gui.create_better_wrench.config.desc.connect.max_end_distance": "Only the final end-click is checked (start/corners are not limited); raising it allows finishing from farther away.",
+
+  "create_better_wrench.ponder.wrench_overview.header": "Universal Wrench overview",
+  "create_better_wrench.ponder.wrench_overview.text_1": "The Universal Wrench keeps Create's standard wrench behaviour and adds five modes of its own",
+  "create_better_wrench.ponder.wrench_overview.text_2": "Hold ALT to open the mode bar, then scroll: Wrench / Connect / Deconstruct / Process / Mod Info",
+  "create_better_wrench.ponder.wrench_overview.text_3": "Each mode also has a Ctrl + Scroll option: corner type, deconstruct filter, or product stay time",
+  "create_better_wrench.ponder.tag.wrench_tools": "Universal Wrench",
+  "create_better_wrench.ponder.tag.wrench_tools.description": "Everything added by this mod: the wrench itself and its five modes",
+  "create_better_wrench.ponder.tag.connect": "Connect",
+  "create_better_wrench.ponder.tag.connect.description": "Link kinetic blocks into a drivetrain, paying the materials from your inventory",
+  "create_better_wrench.ponder.tag.deconstruct": "Deconstruct",
+  "create_better_wrench.ponder.tag.deconstruct.description": "Remove every wrenchable block inside a selection",
+  "create_better_wrench.ponder.tag.process": "Process",
+  "create_better_wrench.ponder.tag.process.description": "Work a locked depot by hand: assembly, filling, and fan-style washing / blasting / smoking / haunting",
+  "create_better_wrench.ponder.shared.hold_alt": "Hold ALT",
+  "create_better_wrench.ponder.shared.ctrl_scroll": "Ctrl + Scroll"
 }
