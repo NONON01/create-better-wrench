@@ -30,7 +30,7 @@ import net.neoforged.neoforge.event.level.BlockEvent;
  * 「拆除」的服务端核心: 判定一个方块是否"可用扳手拆下"、是否落在某 Ctrl 档过滤内,
  * 以及遍历一个区域批量拆除并入背包/掉落。
  *
- * <p>判据(Create 自身规则, 见 docs/07 模式二已确认规格):
+ * <p>判据(Create 自身规则, 见 docs/dev/04-deconstruct.md):
  * <ul>
  *   <li>可拆 = 方块 {@code instanceof IWrenchable} 或 位于 {@code create:wrench_pickup} tag;</li>
  *   <li>仅机械动力 = 上面集合 且 命名空间 == create;</li>
@@ -74,7 +74,7 @@ public final class DeconstructLogic {
     /**
      * 粗略红石类判定: 方块 id 含若干红石关键字。
      *
-     * <p>⚠️ 2026-09 核查补了 4 个关键字(见 docs/07 §6 A-8): 实测 Create 6.0.10 的
+     * <p>⚠️ 2026-09 核查补了 4 个关键字(见 docs/reference/03-known-issues.md A-8): 实测 Create 6.0.10 的
      * {@code create:wrench_pickup} 标签里, {@code tripwire} / {@code tripwire_hook} /
      * {@code daylight_detector} / {@code hopper}, 以及 {@code #minecraft:rails} 展开出的
      * {@code rail} / {@code powered_rail} / {@code detector_rail} / {@code activator_rail}(都含 "rail")

@@ -33,7 +33,7 @@ import net.minecraft.world.level.ItemLike;
  * 两个条件都满足才不会出现黑紫块。三个图标由 {@code scripts/gen_ponder_tag_icons.ps1}
  * 从 16×16 的 {@code textures/gui/mode_*.png} 最近邻放大生成。</p>
  *
- * <p>⚠️ 库里的"章节(PonderChapter)"是空实现({@code of()} 直接 return null), 所以**分类只能用标签** —— 详见 docs/13 §4.7。</p>
+ * <p>⚠️ 库里的"章节(PonderChapter)"是空实现({@code of()} 直接 return null), 所以**分类只能用标签** —— 详见 docs/dev/06-ponder.md §4.7。</p>
  */
 public final class BetterWrenchPonderTags {
 

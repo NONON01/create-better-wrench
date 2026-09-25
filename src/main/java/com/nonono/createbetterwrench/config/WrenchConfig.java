@@ -7,7 +7,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 /**
  * 「万能扳手」的**可调参数**(NeoForge 配置)。
  *
- * <p>这些数值原先硬编码在代码里(见 docs/11-hardcoded-data.md), 现在集中到这里, 让整合包作者/服主/玩家可调。</p>
+ * <p>这些数值原先硬编码在代码里(见 docs/reference/01-hardcoded-data.md), 现在集中到这里, 让整合包作者/服主/玩家可调。</p>
  *
  * <h2>配置文件在哪 / Where is the file</h2>
  * <ul>

@@ -44,7 +44,7 @@ A Better Wrench For Create.
 
 # 依赖机械动力 Create(本 mod 是纯 Create addon, 必装)
 # ⚠️ ordering 用 NONE(不是 AFTER): 我们只在运行时调用 Create 的公开 API, 不需要强制加载顺序;
-#    用 AFTER 会让 NeoForge 强制把 Create 排在我们前面, 属于不必要的强约束(docs/10 §5.1)。
+#    用 AFTER 会让 NeoForge 强制把 Create 排在我们前面, 属于不必要的强约束(docs/guides/04-publishing.md §5.1)。
 [[dependencies.${mod_id}]]
     modId="create"
     type="required"

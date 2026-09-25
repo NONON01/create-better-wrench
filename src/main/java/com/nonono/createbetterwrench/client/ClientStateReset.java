@@ -41,7 +41,7 @@ public final class ClientStateReset {
     }
 
     /**
-     * 切换维度 / 重生时调用(见 docs/07 §6 A-7)。
+     * 切换维度 / 重生时调用(见 docs/reference/03-known-issues.md A-7)。
      *
      * <p>⚠️ 这里**只清"未完成的选区"**: 选区里存的是**旧维度的 BlockPos**, 不清掉的话玩家在新维度
      * 一右击就会拿旧坐标发包(下界 1:8 坐标缩放时甚至可能隔着维度施工并扣料)。
@@ -58,7 +58,7 @@ public final class ClientStateReset {
         ConnectSelectionHandler.cancel();
         DeconstructSelectionHandler.cancel();
         CombatModeState.clear();
-        // ⚠️ 必须跟着重置: 否则工具条会一直高亮退出前的模式(见 docs/07 §6 A-12)
+        // ⚠️ 必须跟着重置: 否则工具条会一直高亮退出前的模式(见 docs/reference/03-known-issues.md A-12)
         WrenchHud.reset();
     }
 }

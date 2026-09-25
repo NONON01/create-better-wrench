@@ -22,7 +22,7 @@ import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
  * 因为它做的是服务端结算。它此前放在 {@code client/} 包里 —— 虽然当时**只引用通用类**、运行无碍,
  * 但那是个**雷**: 任何人顺手在这里加一行 {@code net.minecraft.client.*} 的 import,
  * 专用服务器就会在注册时 {@code NoClassDefFoundError}。
- * 移到通用包后, 这个隐患从结构上消失(见 docs/07 §6 B-1)。</p>
+ * 移到通用包后, 这个隐患从结构上消失(见 docs/reference/03-known-issues.md B-1)。</p>
  */
 @EventBusSubscriber(modid = BetterWrenchMod.MODID)
 public final class WrenchAttackHandler {

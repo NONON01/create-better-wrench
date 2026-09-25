@@ -21,7 +21,7 @@ import net.minecraft.world.level.block.Blocks;
  *
  * <p>加工相关的 7 段在 {@link DepotScenes}(它们归属**置物台**, 同时也关联到扳手)。</p>
  *
- * <p><b>⚠️ 两个 id 别混</b>(docs/13 §2.3 / §5): {@code addStoryBoard("wrench/connect", ...)} 的字符串是
+ * <p><b>⚠️ 两个 id 别混</b>(docs/dev/06-ponder.md §2.3 / §5): {@code addStoryBoard("wrench/connect", ...)} 的字符串是
  * **结构文件路径**; {@code title("wrench_connect", ...)} 的第一个参数才是**语言键前缀**。</p>
  *
  * <p>场景里用 Create 的 {@link CreateSceneBuilder}(它是 {@code SceneBuilder} 的包装), 因为需要

@@ -48,7 +48,7 @@ public final class DeconstructSelectionHandler {
      * 单轴最大边长 —— 与服务端**读同一份配置**({@code config/WrenchConfig} → {@code deconstruct.max_edge})。
      *
      * <p>以前这里是各写一份的常量(必须手工与服务端同步, 否则会出现"框还是蓝的、服务端却拒绝"的割裂体验);
-     * 现在两端同一个来源, 这个隐患从根上消除(docs/11-hardcoded-data.md 的 E-1)。</p>
+     * 现在两端同一个来源, 这个隐患从根上消除(docs/reference/01-hardcoded-data.md 的 E-1)。</p>
      */
     private static int maxEdge() {
         return WrenchConfig.deconstructMaxEdge();
@@ -84,7 +84,7 @@ public final class DeconstructSelectionHandler {
         Minecraft mc = Minecraft.getInstance();
         if (!active(mc))
             return false;
-        // 潜行 + 右键 = 放弃当前选区(cancel() 本来就有, 这里把输入接上; 见 docs/07 §6 A-14)
+        // 潜行 + 右键 = 放弃当前选区(cancel() 本来就有, 这里把输入接上; 见 docs/reference/03-known-issues.md A-14)
         if (mc.player != null && mc.player.isShiftKeyDown()) {
             cancel();
             return true;
@@ -183,7 +183,7 @@ public final class DeconstructSelectionHandler {
      * 丢掉当前未完成的选区(角 A + 预览框)。
      *
      * <p>两个调用方: ①客户端登出/切维度时的统一清理(`client/ClientStateReset`);
-     * ②玩家在拆除模式下 **Shift + 右键** 主动取消(见 docs/07 §6 A-14)。</p>
+     * ②玩家在拆除模式下 **Shift + 右键** 主动取消(见 docs/reference/03-known-issues.md A-14)。</p>
      */
     public static void cancel() {
         resetSelection();

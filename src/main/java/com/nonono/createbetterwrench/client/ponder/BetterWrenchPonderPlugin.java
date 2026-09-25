@@ -22,7 +22,7 @@ import net.minecraft.world.level.ItemLike;
  * {@code PonderIndex.addPlugin(new BetterWrenchPonderPlugin())}
  * —— 见 {@link com.nonono.createbetterwrench.client.BetterWrenchClient}。
  * ⚠️ 必须放在客户端: 思索索引是纯客户端概念(库源码注释: "PonderRegistry can't be loaded on Server Dist"),
- * 这样服务端零改动, 也满足本项目"通用代码不引用客户端类"的约束(docs/07 §6 B-1)。</p>
+ * 这样服务端零改动, 也满足本项目"通用代码不引用客户端类"的约束(docs/reference/03-known-issues.md B-1)。</p>
  *
  * <h2>场景的归属与顺序(用户 2026-09-23 定案)</h2>
  * <pre>
@@ -30,7 +30,7 @@ import net.minecraft.world.level.ItemLike;
  *   归在置物台(同时也关联到万能扳手):
  *       使用万能扳手进行加工(总述) → 进行装配 / 注液 / 洗涤 / 熔炼 / 烤制 / 缠魂
  * </pre>
- * 顺序**就是注册顺序**(Create 也不用 {@code orderBefore/orderAfter}, 见 docs/13 §13);
+ * 顺序**就是注册顺序**(Create 也不用 {@code orderBefore/orderAfter}, 见 docs/dev/06-ponder.md §13);
  * 所以下面刻意按这个顺序写 {@code addStoryBoard}。
  */
 public class BetterWrenchPonderPlugin implements PonderPlugin {

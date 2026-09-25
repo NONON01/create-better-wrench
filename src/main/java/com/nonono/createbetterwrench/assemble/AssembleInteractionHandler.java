@@ -61,7 +61,7 @@ public final class AssembleInteractionHandler {
         boolean acted = AssembleLogic.tryAssemble(level, pos, depot, player, held, event.getHand());
 
         // ③ 加工没有发生 + 台面**仍然是空的** + 手上拿着东西 + **没有潜行** ⇒ 不吃掉这次交互,
-        //    交给 Create 的置物台把手上那一摞放上台面(2026-09-22 用户要求; 含扳手, 见 docs/03)。
+        //    交给 Create 的置物台把手上那一摞放上台面(2026-09-22 用户要求; 含扳手, 见 docs/log/01-operations.md)。
         //    ⚠️ 判定放在 tryAssemble **之后**: 这样"台面空但原料堆有货 + 手持工具"仍会先自动续料并加工
         //    (② 会 success), 不会因为这条分支把工具当成材料放上台面、也不会把原料堆的东西倒进玩家背包。
         if (!acted && !player.isShiftKeyDown() && depot.getHeldItem().isEmpty() && !held.isEmpty())

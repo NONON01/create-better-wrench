@@ -142,7 +142,7 @@ public final class WrenchHud {
     }
 
     /**
-     * 断开连接时复位工具条(见 docs/07 §6 A-12)。
+     * 断开连接时复位工具条(见 docs/reference/03-known-issues.md A-12)。
      *
      * <p>⚠️ 必须与 {@link WrenchModeSwitcher#reset()} **成对**调用: 画高亮的依据是选择器**内部的下标**
      * ({@code WrenchToolSelection.render} 里的 {@code if (i == selection)}), 只重置 current 的话,

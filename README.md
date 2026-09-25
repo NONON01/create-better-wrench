@@ -83,4 +83,4 @@ verbatim MIT text. It is also what the in-game mod menu links to via its `licens
 - **Release metadata is complete**: `displayName` / `authors` / `logoFile` / `displayURL` /
   `license` / `description` are all filled in `src/main/templates/META-INF/neoforge.mods.toml`,
   and `src/main/resources/icon.png` ships in the JAR. The release checklist lives in the
-  workspace docs (`docs/10-publishing-and-licensing.md`).
+  workspace docs (`docs/guides/04-publishing.md`).

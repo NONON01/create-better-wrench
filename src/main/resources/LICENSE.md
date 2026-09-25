@@ -86,7 +86,7 @@ How this mod uses Create:
 - `textures/gui/mode_*.png` — produced by script from originals supplied by the user
   (black → transparent, blue → black).
   ⚠️ **To be confirmed**: those originals must be the user's own work or properly licensed
-  (see the audit record in `docs/03-operations.md`).
+  (see the audit record in `docs/log/01-operations.md`).
 - `icon.png` — composed by `scripts/gen_mod_icon.ps1` from a render exported in-game.
 
 > If a future change introduces another third-party work, add its entry to §2 of this file.
