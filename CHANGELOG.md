@@ -13,7 +13,8 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   **W** now plays an in-game guide scene ("Universal Wrench overview": the base plate rising, a small kinetic
   drivetrain, and three text beats about the five modes, ALT mode switching and the Ctrl+Scroll options).
   Four **Ponder tags** are registered for the index screen: a top-level *Universal Wrench* tag (item icon) plus
-  **Connect / Deconstruct / Process** whose icons are the mod's own mode icons — and the tags are wired to the item
+  **Connect / Deconstruct / Process** whose icons are the mod's own mode icons (16×16 HUD icons upscaled to the
+  64×64 that `PonderTag` requires — see `scripts/gen_ponder_tag_icons.ps1`) — and the tags are wired to the item
   itself, so the categories show up **inside the item's PonderUI** and the tag pages have entries.
   The scene's base plate is a `white_concrete`/`snow_block` checkerboard, matching Create's own scenes.
   Scenes are plain Java "storyboards"
@@ -22,8 +23,8 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 - **Process mode: batch fan-style processing.** Hold **water bucket ⇒ washing**, **lava bucket ⇒ blasting/smelting**,
   **flint & steel ⇒ smoking** — or, when the block *below* the depot is soul sand / soul soil / soul fire,
   **haunting first and smoking as a fallback** (so food still smokes on a soul base).
-  One click converts a **whole stack**: the depot stack plus same-kind items merged from the raw pile, capped by
-  `assemble.fan_batch_limit` (default 64). Create's own fan-processing recipes are used
+  One click converts a **whole stack**: the depot stack plus same-kind items merged from the raw pile, capped at
+  **one full stack** (the item's own max stack size, 64 for most). Create's own fan-processing recipes are used
   (`create:splashing` / `create:haunting` / vanilla smoking / smelting). Buckets are **not consumed** and flint & steel
   only loses **1 durability**. Unlike Create's fan, an empty result **never destroys** the item (and material pulled
   from the pile is put back); every product is **ejected** (it pops out from above the depot like the other paths),

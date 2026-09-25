@@ -13,11 +13,19 @@ import net.minecraft.world.level.ItemLike;
  * <p>设计(用户 2026-09-22 给出): 扳手功能分三类 —— **连接 / 拆除 / 加工**(加工下再分装配/注液/洗涤/熔炼/烟熏/缠魂),
  * 另加一个总标签把整个 mod 收在一起。标签名与说明的文本键 = {@code <modid>.ponder.tag.<id>(.description)}。</p>
  *
- * <p><b>图标</b>: 三个分类标签用的是**我们 HUD 工具栏那套模式小图标**
- * ({@code assets/create_better_wrench/textures/gui/mode_*.png})。
- * 依据(实测字节码): {@code TagBuilder.icon(String)} 会把字符串拼成
- * {@code <标签命名空间>:<该字符串>} 再**当纹理 ResourceLocation 直接用**, 所以这里要给**完整纹理路径**
- * (含 {@code textures/} 与 {@code .png})。总标签则直接用**物品图标**(万能扳手)。</p>
+ * <p><b>图标</b>: 三个分类标签用的是**我们 HUD 工具栏那套模式小图标**, 但**不是**直接指向
+ * {@code textures/gui/mode_*.png} —— 见下面的"图标路径"说明; 总标签则直接用**物品图标**(万能扳手)。</p>
+ *
+ * <p><b>⚠️ 图标路径(踩过坑, 实测字节码)</b>: {@code TagBuilder.icon(String)} 只接受**裸文件名**,
+ * 它会自己补成 {@code <标签命名空间>:textures/ponder/tag/<字符串>.png}。所以</p>
+ * <ul>
+ *   <li>写 {@code .icon("connect")} ⇒ {@code create_better_wrench:textures/ponder/tag/connect.png} ✅</li>
+ *   <li>写 {@code .icon("textures/gui/mode_connect.png")} ⇒ 指向
+ *       {@code textures/ponder/tag/textures/gui/mode_connect.png.png} ⇒ **找不到纹理 = 黑紫格** ❌</li>
+ * </ul>
+ * <p>另: {@code PonderTag} 渲染时按 **64×64** 区域 blit, 所以图标 PNG 必须是 64×64。
+ * 两个条件都满足才不会出现黑紫块。三个图标由 {@code scripts/gen_ponder_tag_icons.ps1}
+ * 从 16×16 的 {@code textures/gui/mode_*.png} 最近邻放大生成。</p>
  *
  * <p>⚠️ 库里的"章节(PonderChapter)"是空实现({@code of()} 直接 return null), 所以**分类只能用标签** —— 详见 docs/13 §4.7。</p>
  */
@@ -57,24 +65,24 @@ public final class BetterWrenchPonderTags {
             .description("Everything added by this mod: the wrench itself and its five modes")
             .register();
 
-        // ---- 三个分类标签: 图标用我们的模式小图标(完整纹理路径!) ----
+        // ---- 三个分类标签: 图标用我们的模式小图标(裸文件名! 见类注释) ----
         helper.registerTag(CONNECT)
             .addToIndex()
-            .icon("textures/gui/mode_connect.png")
+            .icon("connect")
             .title("Connect")
             .description("Link kinetic blocks into a drivetrain, paying the materials from your inventory")
             .register();
 
         helper.registerTag(DECONSTRUCT)
             .addToIndex()
-            .icon("textures/gui/mode_deconstruct.png")
+            .icon("deconstruct")
             .title("Deconstruct")
             .description("Remove every wrenchable block inside a selection")
             .register();
 
         helper.registerTag(PROCESS)
             .addToIndex()
-            .icon("textures/gui/mode_assemble.png")
+            .icon("process")
             .title("Process")
             .description("Work a locked depot by hand: assembly, filling, and fan-style washing / blasting / smoking / haunting")
             .register();
