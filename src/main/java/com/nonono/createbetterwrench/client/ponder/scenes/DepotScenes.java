@@ -9,6 +9,7 @@ import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
 
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
+import net.createmod.ponder.api.element.InputElementBuilder;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.minecraft.core.BlockPos;
@@ -27,43 +28,49 @@ import org.joml.Vector3f;
  *
  * <pre>
  *   使用万能扳手进行加工 → {@link #process}     (总述: 锁定 → 加工 → 六种都支持)
- *   进行装配             → {@link #assembly}    (5 轮 小齿轮/大齿轮/铁粒 ⇒ 精密构件)
+ *   进行装配             → {@link #assembly}    (图标行: 右击 / 小齿轮 / 大齿轮 / 铁粒 ⇒ 一次性出精密构件)
  *   进行注液             → {@link #filling}     (烈焰蛋糕胚 + 岩浆桶 ⇒ 烈焰蛋糕, 多个原料按配方算)
  *   进行洗涤             → {@link #splash}      (只演沙砾 ⇒ 燧石)
- *   进行冶炼             → {@link #blasting}    (只演粗铁 ⇒ 铁锭; 官方译名就作「冶炼」)
+ *   进行冶炼             → {@link #blasting}    (只演粗铁 ⇒ 铁锭; 官方 Ponder 文案也作「冶炼」)
  *   进行烤制             → {@link #smoking}     (生牛肉 ⇒ 熟牛肉, 文案里提"消耗耐久")
- *   进行缠魂             → {@link #haunting}    (灵魂沙底座 + 沙子 ⇒ 灵魂沙)
+ *   进行缠魂             → {@link #haunting}    (灵魂沙**单独一层**(2,1,2) + 置物台(2,2,2), 沙子 ⇒ 灵魂沙)
  * </pre>
  *
- * <p><b>结构文件</b>都是 5×5 底板 + 一个 {@code create:depot}(坐标 (2,1,2); 缠魂那段底板里换成灵魂沙)。
+ * <p><b>结构文件</b>都是 5×5 底板 + 一个 {@code create:depot}(坐标见 {@link #DEPOT} / {@link #HAUNT_DEPOT});
  * 台面上的物品不是写在结构里, 而是用 Create 自己的办法**直接改方块实体 NBT**
  * ({@code modifyBlockEntityNBT(..., nbt -> nbt.put("HeldItem", new TransportedItemStack(stack).serializeNBT(provider)))}),
- * 所以"物品变化"= 再调一次 {@link #hold} 换掉它。**成品都留在台面上, 不弹出去**(用户 2026-09-23 明确要求)。</p>
+ * 所以"物品变化"= 再调一次 {@link #hold} 换掉它。**成品都留在台面上, 不弹出去**。</p>
  *
  * <p><b>文案</b>照用户给的句子: 先讲"台面上有什么样的原料", 再讲"用什么右击会发生什么";
- * 加括号的举例(如金板)是**用户要求保留**的写法。</p>
+ * 加括号的举例(如金板)是用户要求保留的写法。</p>
  *
- * <p><b>节奏</b>: 用户反馈"每个动作之间有点太快" ⇒ 每次 {@code showControls} 之后都留出间隔
- * (投料图示 20 tick + 间隔 8~25 tick), 成品出现后也停一拍再继续。</p>
+ * <p><b>节奏</b>: 每个动作之间留足间隔; 成对出现的右击图标**各自一个位置**(不重叠),
+ * 且**一起出现、一起结束**(用户 2026-09-23: 不要重叠、不要淡入淡出叠在一起)。</p>
  *
- * <p><b>右击反馈</b>: 右击本身没有特效的地方(锁定置物台)给黄色选框({@link #SELECT}) +
+ * <p><b>右击反馈</b>: 右击本身没有特效的地方(锁定置物台 / 缠魂的灵魂沙)给黄色选框({@link #SELECT}) +
  * {@code showControls(...).withItem(...).rightClick()} 的右击图标。</p>
  */
 public final class DepotScenes {
 
-    /** 置物台的位置(所有加工场景的结构都是 5×5 底板 + 这里一个置物台)。 */
+    /** 一般加工场景的置物台位置(5×5 底板 + 台座)。 */
     private static final BlockPos DEPOT = new BlockPos(2, 1, 2);
+    /** 缠魂场景: **整体加高一格**, 灵魂沙单独一层(2,1,2)、置物台坐在它上面(2,2,2), 这样灵魂沙看得见。 */
+    private static final BlockPos HAUNT_DEPOT = new BlockPos(2, 2, 2);
+    /** 缠魂场景里那块灵魂沙(就摆在置物台正下方)。 */
+    private static final BlockPos HAUNT_SOUL = new BlockPos(2, 1, 2);
 
-    /** “黄色选框”。⚠️ Ponder 调色板没有纯黄, {@code OUTPUT = 0xDDC166} 是唯一的金黄, 右击反馈用它。 */
+    /**
+     * “黄色选框”。⚠️ Ponder 调色板没有纯黄, {@code OUTPUT = 0xDDC166} 是唯一的金黄;
+     * 与游戏内连接模式的选区金色({@code ConnectSelectionHandler.GOLD = 0xE8B54C})基本一致, 右击反馈用它。
+     */
     private static final PonderPalette SELECT = PonderPalette.OUTPUT;
 
-    /** 精密构件的序列装配配方 = 5 轮 × (小齿轮 → 大齿轮 → 铁粒), 与 Create 的配方 json 一致。 */
-    private static final ItemStack[] MECHANISM_SEQUENCE = {
+    /** 精密构件的序列装配材料 = 小齿轮 → 大齿轮 → 铁粒(配方的 `loops=5`, 这里只把材料图标列出来)。 */
+    private static final ItemStack[] MECHANISM_MATERIALS = {
         new ItemStack(AllBlocks.COGWHEEL.get()),
         new ItemStack(AllBlocks.LARGE_COGWHEEL.get()),
         new ItemStack(Items.IRON_NUGGET)
     };
-    private static final int MECHANISM_LOOPS = 5;
 
     private DepotScenes() {
     }
@@ -73,7 +80,7 @@ public final class DepotScenes {
     /** 加工总述: 右击锁定 → 锁定的台面可以加工 → 支持六种加工。 */
     public static void process(SceneBuilder builder, SceneBuildingUtil util) {
         CreateSceneBuilder scene = start(builder, util, "wrench_process",
-            "Processing Items using the Universal Wrench");
+            "Processing Items using the Universal Wrench", DEPOT);
 
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
             .withItem(BetterWrenchMod.BETTER_WRENCH.get().getDefaultInstance())
@@ -88,7 +95,7 @@ public final class DepotScenes {
             .attachKeyFrame();
         scene.idle(70);
 
-        hold(scene, util, new ItemStack(Items.RAW_IRON));
+        hold(scene, util, DEPOT, new ItemStack(Items.RAW_IRON));
         scene.idle(15);
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
             .withItem(new ItemStack(Items.LAVA_BUCKET))
@@ -101,9 +108,9 @@ public final class DepotScenes {
             .attachKeyFrame();
         scene.idle(30);
 
-        puff(scene, util, ParticleTypes.LARGE_SMOKE, 1, 60);
+        puff(scene, util, DEPOT, ParticleTypes.LARGE_SMOKE, 1, 60);
         scene.effects().indicateSuccess(DEPOT);
-        hold(scene, util, new ItemStack(Items.IRON_INGOT));
+        hold(scene, util, DEPOT, new ItemStack(Items.IRON_INGOT));
         scene.idle(70);
 
         scene.overlay().showText(80)
@@ -116,15 +123,15 @@ public final class DepotScenes {
     // ------------------------------------------------------------------ 进行装配
 
     /**
-     * 装配: 台面上放原料(金板) → 用相应材料一件件投 → 跑完整的精密构件流程
-     * (5 轮 小齿轮 / 大齿轮 / 铁粒) → 成品留在台面上。
+     * 装配: 台面上放原料(金板) → 把"要用的材料"排成一行图标
+     * (鼠标右键 / 小齿轮 / 大齿轮 / 铁粒, **四个图标各自一个位置、同时出现同时结束**) → **一次性**显示成品。
      *
-     * <p>⚠️ 用户 2026-09-23: 这一段**不要粒子**, 每件材料之间的间隔也要**放慢**(投料图示 20 tick + 间隔 8 tick)。
+     * <p>⚠️ 用户 2026-09-23 定的简化版: 不再逐件演 15 次投料(那样图标会重叠/淡入淡出叠在一起), 也不要粒子。</p>
      */
     public static void assembly(SceneBuilder builder, SceneBuildingUtil util) {
-        CreateSceneBuilder scene = start(builder, util, "wrench_process_assembly", "Assembly");
+        CreateSceneBuilder scene = start(builder, util, "wrench_process_assembly", "Assembly", DEPOT);
 
-        hold(scene, util, AllItems.GOLDEN_SHEET.asStack());
+        hold(scene, util, DEPOT, AllItems.GOLDEN_SHEET.asStack());
         scene.idle(10);
         scene.overlay().showText(80)
             .text("When a usable assembly material is on the Depot (a Golden Sheet, for example)")
@@ -132,46 +139,31 @@ public final class DepotScenes {
             .placeNearTarget()
             .pointAt(util.vector().topOf(DEPOT));
         scene.idle(30);
-
-        hold(scene, util, AllItems.INCOMPLETE_PRECISION_MECHANISM.asStack());
-        scene.effects().indicateSuccess(DEPOT);
         scene.idle(60);
 
-        scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
-            .withItem(new ItemStack(AllBlocks.COGWHEEL.get()))
-            .rightClick();
-        scene.idle(10);
         scene.overlay().showText(80)
             .text("Adding the matching materials will assemble it")
             .placeNearTarget()
             .pointAt(util.vector().topOf(DEPOT))
             .attachKeyFrame();
-        scene.idle(25);
+        scene.idle(30);
 
-        // 完整的精密构件流程: 5 轮 × (小齿轮 → 大齿轮 → 铁粒), 每投一件都留出间隔(不喷粒子)
-        for (int round = 0; round < MECHANISM_LOOPS; round++) {
-            for (ItemStack material : MECHANISM_SEQUENCE) {
-                scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
-                    .withItem(material)
-                    .rightClick();
-                scene.idle(8);
-            }
-            scene.effects().indicateSuccess(DEPOT);
-            scene.idle(10);
-        }
+        // 图标行: 第 1 个是"鼠标右键", 后面三个是要投的材料; 一起出现、一起结束, 位置互不重叠
+        showMaterialRow(scene, util, DEPOT, 60);
+        scene.idle(30);
 
-        hold(scene, util, AllItems.PRECISION_MECHANISM.asStack());
+        hold(scene, util, DEPOT, AllItems.PRECISION_MECHANISM.asStack());
         scene.effects().indicateSuccess(DEPOT);
-        scene.idle(40);
+        scene.idle(60);
     }
 
     // ------------------------------------------------------------------ 进行注液
 
     /** 注液: 台面上的原料 + 相应的流体桶; 台面上有几个原料就按配方注几个, 产物**留在台面上**。 */
     public static void filling(SceneBuilder builder, SceneBuildingUtil util) {
-        CreateSceneBuilder scene = start(builder, util, "wrench_process_filling", "Filling");
+        CreateSceneBuilder scene = start(builder, util, "wrench_process_filling", "Filling", DEPOT);
 
-        hold(scene, util, AllItems.BLAZE_CAKE_BASE.asStack(3));
+        hold(scene, util, DEPOT, AllItems.BLAZE_CAKE_BASE.asStack(3));
         scene.idle(10);
         scene.overlay().showText(70)
             .text("When a fillable material is on the Depot (a Blaze Cake Base, for example)")
@@ -190,10 +182,10 @@ public final class DepotScenes {
             .pointAt(util.vector().topOf(DEPOT));
         scene.idle(30);
 
-        puff(scene, util, ParticleTypes.FLAME, 1, 60);
-        puff(scene, util, ParticleTypes.LAVA, 1, 60);
+        puff(scene, util, DEPOT, ParticleTypes.FLAME, 1, 60);
+        puff(scene, util, DEPOT, ParticleTypes.LAVA, 1, 60);
         scene.effects().indicateSuccess(DEPOT);
-        hold(scene, util, AllItems.BLAZE_CAKE.asStack(3));
+        hold(scene, util, DEPOT, AllItems.BLAZE_CAKE.asStack(3));
         scene.idle(70);
 
         scene.overlay().showText(80)
@@ -207,9 +199,9 @@ public final class DepotScenes {
 
     /** 洗涤: 台面上的物品 + 水桶; 只演示沙砾 ⇒ 燧石(用户要求不再演示第二个例子)。 */
     public static void splash(SceneBuilder builder, SceneBuildingUtil util) {
-        CreateSceneBuilder scene = start(builder, util, "wrench_process_splash", "Washing");
+        CreateSceneBuilder scene = start(builder, util, "wrench_process_splash", "Washing", DEPOT);
 
-        hold(scene, util, new ItemStack(Items.GRAVEL));
+        hold(scene, util, DEPOT, new ItemStack(Items.GRAVEL));
         scene.idle(10);
         scene.overlay().showText(70)
             .text("When a usable item is on the Depot (Gravel, for example)")
@@ -228,9 +220,9 @@ public final class DepotScenes {
             .pointAt(util.vector().topOf(DEPOT));
         scene.idle(30);
 
-        wash(scene, util);
+        wash(scene, util, DEPOT);
         scene.effects().indicateSuccess(DEPOT);
-        hold(scene, util, new ItemStack(Items.FLINT));
+        hold(scene, util, DEPOT, new ItemStack(Items.FLINT));
         scene.idle(70);
     }
 
@@ -238,9 +230,9 @@ public final class DepotScenes {
 
     /** 冶炼: 台面上的物品 + 岩浆桶; 只演示粗铁 ⇒ 铁锭(用户要求不再演示圆石那条链)。 */
     public static void blasting(SceneBuilder builder, SceneBuildingUtil util) {
-        CreateSceneBuilder scene = start(builder, util, "wrench_process_blasting", "Blasting");
+        CreateSceneBuilder scene = start(builder, util, "wrench_process_blasting", "Blasting", DEPOT);
 
-        hold(scene, util, new ItemStack(Items.RAW_IRON));
+        hold(scene, util, DEPOT, new ItemStack(Items.RAW_IRON));
         scene.idle(10);
         scene.overlay().showText(70)
             .text("When a smeltable item is on the Depot (Raw Iron, for example)")
@@ -259,19 +251,19 @@ public final class DepotScenes {
             .pointAt(util.vector().topOf(DEPOT));
         scene.idle(30);
 
-        puff(scene, util, ParticleTypes.LARGE_SMOKE, 1, 60);
+        puff(scene, util, DEPOT, ParticleTypes.LARGE_SMOKE, 1, 60);
         scene.effects().indicateSuccess(DEPOT);
-        hold(scene, util, new ItemStack(Items.IRON_INGOT));
+        hold(scene, util, DEPOT, new ItemStack(Items.IRON_INGOT));
         scene.idle(70);
     }
 
     // ------------------------------------------------------------------ 进行烤制
 
-    /** 烤制: 台面上的物品 + 打火石(会掉 1 点耐久); 生牛肉 ⇒ 熟牛肉。 */
+    /** 烤制: 台面上的物品 + 打火石(文案里提"消耗耐久"); 生牛肉 ⇒ 熟牛肉。 */
     public static void smoking(SceneBuilder builder, SceneBuildingUtil util) {
-        CreateSceneBuilder scene = start(builder, util, "wrench_process_smoking", "Smoking");
+        CreateSceneBuilder scene = start(builder, util, "wrench_process_smoking", "Smoking", DEPOT);
 
-        hold(scene, util, new ItemStack(Items.BEEF));
+        hold(scene, util, DEPOT, new ItemStack(Items.BEEF));
         scene.idle(10);
         scene.overlay().showText(70)
             .text("When a cookable item is on the Depot (Raw Beef, for example)")
@@ -290,43 +282,54 @@ public final class DepotScenes {
             .pointAt(util.vector().topOf(DEPOT));
         scene.idle(30);
 
-        puff(scene, util, ParticleTypes.POOF, 1, 60);
+        puff(scene, util, DEPOT, ParticleTypes.POOF, 1, 60);
         scene.effects().indicateSuccess(DEPOT);
-        hold(scene, util, new ItemStack(Items.COOKED_BEEF));
+        hold(scene, util, DEPOT, new ItemStack(Items.COOKED_BEEF));
         scene.idle(70);
     }
 
     // ------------------------------------------------------------------ 进行缠魂
 
-    /** 缠魂: 置物台架在灵魂沙/灵魂土上 + 打火石; 沙子 ⇒ 灵魂沙。 */
+    /**
+     * 缠魂: **灵魂沙单独一层**(结构整体加了一格, 灵魂沙一眼可见) + 置物台坐在它上面 + 打火石 ⇒ 缠魂。
+     * 第一句就把灵魂沙用黄框标出来、文字也指向它。
+     */
     public static void haunting(SceneBuilder builder, SceneBuildingUtil util) {
-        CreateSceneBuilder scene = start(builder, util, "wrench_process_haunting", "Haunting");
-        scene.world().showSection(util.select().position(2, 0, 2), Direction.DOWN);
+        CreateSceneBuilder scene = new CreateSceneBuilder(builder);
+        scene.title("wrench_process_haunting", "Haunting");
+        scene.configureBasePlate(0, 0, 5);
+        scene.world().showSection(util.select().layer(0), Direction.UP);
+        scene.idle(5);
+        scene.world().showSection(util.select().position(HAUNT_SOUL), Direction.DOWN);
+        scene.idle(5);
+        scene.world().showSection(util.select().position(HAUNT_DEPOT), Direction.DOWN);
         scene.idle(10);
 
-        hold(scene, util, new ItemStack(Items.SAND));
+        hold(scene, util, HAUNT_DEPOT, new ItemStack(Items.SAND));
+        // 第一句: 黄框标出灵魂沙, 文字指向它
+        scene.overlay().showOutline(SELECT, "cbw_soul_sand", util.select().position(HAUNT_SOUL), 75);
         scene.overlay().showText(75)
             .text("When the Depot sits on Soul Sand or Soul Soil")
             .attachKeyFrame()
             .placeNearTarget()
-            .pointAt(util.vector().topOf(2, 0, 2));
+            .pointAt(util.vector().topOf(HAUNT_SOUL));
         scene.idle(75);
 
         // 台座底下慢慢往上冒的灵魂火焰(游戏里锁定的置物台也会这样, 见 DepotSoulFlames)
-        soulFlames(scene, util, 60);
+        soulFlames(scene, util, HAUNT_DEPOT, 60);
         scene.idle(10);
         scene.overlay().showText(75)
             .text("Haunting can be performed")
             .placeNearTarget()
-            .pointAt(util.vector().topOf(DEPOT));
+            .pointAt(util.vector().topOf(HAUNT_SOUL));
         scene.idle(75);
 
         scene.overlay().showText(75)
             .text("When a hauntable item is on the Depot (Sand, for example)")
             .placeNearTarget()
-            .pointAt(util.vector().topOf(DEPOT));
+            .pointAt(util.vector().topOf(HAUNT_DEPOT));
         scene.idle(25);
-        scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 40)
+        scene.overlay().showControls(util.vector().topOf(HAUNT_DEPOT), Pointing.DOWN, 40)
             .withItem(new ItemStack(Items.FLINT_AND_STEEL))
             .rightClick();
         scene.idle(50);
@@ -334,53 +337,74 @@ public final class DepotScenes {
         scene.overlay().showText(70)
             .text("Right-clicking it with Flint and Steel will haunt it")
             .placeNearTarget()
-            .pointAt(util.vector().topOf(DEPOT))
+            .pointAt(util.vector().topOf(HAUNT_DEPOT))
             .attachKeyFrame();
         scene.idle(15);
 
-        puff(scene, util, ParticleTypes.SOUL_FIRE_FLAME, 1, 60);
-        puff(scene, util, ParticleTypes.SMOKE, 1, 60);
-        scene.effects().indicateSuccess(DEPOT);
-        hold(scene, util, new ItemStack(Items.SOUL_SAND));
+        puff(scene, util, HAUNT_DEPOT, ParticleTypes.SOUL_FIRE_FLAME, 1, 60);
+        puff(scene, util, HAUNT_DEPOT, ParticleTypes.SMOKE, 1, 60);
+        scene.effects().indicateSuccess(HAUNT_DEPOT);
+        hold(scene, util, HAUNT_DEPOT, new ItemStack(Items.SOUL_SAND));
         scene.idle(60);
     }
 
     // ------------------------------------------------------------------ 公共套路
 
     /** 每段加工场景的共同开场: 标题 → 底板 → 置物台。 */
-    private static CreateSceneBuilder start(SceneBuilder builder, SceneBuildingUtil util, String titleId, String title) {
+    private static CreateSceneBuilder start(SceneBuilder builder, SceneBuildingUtil util,
+                                            String titleId, String title, BlockPos depot) {
         CreateSceneBuilder scene = new CreateSceneBuilder(builder);
         scene.title(titleId, title);
         scene.configureBasePlate(0, 0, 5);
         scene.world().showSection(util.select().layer(0), Direction.UP);
         scene.idle(5);
-        scene.world().showSection(util.select().position(DEPOT), Direction.DOWN);
+        scene.world().showSection(util.select().position(depot), Direction.DOWN);
         scene.idle(5);
         return scene;
+    }
+
+    /**
+     * 在置物台上方摆一行"要用的材料"图标: 第 1 个是**鼠标右键**, 后面是 {@link #MECHANISM_MATERIALS}。
+     *
+     * <p>⚠️ 用户 2026-09-23 的两条要求: ①右击图标要和实际相符; ②图标**不能重叠** ——
+     * 所以四个图标**各占一个横向位置**(间距 0.75 格)、**同时出现并且同时结束**(一起 idle 掉, 没有淡入淡出叠影)。</p>
+     */
+    private static void showMaterialRow(CreateSceneBuilder scene, SceneBuildingUtil util,
+                                        BlockPos depot, int ticks) {
+        Vec3 anchor = util.vector().topOf(depot).add(0, 0.6, 0.35);
+        int count = MECHANISM_MATERIALS.length + 1;
+        for (int i = 0; i < count; i++) {
+            double dx = 0.75 * (i - (count - 1) / 2.0);
+            InputElementBuilder control = scene.overlay()
+                .showControls(anchor.add(dx, 0, 0), Pointing.DOWN, ticks)
+                .rightClick();
+            if (i > 0)
+                control.withItem(MECHANISM_MATERIALS[i - 1]);
+        }
     }
 
     /**
      * 把某件物品摆到置物台上(直接改方块实体 NBT —— Create 的 {@code FanScenes} 用的就是这个键 {@code HeldItem})。
      * 再调一次就是"台面上的物品换了"(整摞也照写, 例如 `asStack(3)`)。
      */
-    private static void hold(CreateSceneBuilder scene, SceneBuildingUtil util, ItemStack stack) {
-        scene.world().modifyBlockEntityNBT(util.select().position(DEPOT), DepotBlockEntity.class,
+    private static void hold(CreateSceneBuilder scene, SceneBuildingUtil util, BlockPos depot, ItemStack stack) {
+        scene.world().modifyBlockEntityNBT(util.select().position(depot), DepotBlockEntity.class,
             nbt -> nbt.put("HeldItem",
                 new TransportedItemStack(stack.copy()).serializeNBT(scene.world().getHolderLookupProvider())));
     }
 
     /** 台面上方喷一小撮粒子(与游戏内加工反馈同款)。 */
-    private static void puff(CreateSceneBuilder scene, SceneBuildingUtil util, ParticleOptions particle,
-                             float amount, int ticks) {
-        Vec3 at = util.vector().topOf(DEPOT).add(0, 0.25, 0);
+    private static void puff(CreateSceneBuilder scene, SceneBuildingUtil util, BlockPos depot,
+                             ParticleOptions particle, float amount, int ticks) {
+        Vec3 at = util.vector().topOf(depot).add(0, 0.25, 0);
         scene.effects().emitParticles(at, scene.effects().simpleParticleEmitter(particle, new Vec3(0, 0.05, 0)),
             amount, ticks);
     }
 
     /** 洗涤专用的蓝色尘 + SPIT(与 {@code AssembleLogic#playFanFeedback} 的洗涤分支一致)。 */
-    private static void wash(CreateSceneBuilder scene, SceneBuildingUtil util) {
-        puff(scene, util, new DustParticleOptions(new Vector3f(0f, 0x55 / 255f, 1f), 1f), 8, 25);
-        puff(scene, util, ParticleTypes.SPIT, 1, 60);
+    private static void wash(CreateSceneBuilder scene, SceneBuildingUtil util, BlockPos depot) {
+        puff(scene, util, depot, new DustParticleOptions(new Vector3f(0f, 0x55 / 255f, 1f), 1f), 8, 25);
+        puff(scene, util, depot, ParticleTypes.SPIT, 1, 60);
     }
 
     /**
@@ -389,8 +413,8 @@ public final class DepotScenes {
      * <p>⚠️ 不能只在置物台**中心**喷: 置物台的模型是整格底座(0~11/16 高、横向铺满),
      * 中心处的粒子会被模型挡住 ⇒ 与游戏内一样, 沿**四条竖边外侧一丝**各喷一处。</p>
      */
-    private static void soulFlames(CreateSceneBuilder scene, SceneBuildingUtil util, int ticks) {
-        Vec3 center = util.vector().centerOf(DEPOT);
+    private static void soulFlames(CreateSceneBuilder scene, SceneBuildingUtil util, BlockPos depot, int ticks) {
+        Vec3 center = util.vector().centerOf(depot);
         double out = 0.53;                 // = 半格 + 0.03, 正好在方块面外侧
         double y = center.y - 0.42;        // 贴近台座底部(灵魂沙那一层的上沿)
         Vec3[] rims = {

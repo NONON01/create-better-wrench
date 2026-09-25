@@ -40,9 +40,16 @@ public final class WrenchScenes {
 
     /**
      * “黄色选框”。⚠️ Ponder 的调色板里**没有纯黄**(WHITE/BLACK/RED/GREEN/BLUE/SLOW/MEDIUM/FAST/INPUT/OUTPUT),
-     * 其中 {@code OUTPUT = 0xDDC166} 是唯一的金黄, 所以“右击黄色选框”用它。
+     * 其中 {@code OUTPUT = 0xDDC166} 是唯一的金黄, 所以"右击黄色选框"用它
+     * (游戏内连接模式的选区是金色 {@code ConnectSelectionHandler.GOLD = 0xE8B54C}, 基本一致)。
      */
     private static final PonderPalette SELECT = PonderPalette.OUTPUT;
+
+    /**
+     * 拆除模式的**选区框**用蓝色 —— 与游戏内一致(`DeconstructSelectionHandler.COLOR_OK = 0x6886c5`, 蓝图与笔式蓝框),
+     * Ponder 里最接近的是 {@code BLUE = 0x5F6CAF}。
+     */
+    private static final PonderPalette SELECTION = PonderPalette.BLUE;
 
     // ---- connect: 7×7 底板, 路线 = 创造模式引擎 --x--> 拐点1 --z--> 拐点2 --x--> 鼓风机 ----
     private static final BlockPos START = new BlockPos(1, 1, 2);
@@ -266,7 +273,7 @@ public final class WrenchScenes {
             .withItem(BetterWrenchMod.BETTER_WRENCH.get().getDefaultInstance())
             .rightClick();
         scene.idle(20);
-        scene.overlay().showOutline(SELECT, "cbw_sel_a", util.select().position(BOX_A), 80);
+        scene.overlay().showOutline(SELECTION, "cbw_sel_a", util.select().position(BOX_A), 80);
         scene.effects().indicateSuccess(BOX_A);
         scene.overlay().showText(70)
             .text("Right-clicking a block will set the first corner")
@@ -278,7 +285,7 @@ public final class WrenchScenes {
             .withItem(BetterWrenchMod.BETTER_WRENCH.get().getDefaultInstance())
             .rightClick();
         scene.idle(20);
-        scene.overlay().showOutline(SELECT, "cbw_sel", util.select().fromTo(BOX_A, BOX_B), 70);
+        scene.overlay().showOutline(SELECTION, "cbw_sel", util.select().fromTo(BOX_A, BOX_B), 70);
         scene.effects().indicateSuccess(BOX_B);
         scene.overlay().showText(70)
             .text("Right-clicking the opposite corner will finish the selection")
@@ -312,7 +319,7 @@ public final class WrenchScenes {
         scene.idle(20);
 
         // 范围一: 仅红石 —— 先"显示当前范围", 再**立刻**拆掉
-        scene.overlay().showOutline(SELECT, "cbw_scope_redstone", cells(util, REDSTONE_CELLS), 40);
+        scene.overlay().showOutline(SELECTION, "cbw_scope_redstone", cells(util, REDSTONE_CELLS), 40);
         scene.idle(40);
         for (BlockPos cell : REDSTONE_CELLS) {
             scene.world().destroyBlock(cell);
@@ -321,7 +328,7 @@ public final class WrenchScenes {
 
         // 复原红石, 范围二: 仅机械动力 —— 同样先显示范围, 再**立刻**拆掉
         scene.world().restoreBlocks(cells(util, REDSTONE_CELLS));
-        scene.overlay().showOutline(SELECT, "cbw_scope_create", cells(util, CREATE_CELLS), 40);
+        scene.overlay().showOutline(SELECTION, "cbw_scope_create", cells(util, CREATE_CELLS), 40);
         scene.overlay().showText(70)
             .text("Only blocks that match the current scope will be removed")
             .pointAt(util.vector().topOf(2, 1, 2))
