@@ -1,10 +1,13 @@
 package com.nonono.createbetterwrench.client.ponder;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.simibubi.create.AllBlocks;
 
 import net.createmod.catnip.registry.RegisteredObjectsHelper;
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ItemLike;
 
 /**
@@ -80,11 +83,14 @@ public final class BetterWrenchPonderTags {
             .description("Work a locked depot by hand: assembly, filling, and fan-style washing / blasting / smoking / haunting")
             .register();
 
-        // ---- 组件 ↔ 标签(扳手同时属于这三个分类) ----
+        // ---- 组件 ↔ 标签 ----
+        // 扳手同时属于这三个分类; 加工相关的 7 段场景归在置物台上 ⇒ **置物台也要挂"加工"**
+        // (否则悬停置物台时左侧不出现"加工"那一栏 —— 见上面那条实测结论)。
         itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), CONNECT);
         itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), DECONSTRUCT);
         itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), PROCESS);
-        // ℹ️ 以后把加工那 6 段挂到 `create:depot` 时, 这里再加一行:
-        //    itemHelper.addTagToComponent(BuiltInRegistries.ITEM.get(...depot...), PROCESS);
+        Item depot = AllBlocks.DEPOT.get().asItem();
+        if (depot != Items.AIR)
+            itemHelper.addTagToComponent(depot, PROCESS);
     }
 }

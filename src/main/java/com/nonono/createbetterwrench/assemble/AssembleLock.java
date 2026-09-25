@@ -42,5 +42,7 @@ public final class AssembleLock {
             return;
         be.setData(LOCKED.get(), locked);
         be.setChanged();
+        // 锁定的置物台要在下方是灵魂底座时冒灵魂火焰粒子 ⇒ 上锁/解锁时同步登记表(见 DepotSoulFlames)
+        DepotSoulFlames.setTracked(be.getLevel(), be.getBlockPos(), locked);
     }
 }
