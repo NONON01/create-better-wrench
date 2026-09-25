@@ -110,6 +110,9 @@ public final class DepotProductEjector {
                 if (pending.level().getGameTime() < pending.dueTick())
                     continue;
                 it.remove();
+                // 复审 B-14: 先判 isLoaded —— Level#getBlockEntity 走 getChunkAt, 区块没加载时会**同步加载**它
+                if (!pending.level().isLoaded(pending.pos()))
+                    continue;
                 if (!(pending.level().getBlockEntity(pending.pos()) instanceof DepotBlockEntity depot))
                     continue;
                 // 审计 A-6: 台面上的东西已经不是当初摆上去的那件(被玩家/其它路径换过) => 放弃这次弹出,

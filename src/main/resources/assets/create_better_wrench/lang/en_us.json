@@ -43,6 +43,7 @@
   "msg.create_better_wrench.connect.materials": "Connect failed: not enough materials",
   "msg.create_better_wrench.connect.too_long": "Connect failed: a segment is too long",
   "msg.create_better_wrench.connect.too_far": "Connect failed: too far away",
+  "msg.create_better_wrench.connect.too_many_corners": "Connect failed: too many corners (server limit is %s)",
   "msg.create_better_wrench.connect.protected": "Connect failed: target position is protected",
   "msg.create_better_wrench.connect.self_conflict": "Connect failed: the route conflicts with itself; move or add a corner",
   "msg.create_better_wrench.deconstruct.count": "Removed %s blocks",

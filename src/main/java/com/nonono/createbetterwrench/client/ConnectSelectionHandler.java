@@ -3,11 +3,13 @@ package com.nonono.createbetterwrench.client;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.connect.ConnectLogic;
 import com.nonono.createbetterwrench.connect.ConnectLogic.Plan;
+import com.nonono.createbetterwrench.mode.ConnectCorner;
 import com.nonono.createbetterwrench.mode.WrenchMode;
 import com.nonono.createbetterwrench.network.ConnectPayload;
 
@@ -58,6 +60,20 @@ public final class ConnectSelectionHandler {
 
     private static BlockPos startPos;
     private static final List<BlockPos> corners = new ArrayList<>();
+
+    // ---- 幽灵预览的节流缓存(复审 B-13) ----
+    // 旧写法是**每客户端 tick**都调一次 ConnectLogic.plan(); 而 plan 内部最多会组装 64 次候选走法
+    // (拐点多 + 首选走法被挡时), 单次尝试就要遍历上千格 ⇒ 每 tick 都在主线程上跑一遍, 有可见卡顿风险。
+    // 现在: 只有当"起点 / 拐点集合 / 瞄准方块 / 拐角类型"变化、或缓存超过 PREVIEW_MAX_AGE_TICKS 时才重算;
+    // 世界变化(别人放了方块之类)最多滞后这么多 tick —— 预览而已, 这个滞后看不出来。
+    private static ConnectLogic.ResultOutcome cachedOutcome;
+    private static boolean cachedAffordable;
+    private static BlockPos cachedStart;
+    private static BlockPos cachedEnd;
+    private static int cachedCornersHash;
+    private static ConnectCorner cachedCornerType;
+    private static int cachedAge;
+    private static final int PREVIEW_MAX_AGE_TICKS = 5;
 
     private ConnectSelectionHandler() {
     }
@@ -147,6 +163,8 @@ public final class ConnectSelectionHandler {
             Outliner.getInstance().remove(CORNER_KEY + "|" + i);
         startPos = null;
         corners.clear();
+        cachedOutcome = null;   // 复审 B-13: 选择变了, 预览缓存一并作废
+        cachedAge = PREVIEW_MAX_AGE_TICKS;
         Outliner.getInstance().remove(START_KEY);
         Outliner.getInstance().remove(CORNER_KEY);
         Outliner.getInstance().remove(HOVER_KEY);
@@ -273,9 +291,30 @@ public final class ConnectSelectionHandler {
                 Outliner.getInstance().remove(GHOST_KEY);
                 return;
             }
-            ConnectLogic.ResultOutcome oc =
-                ConnectLogic.plan(mc.level, startPos, corners, aimBlock, WrenchModeSwitcher.connectCorner);
-            boolean ok = oc.result == ConnectLogic.Result.SUCCESS && affordable(mc, oc.plan);
+            ConnectLogic.ResultOutcome oc;
+            boolean ok;
+            // 复审 B-13: 只在"输入没变且缓存没过期"时复用上一次的计划(见字段区的说明)
+            boolean reusable = cachedOutcome != null
+                && aimBlock.equals(cachedEnd)
+                && Objects.equals(startPos, cachedStart)
+                && corners.hashCode() == cachedCornersHash
+                && WrenchModeSwitcher.connectCorner == cachedCornerType
+                && cachedAge < PREVIEW_MAX_AGE_TICKS;
+            if (reusable) {
+                oc = cachedOutcome;
+                ok = cachedAffordable;
+                cachedAge++;
+            } else {
+                oc = ConnectLogic.plan(mc.level, startPos, corners, aimBlock, WrenchModeSwitcher.connectCorner);
+                ok = oc.result == ConnectLogic.Result.SUCCESS && affordable(mc, oc.plan);
+                cachedOutcome = oc;
+                cachedAffordable = ok;
+                cachedStart = startPos;
+                cachedEnd = aimBlock;
+                cachedCornersHash = corners.hashCode();
+                cachedCornerType = WrenchModeSwitcher.connectCorner;
+                cachedAge = 0;
+            }
             Outliner.getInstance().chaseAABB(HOVER_KEY, new AABB(aimBlock))
                 .colored(ok ? GREEN : RED).lineWidth(1 / 16f);
             if (ok)

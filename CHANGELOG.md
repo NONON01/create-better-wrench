@@ -76,6 +76,30 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   Unlocking a depot therefore returns only the item on the depot plus the raw pile.
 - The F9 "export wrench icon" developer tool (and its two lang keys) no longer ships in the jar.
 
+### Fixed
+- **Connecting no longer destroys existing blocks.** A path cell that already held a **cogwheel** (or a shaft of a
+  different axis, or a shaft where a gearbox was going) used to be treated as "reusable": the plan overwrote it via
+  `switchToBlockState` → `setBlock`, which **drops nothing** — the player silently lost the block *and* was charged
+  for the replacement. The occupancy test is now exact: a cell counts as free only if it is replaceable or already
+  holds **exactly** the block the plan wants to place; anything else is refused with "path blocked" instead of being
+  overwritten. Cells that already hold the right block are **skipped**, so reusing existing shafts no longer costs
+  materials.
+- **A server-side corner limit can no longer disconnect you.** The corner-count bound in the packet decoder used the
+  *local* config value, so a client that cannot read the server's `connect.max_corners` (dedicated server → falls back
+  to 32) could send more corners than the server accepted and be kicked by a Netty decode exception. The decoder now
+  enforces a **fixed protocol bound** (256, the config's own maximum) purely as an OOM guard; the configured limit is
+  checked in the handler and answered with a chat message instead of an exception.
+- **The config screen's sliders no longer start out blank.** `AbstractSliderButton`'s constructor does not call
+  `updateMessage()`, so a freshly created slider showed its initial empty message until it was first clicked or dragged.
+  Also: the screen writes its config once instead of twice on close, `Alt` is no longer treated as `Ctrl` for the
+  +/- step size (Alt is the mode-bar key), and "Reset to Defaults" is disabled where the config is read-only.
+- **The connect preview no longer re-plans on every client tick.** The ghost preview recomputed up to 64 candidate
+  routes per tick; it now reuses the previous plan while the start point, the corner set, the aimed block and the
+  corner type are unchanged, with a 5-tick freshness window.
+- Housekeeping: `ConnectLogic.isKineticEnd` and the depot product ejector check `isLoaded` before touching the world;
+  a duplicated soul-base predicate and a duplicated `0.27` corner offset were reduced to single sources; an unused
+  parameter and a dead `DepotSoulFlames.untrack()` were removed.
+
 ### Changed
 - **`LICENSE.md` §2.3: the provenance of the five HUD mode icons is now recorded** instead of being flagged
   "To be confirmed". They are script-recoloured from the author's **own hand-drawn 16×16 originals**

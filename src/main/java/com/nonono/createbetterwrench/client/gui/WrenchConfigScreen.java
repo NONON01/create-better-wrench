@@ -58,6 +58,8 @@ public final class WrenchConfigScreen extends Screen {
     private String query = "";
     private double scroll;
     private EditBox search;
+    /** 「重置为默认」按钮: 只读(专用服务器客户端)时会被禁用, 免得点了没反应。 */
+    private Button resetButton;
 
     public WrenchConfigScreen(Screen parent) {
         super(Component.translatable("gui.create_better_wrench.config.title"));
@@ -95,10 +97,13 @@ public final class WrenchConfigScreen extends Screen {
         }
 
         int bottom = height - 30;
-        addRenderableWidget(Button.builder(Component.translatable("gui.create_better_wrench.config.reset"), b -> resetToDefaults())
+        resetButton = Button.builder(Component.translatable("gui.create_better_wrench.config.reset"), b -> resetToDefaults())
             .bounds(width / 2 - 160, bottom, 150, 20)
             .tooltip(Tooltip.create(Component.translatable("gui.create_better_wrench.config.reset.tip")))
-            .build());
+            .build();
+        // 复审 B-16: 只读时把「重置为默认」也禁掉(旧写法点了静默无效, 让人以为界面坏了)
+        resetButton.active = WrenchConfig.isWritable();
+        addRenderableWidget(resetButton);
         addRenderableWidget(Button.builder(Component.translatable("gui.create_better_wrench.config.done"), b -> onClose())
             .bounds(width / 2 + 10, bottom, 150, 20)
             .build());
@@ -165,7 +170,8 @@ public final class WrenchConfigScreen extends Screen {
 
     @Override
     public void onClose() {
-        WrenchConfig.saveAll();
+        // 复审 B-16: 这里**不再**自己 saveAll() —— 紧接着的 setScreen(parent) 会触发 removed(), 那里统一写盘一次就够
+        // (旧写法会让关闭时写两遍文件)。
         if (minecraft != null)
             minecraft.setScreen(parent);
     }
@@ -249,10 +255,11 @@ public final class WrenchConfigScreen extends Screen {
             return Component.translatable(option.labelKey());
         }
 
-        /** 微调步长: ±1(小数项 ±0.5); Shift ×10; Ctrl ×100(小数项 ×50)。 */
+        /** 微调步长: ±1(小数项 ±0.5); Shift ×10; Ctrl ×100(小数项 ×50)。
+         *  ⚠️ 复审 B-16: **不再**把 Alt 当 Ctrl —— Alt 是本模组呼出模式工具条的键, 边按 Alt 边点 +/- 会意外跳 100 倍。 */
         private double stepSize() {
             double base = option.isDouble() ? 0.5 : 1;
-            if (Screen.hasControlDown() || Screen.hasAltDown())
+            if (Screen.hasControlDown())
                 return base * (option.isDouble() ? 50 : 100);
             if (Screen.hasShiftDown())
                 return base * 10;
@@ -296,6 +303,11 @@ public final class WrenchConfigScreen extends Screen {
         private Slider(WrenchConfig.Option option) {
             super(0, 0, SLIDER_W, 20, Component.empty(), norm(option, option.get()));
             this.option = option;
+            // 复审 B-16: 必须在这里**主动**刷一次文本 —— `AbstractSliderButton` 的构造器**不会**调 `updateMessage()`
+            // (javap 实测: 构造器只有 super + putfield value; 全类唯一的调用点在 private setValue(double) 里),
+            // 而我们传进去的初始 message 是 Component.empty() ⇒ 不补这一句的话, 刚打开配置页时滑块上是空的,
+            // 得点一下/拖一下才出现"路径 = 值"。
+            updateMessage();
         }
 
         private static double norm(WrenchConfig.Option option, double value) {

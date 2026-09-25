@@ -41,13 +41,27 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
         return WrenchConfig.connectMaxCorners();
     }
 
+    /**
+     * 协议层的**固定**拐点上限 —— 与配置取值范围(`connect.max_corners` = 1..256)**同一上界**。
+     *
+     * <p>⚠️ 复审 A-18: 这里**绝不能**用 {@link #maxCorners()}。那个 getter 读的是"**本进程**的配置",
+     * 而专用服务器上客户端读不到服务端配置、会回落到默认 32; 服务端却可能被管理员调成 8
+     * ⇒ **合法客户端**送 9 个以上拐点时, 解码层 `throw` → Netty 解码异常 → **玩家被踢下线**
+     * (这正是审计 A-2 当初的症状, 只是触发条件从"固定 32"变成"配置漂移")。</p>
+     *
+     * <p>所以解码阶段**只做防 OOM 的固定硬闸**(任何合法客户端都不可能超过它); 真正的配置上限
+     * 留到 {@link #handle} 里做业务校验并**友好拒绝**(聊天提示, 不抛异常)。</p>
+     */
+    public static final int PROTOCOL_MAX_CORNERS = 256;
+
     private static final StreamCodec<ByteBuf, List<BlockPos>> CORNERS_CODEC = new StreamCodec<>() {
         @Override
         public List<BlockPos> decode(ByteBuf buffer) {
             int n = buffer.readInt();
             // ⚠️ 审计发现 #2: 绝不拿线上读到的 int 直接当 ArrayList 容量。
             //    n = Integer.MAX_VALUE 会让 new ArrayList<>(n) 直接 OOM, 而 OOM 属于 Error, 服务端无法恢复。
-            if (n < 0 || n > maxCorners())
+            // 复审 A-18: 上界用固定常量(不是可变的配置值), 免得"配置漂移"把合法玩家踢下线。
+            if (n < 0 || n > PROTOCOL_MAX_CORNERS)
                 throw new io.netty.handler.codec.DecoderException("corner count out of range: " + n);
             List<BlockPos> list = new ArrayList<>(Math.min(n, 8));
             for (int i = 0; i < n; i++)
@@ -94,9 +108,12 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
             // ⚠️ 2026-09-20(用户约定): 扳手在副手时"只作普通扳手", 不参与本模组的模式功能
             if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH))
                 return;
-            // ③ 拐点数量上限(解码层已有硬上限, 这里再兜一次)
-            if (corners.size() > maxCorners())
+            // ③ 拐点数量上限(解码层只有固定硬闸; 这里按**服务端自己的配置**做业务校验 → 友好拒绝, 不是掉线)
+            if (corners.size() > maxCorners()) {
+                sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "msg." + BetterWrenchMod.MODID + ".connect.too_many_corners", maxCorners()), true);
                 return;
+            }
             // ④ 审计 A-3: 终点必须在玩家**配置的距离**内(默认 8 格) —— 挡住改包客户端远程施工。
             //    刻意**不校验** start/拐点: 玩家是一路走过去逐个点拐点的, 起点很可能已在很远处。
             if (sp.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(end))

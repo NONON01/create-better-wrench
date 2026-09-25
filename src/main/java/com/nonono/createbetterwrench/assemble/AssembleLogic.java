@@ -83,8 +83,11 @@ public final class AssembleLogic {
     /**
      * 注液批量产出的落点相对置物台中心的水平偏移(东南侧)。
      * 与原料堆(西北角)分开, 免得产出和原料混在一处。
+     *
+     * <p>⚠️ 复审 B-17: 直接引用 {@link DepotPiles#CORNER_OFFSET} 而不是另写一个 0.27 ——
+     * 这两处必须**同值**(一西一东的对角对称), 分开写迟早会改一处忘另一处。</p>
      */
-    private static final double PRODUCT_DROP_OFFSET = 0.27;
+    private static final double PRODUCT_DROP_OFFSET = DepotPiles.CORNER_OFFSET;
 
     private AssembleLogic() {
     }
@@ -500,8 +503,13 @@ public final class AssembleLogic {
             : List.of(AllFanProcessingTypes.SMOKING);
     }
 
-    /** 该方块是否属于"灵魂火底座": 灵魂沙 / 灵魂土(vanilla tag), 外加灵魂火本身。 */
-    private static boolean isSoulBase(Level level, BlockPos below) {
+    /**
+     * 该方块是否属于"灵魂火底座": 灵魂沙 / 灵魂土(vanilla tag), 外加灵魂火本身。
+     *
+     * <p>⚠️ 复审 B-17: 这是**全模组唯一**一份判据 —— `DepotSoulFlames`(锁定置物台的灵魂火焰粒子)也调用本方法,
+     * 不再各留一份拷贝(否则 Create 改了 tag 语义时会有一边不同步)。</p>
+     */
+    static boolean isSoulBase(Level level, BlockPos below) {
         BlockState state = level.getBlockState(below);
         return state.is(BlockTags.SOUL_FIRE_BASE_BLOCKS) || state.is(Blocks.SOUL_FIRE);
     }

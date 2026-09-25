@@ -43,6 +43,7 @@
   "msg.create_better_wrench.connect.materials": "连接失败:背包材料不足",
   "msg.create_better_wrench.connect.too_long": "连接失败:某段路径过长",
   "msg.create_better_wrench.connect.too_far": "连接失败:距离过远",
+  "msg.create_better_wrench.connect.too_many_corners": "连接失败:拐点太多(服务端上限 %s 个)",
   "msg.create_better_wrench.connect.protected": "连接失败:目标位置受保护(出生点/领地/世界边界)",
   "msg.create_better_wrench.connect.self_conflict": "连接失败:该走法会自相冲突, 请挪动拐点或加一个中间拐点",
   "msg.create_better_wrench.deconstruct.count": "本次拆除了 %s 个方块",

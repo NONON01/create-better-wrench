@@ -128,12 +128,39 @@ public final class ConnectLogic {
         }
     }
 
-    /** 判定一个方块是否为可接轴端的机械动力方块(IRotate + KineticBlockEntity)。 */
+    /**
+     * 判定一个方块是否为可接轴端的机械动力方块(IRotate + KineticBlockEntity)。
+     *
+     * <p>⚠️ 复审 B-14: {@code isLoaded} 必须排在 {@code getBlockState} **之前** —— 后者默认
+     * {@code requireChunk=true}, 会阻塞式加载/生成区块, 正是审计 A-5 要防的事(旧写法虽有调用方兜着, 但守卫本身是无效的)。</p>
+     */
     static boolean isKineticEnd(Level world, BlockPos pos) {
+        if (!world.isLoaded(pos))
+            return false;
         BlockState state = world.getBlockState(pos);
-        if (!world.isLoaded(pos) || !(state.getBlock() instanceof IRotate))
+        if (!(state.getBlock() instanceof IRotate))
             return false;
         return world.getBlockEntity(pos) instanceof KineticBlockEntity;
+    }
+
+    // ---- "这一格打算放什么"的状态构造(A-17 的判据与落块状态必须**逐字节一致**, 否则会误判 occupied) ----
+
+    /** 轴: 与 {@link #connect} 里落块用的状态完全一致。 */
+    private static BlockState shaftState(Axis axis) {
+        BlockState base = AllBlocks.SHAFT.getDefaultState();
+        return base.hasProperty(BlockStateProperties.AXIS)
+            ? base.setValue(BlockStateProperties.AXIS, axis)
+            : base;
+    }
+
+    /** 齿轮箱: 同上。 */
+    private static BlockState gearboxState(Axis axis) {
+        return AllBlocks.GEARBOX.getDefaultState().setValue(BlockStateProperties.AXIS, axis);
+    }
+
+    /** 大齿轮: 同上。 */
+    private static BlockState largeCogState(Axis axis) {
+        return AllBlocks.LARGE_COGWHEEL.getDefaultState().setValue(BlockStateProperties.AXIS, axis);
     }
 
     /**
@@ -184,7 +211,7 @@ public final class ConnectLogic {
         // 一次 plan() 内的读世界记忆化: plan() 每 tick 被客户端幽灵预览调用, 而阶段 2 的回溯会反复
         // 询问同一批坐标, 所以 occupied()/isLoaded() 的结果在本次调用内缓存(世界在 plan() 期间
         // 不会被改动, 缓存恒有效; 普通路径的读取次数只会不增)。
-        Map<BlockPos, Boolean> occupiedCache = new HashMap<>();
+        Map<BlockPos, BlockState> occupiedCache = new HashMap<>();
         Map<BlockPos, Boolean> loadedCache = new HashMap<>();
 
         // ===== 阶段 1: 每条边都取第一候选 —— 与改动前的贪心路线完全一致 =====
@@ -278,7 +305,7 @@ public final class ConnectLogic {
      * 端点轴口 → 每段中间格(超长/未加载) → 每个节点(大齿轮/齿轮箱) → 各段剩余中间格铺轴。</p>
      */
     private static Attempt assemble(Level world, BlockPos start, BlockPos end, List<Leg> legs,
-                                    ConnectCorner cornerType, Map<BlockPos, Boolean> occupiedCache,
+                                    ConnectCorner cornerType, Map<BlockPos, BlockState> occupiedCache,
                                     Map<BlockPos, Boolean> loadedCache) {
         // 端点轴口校验
         Leg firstLeg = legs.get(0);
@@ -297,7 +324,7 @@ public final class ConnectLogic {
         // 每段轴段的中间格(先算出来, 大齿轮拐角会从两端"吃掉"格)
         List<List<BlockPos>> legCells = new ArrayList<>();
         for (Leg leg : legs) {
-            List<BlockPos> cells = interiorCells(leg.from, leg.to, leg.axis);
+            List<BlockPos> cells = interiorCells(leg.from, leg.to);
             if (cells == null)
                 return Attempt.failure(Result.TOO_LONG);
             // 审计 A-5: 中间格也必须已加载 —— Level#getBlockState 会阻塞式加载/生成区块,
@@ -327,9 +354,10 @@ public final class ConnectLogic {
                     return Attempt.failure(Result.CORNER_NO_ROOM);
                 BlockPos l1 = c1.remove(c1.size() - 1);
                 BlockPos l2 = c2.remove(0);
-                // 审计发现 #7: 这两格是从 legCells 里"吃掉"的, 不会进入下面的 occupied 校验循环,
-                // 所以必须在这里单独校验, 否则大齿轮会直接覆盖掉角上的既有方块。
-                if (occupiedCached(world, l1, occupiedCache) || occupiedCached(world, l2, occupiedCache))
+                // 审计发现 #7 / 复审 A-17: 这两格是从 legCells 里"吃掉"的, 不会进入下面的校验循环,
+                // 所以必须在这里单独校验 —— 判据要与"这格要放什么"对齐(大齿轮 + 各自的轴)。
+                if (blocked(stateAt(world, l1, occupiedCache), largeCogState(cur.axis))
+                    || blocked(stateAt(world, l2, occupiedCache), largeCogState(next.axis)))
                     return Attempt.failure(Result.PATH_BLOCKED);
                 int r1 = registerCell(planned, l1, "COG:" + cur.axis, start, end);
                 int r2 = registerCell(planned, l2, "COG:" + next.axis, start, end);
@@ -340,13 +368,13 @@ public final class ConnectLogic {
                 if (r2 != CELL_DUPLICATE)
                     plan.cogs.add(new CogPlace(l2, next.axis));
             } else {
-                // 齿轮箱节点: 允许把**可替换方块/已有轴**换成齿轮箱, 但**不能无条件覆盖**别的东西
-                // (审计发现 #7: 原来这里完全不校验, 角点落在箱子等机器上会直接把方块抹掉)
+                // 齿轮箱节点: 允许把**可替换方块/已就位的同款齿轮箱**换掉, 但**不能覆盖**别的东西
+                // (审计发现 #7 修"完全不校验"; 复审 A-17 进一步把判据收紧到"与要放的方块完全一致")
                 if (!loadedCached(world, jp, loadedCache))
                     return Attempt.failure(Result.UNLOADED);
-                if (occupiedCached(world, jp, occupiedCache))
-                    return Attempt.failure(Result.PATH_BLOCKED);
                 Axis gax = junctionAxis(cur.axis, next.axis);
+                if (blocked(stateAt(world, jp, occupiedCache), gearboxState(gax)))
+                    return Attempt.failure(Result.PATH_BLOCKED);
                 int r = registerCell(planned, jp, "GEARBOX:" + gax, start, end);
                 if (r == CELL_CONFLICT)
                     return Attempt.conflict();
@@ -359,7 +387,7 @@ public final class ConnectLogic {
         for (int i = 0; i < legCells.size(); i++) {
             Axis ax = legs.get(i).axis;
             for (BlockPos p : legCells.get(i)) {
-                if (occupiedCached(world, p, occupiedCache))
+                if (blocked(stateAt(world, p, occupiedCache), shaftState(ax)))
                     return Attempt.failure(Result.PATH_BLOCKED);
                 int r = registerCell(planned, p, "SHAFT:" + ax, start, end);
                 if (r == CELL_CONFLICT)
@@ -374,12 +402,12 @@ public final class ConnectLogic {
         return Attempt.success(plan);
     }
 
-    /** occupied() 在**一次 plan() 调用内**的记忆化(阶段 2 的回溯会反复问同一批坐标)。 */
-    private static boolean occupiedCached(Level world, BlockPos pos, Map<BlockPos, Boolean> cache) {
-        Boolean hit = cache.get(pos);
+    /** 该坐标**当前**方块状态的记忆化(阶段 2 的回溯会反复问同一批坐标; 判据见 {@link #blocked})。 */
+    private static BlockState stateAt(Level world, BlockPos pos, Map<BlockPos, BlockState> cache) {
+        BlockState hit = cache.get(pos);
         if (hit != null)
             return hit;
-        boolean value = occupied(world, pos);
+        BlockState value = world.getBlockState(pos);
         cache.put(pos.immutable(), value);
         return value;
     }
@@ -581,8 +609,8 @@ public final class ConnectLogic {
         return ds.size() == 1 ? ds.get(0) : null;
     }
 
-    /** from→to(不含两端)沿 axis 的中间格; 任一格超长无法铺完时返回 null。 */
-    private static List<BlockPos> interiorCells(BlockPos from, BlockPos to, Axis axis) {
+    /** from→to(不含两端)的中间格(走向由两点之差决定); 任一格超长无法铺完时返回 null。 */
+    private static List<BlockPos> interiorCells(BlockPos from, BlockPos to) {
         List<BlockPos> out = new ArrayList<>();
         Direction dir = directionBetween(from, to);
         int guard = 0;
@@ -594,14 +622,21 @@ public final class ConnectLogic {
         return out;
     }
 
-    private static boolean occupied(Level world, BlockPos pos) {
-        BlockState existing = world.getBlockState(pos);
+    /**
+     * 该格能不能放「wanted」。
+     *
+     * <p>⚠️ **2026-09-23 复审修复(A-17)**: 旧实现是"凡是 {@code AbstractSimpleShaftBlock} 且带 {@code AXIS} 就算可复用",
+     * 而 Create 的 {@code CogWheelBlock extends AbstractSimpleShaftBlock}(小/大齿轮都是它) ⇒ **已有齿轮的格子被判成空**,
+     * 计划照常在那格放轴/齿轮箱, 落块走 {@code switchToBlockState}→{@code setBlock}(**不掉落**, 实测该类 0 处
+     * {@code dropResources/destroyBlock}) ⇒ **玩家的齿轮被静默销毁、还要为新方块付费**。</p>
+     *
+     * <p>现在的判据只有两条: <b>可替换方块</b>(= 空气/草等)算空; <b>与 wanted 完全一致</b>(同方块同属性)算"已就位"
+     * —— 已就位的那格不重复放、也不扣料(见 {@link #connect}); 其余一律算阻挡 ⇒ 友好拒绝(PATH_BLOCKED), 绝不覆盖。</p>
+     */
+    private static boolean blocked(BlockState existing, BlockState wanted) {
         if (existing.canBeReplaced())
             return false;
-        if (existing.getBlock() instanceof AbstractSimpleShaftBlock
-            && existing.hasProperty(BlockStateProperties.AXIS))
-            return false; // 已有同型轴可复用
-        return true;
+        return !existing.equals(wanted);
     }
 
     /** 真正执行连接: 校验材料足量后落块并扣料(creative 跳过扣料)。 */
@@ -652,6 +687,9 @@ public final class ConnectLogic {
             BlockState st = shaftBase.hasProperty(BlockStateProperties.AXIS)
                 ? shaftBase.setValue(BlockStateProperties.AXIS, plan.shaftAxes.get(i))
                 : shaftBase;
+            // 复审 A-17: 该格已经是"要放的那个方块"(同方块同属性) ⇒ 不重复放、也不扣料(玩家不为"复用"付费)
+            if (world.getBlockState(p).equals(st))
+                continue;
             PlaceOutcome outcome = placeWithEvent(world, p, st, player, undo);
             if (outcome == PlaceOutcome.DENIED) {
                 revertAll(undo);
@@ -663,6 +701,9 @@ public final class ConnectLogic {
         for (GearboxPlace g : plan.gearboxes) {
             BlockState st = AllBlocks.GEARBOX.getDefaultState()
                 .setValue(BlockStateProperties.AXIS, g.axis);
+            // 复审 A-17: 已就位(同款齿轮箱) ⇒ 不重复放、不扣料
+            if (world.getBlockState(g.pos).equals(st))
+                continue;
             PlaceOutcome outcome = placeWithEvent(world, g.pos, st, player, undo);
             if (outcome == PlaceOutcome.DENIED) {
                 revertAll(undo);
@@ -674,6 +715,9 @@ public final class ConnectLogic {
         for (CogPlace c : plan.cogs) {
             BlockState st = AllBlocks.LARGE_COGWHEEL.getDefaultState()
                 .setValue(BlockStateProperties.AXIS, c.axis);
+            // 复审 A-17: 已就位(同款大齿轮) ⇒ 不重复放、不扣料
+            if (world.getBlockState(c.pos).equals(st))
+                continue;
             PlaceOutcome outcome = placeWithEvent(world, c.pos, st, player, undo);
             if (outcome == PlaceOutcome.DENIED) {
                 revertAll(undo);

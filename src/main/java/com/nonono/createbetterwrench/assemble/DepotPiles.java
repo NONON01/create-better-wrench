@@ -42,8 +42,14 @@ public final class DepotPiles {
     private static final String TAG_POS = "cbw_depot_pos";
     private static final String TAG_KIND = "cbw_depot_pile";
 
-    /** 料堆相对置物台中心的水平偏移(置物台中心 = 方块中心 x+0.5 / z+0.5)。 */
-    private static final double CORNER_OFFSET = 0.27;
+    /**
+     * 料堆相对置物台中心的水平偏移(置物台中心 = 方块中心 x+0.5 / z+0.5)。
+     *
+     * <p>⚠️ **这是"置物台角偏移"的单一来源**(复审 B-17): 原料堆摆在**西北角**({@code center − 本值}),
+     * 产出落在**东南角**({@code center + 本值}, 见 {@code AssembleLogic.productDropPos}) —— 两者**必须同值**
+     * 才是对角对称、产出才不会和原料混在一处, 所以那边直接引用本常量, 不再各写一份 0.27。</p>
+     */
+    static final double CORNER_OFFSET = 0.27;
 
     /**
      * 释放料堆时沿对角再推出的距离。

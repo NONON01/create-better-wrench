@@ -13,9 +13,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -89,23 +87,20 @@ public final class DepotSoulFlames {
             LOCKED_DEPOTS.remove(level.dimension());
     }
 
-    /** 某个坐标不再需要跟踪(置物台被拆掉等)。 */
-    static void untrack(Level level, BlockPos pos) {
-        if (level == null || level.isClientSide())
-            return;
-        Set<BlockPos> set = LOCKED_DEPOTS.get(level.dimension());
-        if (set == null)
-            return;
-        set.remove(pos);
-        if (set.isEmpty())
-            LOCKED_DEPOTS.remove(level.dimension());
-    }
 
+    // ⚠️ 复审 B-15(2026-09-23): 原来的 `untrack(Level, BlockPos)` 已**删除** —— 它全项目零调用点,
+    //    因为 tick 里的 `positions.removeIf(pos -> !stillLocked(level, pos))` 已经覆盖了"置物台被拆掉/解锁"
+    //    这两种情形。若将来要在破坏方块的那一刻**立刻**停粒子, 再把一个 untrack 接进
+    //    `AssembleInteractionHandler` 的破坏分支即可。
     /**
      * 区块加载时把里面**已经锁着**的置物台补进表里 —— 这是"存档重进后粒子还在"的关键。
      *
      * <p>只扫方块实体(不是全部方块), 每区块一次性开销极小。NeoForge 的 {@code ChunkEvent.Load}
      * 客户端也会发, 所以先判 {@code ServerLevel}。</p>
+     *
+     * <p>⚠️ 这里读得到锁状态是有依据的: javap 证实 {@code BlockEntity.loadAdditional()} 内部会调
+     * {@code deserializeAttachments(..., nbt.getCompound("neoforge:attachments"))} ⇒ 方块实体反序列化时
+     * 就恢复了锁定附件, **早于**本事件。</p>
      */
     private static void indexChunk(ServerLevel level, LevelChunk chunk) {
         Map<BlockPos, BlockEntity> blockEntities = chunk.getBlockEntities();
@@ -125,12 +120,9 @@ public final class DepotSoulFlames {
 
     // ------------------------------------------------------------------ 判定
 
-    /** 与 {@code AssembleLogic#isSoulBase} 同一判据: 原版 {@code SOUL_FIRE_BASE_BLOCKS}(灵魂沙/灵魂土) + 灵魂火。 */
-    private static boolean isSoulBase(Level level, BlockPos below) {
-        BlockState state = level.getBlockState(below);
-        return state.is(BlockTags.SOUL_FIRE_BASE_BLOCKS) || state.is(Blocks.SOUL_FIRE);
-    }
 
+    // 复审 B-17: 原来的 `isSoulBase` 拷贝已删除 —— 判据统一由 `AssembleLogic.isSoulBase` 提供(全模组唯一一份),
+    // 免得 Create 改了 `SOUL_FIRE_BASE_BLOCKS` 的语义时这里不同步。
     private static boolean stillLocked(ServerLevel level, BlockPos pos) {
         if (!level.isLoaded(pos))
             return false;                    // 区块已卸载: 先从表里摘掉, 下次 ChunkEvent.Load 会重新登记
@@ -214,7 +206,7 @@ public final class DepotSoulFlames {
                 if (!emit)
                     continue;
                 for (BlockPos pos : positions) {
-                    if (isSoulBase(level, pos.below()))
+                    if (AssembleLogic.isSoulBase(level, pos.below()))
                         spawn(level, pos);
                 }
             }
