@@ -7,15 +7,10 @@ import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import net.createmod.catnip.gui.element.ScreenElement;
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
-import net.createmod.ponder.enums.PonderGuiTextures;
-import net.createmod.ponder.foundation.ui.PonderUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.DustParticleOptions;
@@ -76,12 +71,8 @@ public final class DepotScenes {
         new ItemStack(Items.IRON_NUGGET)
     };
 
-    /** 长图标里每一格的边长(屏幕像素; 与 Ponder 自己的 icon/item 槽一致 = 16 逻辑像素 × 1.5)。 */
-    private static final int SLOT = 24;
-    /** Ponder 渲染输入图标时对自定义元素施加的缩放(`javap`: `InputWindowElement.render` → `pose.scale(1.5f …)`)。 */
-    private static final float INPUT_SCALE = 1.5f;
-    /** 气泡盒体与锚点(尾巴尖)之间的间隙(`javap`: `renderSpeechBox` 的 DOWN 分支 = `h + 8 + 1 + 1`)。 */
-    private static final int TAIL_GAP = 10;
+    /** 装配段每一拍"右击 + 材料"的气泡时长: 上一拍结束的同一 tick 下一拍才开始。 */
+    private static final int TIP_TICKS = 26;
 
     private DepotScenes() {
     }
@@ -134,10 +125,14 @@ public final class DepotScenes {
     // ------------------------------------------------------------------ 进行装配
 
     /**
-     * 装配: 台面上放原料(金板) → 把"要用的材料"排成一行图标
-     * (鼠标右键 / 小齿轮 / 大齿轮 / 铁粒, **四个图标各自一个位置、同时出现同时结束**) → **一次性**显示成品。
+     * 装配: 台面上放原料(金板) → 依次演示要投的三件材料 → **一次性**显示成品。
      *
-     * <p>⚠️ 用户 2026-09-23 定的简化版: 不再逐件演 15 次投料(那样图标会重叠/淡入淡出叠在一起), 也不要粒子。</p>
+     * <p>⚠️ 为什么不是"一个长图标": Ponder 的输入气泡宽度是它自己按内容算的(每个物品槽 24px),
+     * 想在同一个气泡里塞 4 个图标只能自己加宽气泡, 而元素回调拿到的局部坐标系与
+     * {@code renderSpeechBox} 摆放气泡用的坐标系**不是同一个**(2026-09-25 实机截图证实: 自己画的气泡与图标
+     * 各在一处, 还会多出一个没被盖住的原生气泡) ⇒ 不再走那条路。
+     * 现在改成**原生气泡依次演示**: 每一拍都是 {@code [右击鼠标][材料]}, 上一拍结束的同一 tick 下一拍才开始
+     * (不重叠、不叠影), 三件材料演完再一次性出成品。</p>
      */
     public static void assembly(SceneBuilder builder, SceneBuildingUtil util) {
         CreateSceneBuilder scene = start(builder, util, "wrench_process_assembly", "Assembly", DEPOT);
@@ -159,11 +154,14 @@ public final class DepotScenes {
             .attachKeyFrame();
         scene.idle(30);
 
-        // **一个长图标**: 鼠标右键 + 小齿轮 + 大齿轮 + 铁粒(自己加宽气泡, 见 materialStrip)
-        scene.overlay().showControls(util.vector().topOf(DEPOT).add(0, 0.55, 0.0), Pointing.DOWN, 60)
-            .showing(materialStrip(MECHANISM_MATERIALS));
-        scene.idle(60);
-        scene.idle(30);
+        // [右击鼠标][小齿轮] → [右击鼠标][大齿轮] → [右击鼠标][铁粒]: 每拍 26 tick, 首尾相接不重叠
+        Vec3 anchor = util.vector().topOf(DEPOT).add(0, 0.55, 0);
+        for (ItemStack material : MECHANISM_MATERIALS) {
+            scene.overlay().showControls(anchor, Pointing.DOWN, TIP_TICKS)
+                .withItem(material)
+                .rightClick();
+            scene.idle(TIP_TICKS);
+        }
 
         hold(scene, util, DEPOT, AllItems.PRECISION_MECHANISM.asStack());
         scene.effects().indicateSuccess(DEPOT);
@@ -374,41 +372,6 @@ public final class DepotScenes {
         scene.world().showSection(util.select().position(depot), Direction.DOWN);
         scene.idle(5);
         return scene;
-    }
-
-    /**
-     * 在置物台上方摆**一个长图标**: 「鼠标右键」+ {@link #MECHANISM_MATERIALS} 依次排在里面。
-     *
-     * <p>⚠️ Ponder 的输入元素只给自定义 {@code ScreenElement} 留 24px(它自己按"图标/文字/物品"三选几算宽度),
-     * 想塞 4 个只能自己加宽。做法(全部按 `javap` 实测的几何来):
-     * 元素的渲染是在 `pose.scale(1.5)` 之后调 {@code icon.render(graphics, 0, 0)} 的, 所以先 `scale(1/1.5)`
-     * **把单位换回屏幕像素**, 然后用与 Ponder **完全相同**的锚点/高度再调一次公开的
-     * {@code PonderUI.renderSpeechBox}(只是宽度变成 4 格) —— 这样气泡除了更宽以外与元素自带那个**逐像素重合**
-     * (它自带的 24px 小气泡被完全盖住, 尾巴也重合), 最后在气泡内部按格画右击鼠标图标
-     * ({@code PonderGuiTextures.ICON_RMB}, 与 {@code .rightClick()} 同一张贴图)与三件材料图标。</p>
-     */
-    private static ScreenElement materialStrip(ItemStack... materials) {
-        return (graphics, x, y) -> {
-            int count = materials.length + 1;
-            int width = SLOT * count;
-            PoseStack pose = graphics.pose();
-            pose.pushPose();
-            pose.scale(1f / INPUT_SCALE, 1f / INPUT_SCALE, 1f);      // 单位 = 屏幕像素
-            PonderUI.renderSpeechBox(graphics, x, y, width, SLOT, false, Pointing.DOWN, true);
-            int top = y - SLOT - TAIL_GAP;                           // renderSpeechBox 的 DOWN 分支: 盒子在锚点上方
-            int left = x - width / 2;
-            for (int i = 0; i < count; i++) {
-                pose.pushPose();
-                pose.translate(left + i * SLOT, top, 0);
-                pose.scale(INPUT_SCALE, INPUT_SCALE, 1f);
-                if (i == 0)
-                    PonderGuiTextures.ICON_RMB.render(graphics, 0, 0);
-                else
-                    graphics.renderItem(materials[i - 1], 0, 0);
-                pose.popPose();
-            }
-            pose.popPose();
-        };
     }
 
     /**

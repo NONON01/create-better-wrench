@@ -127,8 +127,9 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   split apart, the caption counts now match the language keys one-to-one (connect 7 / deconstruct 5 / process 3 /
   assembly 2 / filling 3 / washing 2 / smelting 2 / smoking 2 / haunting 4), every `showText(n)` is followed by at least
   `n` ticks of idle so captions never overlap, and the Java defaults are kept byte-identical to `en_us.json`.
-  *Assembly* lists the real Precision Mechanism materials (cogwheel, large cogwheel, iron nugget) inside **one wide
-  icon** next to the right-click mark and then shows the product in one go, with **no particles**; *smelting* shows
+  *Assembly* shows the real Precision Mechanism materials (cogwheel, large cogwheel, iron nugget) as three native
+  right-click prompts that follow each other **back to back** (each one ends exactly when the next begins), then shows
+  the product in one go, with **no particles**; *smelting* shows
   **only raw iron -> iron ingot** and *washing* **only gravel -> flint**; the products **stay on the Depot** instead of
   popping out, and flint & steel is shown once. *Deconstructing* selects with **blue** boxes (the in-game colour) and
   *haunting* puts the soul sand on **its own layer** so it is actually visible.
