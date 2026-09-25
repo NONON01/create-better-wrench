@@ -106,6 +106,14 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   parameter and a dead `DepotSoulFlames.untrack()` were removed.
 
 ### Changed
+- **The first three Ponder scenes were rewritten in Create's own style** (linking stress, processing overview,
+  bulk deconstructing). Structures now grow block by block instead of appearing in one slab; machines start **still**
+  and only spin once the route is linked (setKineticSpeed 0 -> 64); the wrench is shown with `showControls(...).withItem(...)`
+  rather than a click animation; text is short and declarative ("Right-clicking a Depot will lock it") instead of
+  second-person prose; the extra colour tags, `.independent(...)` paragraphs and `markAsFinished()` calls are gone,
+  and the two shared-text entries (`hold_alt` / `ctrl_scroll`) were dropped as unused. The remaining six processing
+  scenes will follow once the style is confirmed. (Style rules, measured from Create's 168 scenes:
+  `docs/dev/06-ponder.md` §15.)
 - **Ponder categories: three tags to one.** The *Connect* / *Deconstruct* / *Process* tags are gone (they duplicated the
   scene list without adding navigation). There is now a single **Universal Wrench** tag, attached to **both the wrench and
   the Depot**: hovering a Depot and holding W shows that one entry on the left, and opening it lists the wrench itself --

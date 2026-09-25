@@ -55,45 +55,50 @@ public final class DepotScenes {
 
     // ------------------------------------------------------------------ 使用万能扳手进行加工(总述)
 
-    /** 加工总述: 先锁定置物台, 再手持对应工具/材料右击。 */
+    /**
+     * 加工总述: 先锁定置物台, 再手持工具/材料右击。
+     *
+     * <p>写法照 {@code FanScenes.processing} 那套(Create 的"置物台 + 加工"标准分镜):
+     * 底板 → 机器 → {@code showControls(...).withItem(...)} 演"手上拿什么" → 短句陈述文字
+     * ({@code .pointAt(...).placeNearTarget()}) → 粒子用 {@code amount=1, ticks=60} → 台面上的物品换掉。</p>
+     */
     public static void process(SceneBuilder builder, SceneBuildingUtil util) {
-        CreateSceneBuilder scene = start(builder, util, "wrench_process", "Processing with the Wrench");
+        CreateSceneBuilder scene = start(builder, util, "wrench_process",
+            "Processing Items using the Universal Wrench");
 
-        scene.overlay().showText(80)
-            .text("Lock a Depot with the wrench first - then it will not be emptied by accident")
-            .attachKeyFrame()
-            .colored(PonderPalette.BLUE)
+        scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
+            .withItem(BetterWrenchMod.BETTER_WRENCH.get().getDefaultInstance());
+        scene.idle(20);
+        scene.overlay().showText(70)
+            .text("Right-clicking a Depot will lock it")
+            .pointAt(util.vector().topOf(DEPOT))
             .placeNearTarget()
-            .pointAt(util.vector().topOf(DEPOT));
-        scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 40)
-            .withItem(BetterWrenchMod.BETTER_WRENCH.get().getDefaultInstance())
-            .rightClick();
-        scene.idle(50);
+            .attachKeyFrame();
         scene.effects().indicateSuccess(DEPOT);
-        scene.idle(60);
+        scene.idle(70);
 
         hold(scene, util, new ItemStack(Items.RAW_IRON));
-        scene.overlay().showText(80)
-            .text("Right-click the locked Depot with the matching tool or material")
-            .attachKeyFrame()
-            .colored(PonderPalette.GREEN)
+        scene.idle(10);
+        scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
+            .withItem(new ItemStack(Items.LAVA_BUCKET));
+        scene.idle(20);
+        scene.overlay().showText(70)
+            .text("Right-clicking it with a tool will process the item on top")
+            .pointAt(util.vector().topOf(DEPOT))
             .placeNearTarget()
-            .pointAt(util.vector().topOf(DEPOT));
-        scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 40)
-            .withItem(new ItemStack(Items.LAVA_BUCKET))
-            .rightClick();
-        scene.idle(90);
+            .attachKeyFrame();
+        scene.idle(60);
+
+        puff(scene, util, ParticleTypes.LARGE_SMOKE, 1, 60);
         hold(scene, util, new ItemStack(Items.IRON_INGOT));
-        puff(scene, util, ParticleTypes.LARGE_SMOKE, 6, 20);
+        scene.effects().indicateSuccess(DEPOT);
         scene.idle(40);
 
-        scene.overlay().showText(90)
-            .text("Six kinds: Assembly, Filling, Washing, Blasting, Smoking, Haunting - shown next")
-            .colored(PonderPalette.WHITE)
-            .independent();
-        scene.idle(100);
-
-        scene.markAsFinished();
+        scene.overlay().showText(80)
+            .text("Six kinds can be processed: Assembly, Filling, Washing, Blasting, Smoking and Haunting")
+            .pointAt(util.vector().topOf(DEPOT))
+            .placeNearTarget();
+        scene.idle(80);
     }
 
     // ------------------------------------------------------------------ 进行装配

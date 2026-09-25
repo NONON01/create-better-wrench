@@ -9,7 +9,6 @@ import net.createmod.catnip.registry.RegisteredObjectsHelper;
 import net.createmod.ponder.api.registration.PonderPlugin;
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper;
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper;
-import net.createmod.ponder.api.registration.SharedTextRegistrationHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
@@ -72,12 +71,10 @@ public class BetterWrenchPonderPlugin implements PonderPlugin {
         BetterWrenchPonderTags.register(helper);
     }
 
-    @Override
-    public void registerSharedText(SharedTextRegistrationHelper helper) {
-        // 跨场景复用的短文本(键 = <modid>.ponder.shared.<名字>)
-        helper.registerSharedText("hold_alt", "Hold ALT");
-        helper.registerSharedText("ctrl_scroll", "Ctrl + Scroll");
-    }
+    // 注: 2026-09-23 起**不再注册共享文本**(`registerSharedText`) ——
+    // 原先那两条(`hold_alt` / `ctrl_scroll`)是给早期场景当"独立提示条"用的, 按 Create 场景重写后已改用
+    // 正常陈述句文字("Ctrl and Scroll will switch ..."), 对应的两条 lang 键也一并删除。
+    // ⚠️ 将来若重新启用共享文本, 记得同时补 `<modid>.ponder.shared.<名字>` 的中英键, 否则会显示裸键。
 
     /**
      * "加工"那 7 段的宿主组件: **我们的扳手** + **Create 的置物台**。
