@@ -84,6 +84,9 @@ public final class DeconstructSelectionHandler {
         Minecraft mc = Minecraft.getInstance();
         if (!active(mc))
             return false;
+        // 功能被配置关掉: 提示「此功能未启用」, 吃掉这次点击(什么都不做)
+        if (ClientFeatureGate.blockIfDisabled(WrenchMode.DECONSTRUCT))
+            return true;
         // 潜行 + 右键 = 放弃当前选区(cancel() 本来就有, 这里把输入接上; 见 docs/reference/03-known-issues.md A-14)
         if (mc.player != null && mc.player.isShiftKeyDown()) {
             cancel();
@@ -100,7 +103,9 @@ public final class DeconstructSelectionHandler {
         }
         // 第二次右键: 定 B 并发包
         BlockPos b = hit;
-        DeconstructScope scope = WrenchModeSwitcher.deconstructScope;
+        // 配置里"不允许破坏机械动力/红石方块"时范围档被强制锁定 ⇒ 发出去的也是那个档
+        // (服务端同样会用 effectiveScope() 覆盖一次, 改包也绕不过去)
+        DeconstructScope scope = WrenchConfig.effectiveScope(WrenchModeSwitcher.deconstructScope);
         ClientPacketListener conn = mc.getConnection();
         if (conn != null)
             PacketDistributor.sendToServer(DeconstructPayload.create(cornerA, b, scope));

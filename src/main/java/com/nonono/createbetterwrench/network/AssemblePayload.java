@@ -1,6 +1,7 @@
 package com.nonono.createbetterwrench.network;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.assemble.AssembleLock;
 import com.nonono.createbetterwrench.assemble.AssembleLogic;
 import com.nonono.createbetterwrench.permission.WrenchPermissions;
@@ -48,9 +49,13 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
                 return;
 
             // ===== 服务端校验(绝不信任客户端; 审计发现: 原本这里一条校验都没有)=====
-            // 原本只查了"区块已加载 + 目标是置物台", 于是任何人改包就能
-            // **远程上锁/解锁别人的置物台**(解锁后原料堆变成可抢的掉落物; 上锁后对方彻底不可交互)。
-            // 照 ConnectPayload.handle 里那套校验抄一份:
+            // ⓪ 功能开关: 配置里把「加工」关掉后, 连"锁定/解锁置物台"也一并拒绝
+            //    (用户 2026-09-25: 关掉的功能要"阻止玩家使用", 并且每次尝试都提示)
+            if (!WrenchConfig.processEnabled()) {
+                sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "msg." + BetterWrenchMod.MODID + ".feature_disabled"), true);
+                return;
+            }
             // ① 资格: 旁观者/无建造权限者一律拒绝;冒险模式下额外提示「当前是冒险模式」
             if (WrenchPermissions.rejectIfCannotBuild(sp))
                 return;

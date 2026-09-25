@@ -93,6 +93,9 @@ public final class ConnectSelectionHandler {
         Minecraft mc = Minecraft.getInstance();
         if (!active(mc))
             return false;
+        // 功能被配置关掉: 提示「此功能未启用」, 吃掉这次点击(什么都不做)
+        if (ClientFeatureGate.blockIfDisabled(WrenchMode.CONNECT))
+            return true;
         // 审计 A-14: Shift+右键 = 放弃当前起点与全部拐点(在 active 判定之后)
         if (mc.player.isShiftKeyDown()) {
             resetSelection();

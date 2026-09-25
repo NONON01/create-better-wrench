@@ -14,10 +14,11 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 /**
  * 客户端专用入口: {@code @Mod(dist = Dist.CLIENT)} ⇒ **专用服务器上不会被构造/加载**。
  *
- * <p>它把本模组在 **MOD 总线**上的客户端注册显式挂上:
+ * <p>它把本模组在 **MOD 总线 / GAME 总线**上的客户端注册显式挂上:
  * <ul>
- *   <li>{@code RegisterKeyMappingsEvent} → {@link WrenchModeSwitcher#onRegisterKeyMappings} (ALT 呼出工具条);</li>
- *   <li>{@code RegisterKeyMappingsEvent} → {@link WrenchConfigKeybinds#onRegisterKeyMappings} (B+C 打开配置页面);</li>
+ *   <li>{@code RegisterKeyMappingsEvent} → {@link WrenchModeSwitcher#onRegisterKeyMappings} (ALT 呼出工具条);
+ *       ℹ️ 2026-09-25: 打开配置页面的 B+C 组合键**已删除**, 改用指令 {@code /cbw config};</li>
+ *   <li>{@code RegisterClientCommandsEvent} → {@link CbwClientCommands#registerClient} ({@code /cbw config});</li>
  *   <li>{@code RegisterGuiLayersEvent} → {@link WrenchHud#onRegisterGuiLayers} (底部模式工具条).</li>
  * </ul></p>
  *
@@ -32,7 +33,11 @@ public final class BetterWrenchClient {
     public BetterWrenchClient(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(WrenchHud::onRegisterGuiLayers);
         modEventBus.addListener(WrenchModeSwitcher::onRegisterKeyMappings);
-        modEventBus.addListener(WrenchConfigKeybinds::onRegisterKeyMappings);
+        // ⚠️ 2026-09-25 用户要求: 配置页面**不再用快捷键打开**(原来的 B+C 组合键已删除), 改用指令 /cbw config。
+        // 客户端指令走 GAME 总线的 RegisterClientCommandsEvent。
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+            (net.neoforged.neoforge.client.event.RegisterClientCommandsEvent event) ->
+                CbwClientCommands.registerClient(event.getDispatcher()));
         // 思索(Ponder): 注册本模组的插件(场景 + 标签 + 共享文本)。
         // ⚠️ 必须客户端 —— 思索索引是**纯客户端**概念(库源码注释: "PonderRegistry can't be loaded on Server Dist"),
         //    服务端因此零改动, 也符合本项目"通用代码不引用客户端类"的约束(docs/reference/03-known-issues.md B-1)。

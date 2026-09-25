@@ -3,6 +3,7 @@ package com.nonono.createbetterwrench.client;
 import org.lwjgl.glfw.GLFW;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.mode.AssembleStay;
 import com.nonono.createbetterwrench.mode.ConnectCorner;
 import com.nonono.createbetterwrench.mode.DeconstructScope;
@@ -80,24 +81,43 @@ public final class WrenchModeSwitcher {
      */
     public static Object cycleCtrlOption(int direction) {
         if (current == WrenchMode.DECONSTRUCT) {
+            // 功能被关: 提示一句并原样返回(不改变范围档) —— 服务端也会再拦一次
+            if (ClientFeatureGate.blockIfDisabled(WrenchMode.DECONSTRUCT))
+                return deconstructScope;
+            // 配置里"不允许破坏机械动力/红石方块"时, 范围档被**强制锁定**(用户 2026-09-25 的规则):
+            //   不允许机械动力 ⇒ 运行于「仅红石」; 不允许红石 ⇒ 运行于「仅机械动力」。
+            DeconstructScope forced = WrenchConfig.deconstructForcedScope();
+            if (forced != null) {
+                deconstructScope = forced;
+                return forced;
+            }
             DeconstructScope[] scopes = DeconstructScope.values();
             int idx = deconstructScope.ordinal() + (direction < 0 ? -1 : 1);
             deconstructScope = scopes[((idx % scopes.length) + scopes.length) % scopes.length];
             return deconstructScope;
         }
         if (current == WrenchMode.CONNECT) {
+            if (ClientFeatureGate.blockIfDisabled(WrenchMode.CONNECT))
+                return connectCorner;
             ConnectCorner[] corners = ConnectCorner.values();
             int idx = connectCorner.ordinal() + (direction < 0 ? -1 : 1);
             connectCorner = corners[((idx % corners.length) + corners.length) % corners.length];
             return connectCorner;
         }
         if (current == WrenchMode.ASSEMBLE) {
+            if (ClientFeatureGate.blockIfDisabled(WrenchMode.ASSEMBLE))
+                return assembleStay;
             assembleStay = assembleStay.cycle(direction);
             // 停留时间由**服务端**执行(弹出延时), 所以切换后必须同步过去
             AssembleStayClient.send();
             return assembleStay;
         }
         if (current == WrenchMode.COMING_SOON) {
+            // 配置里"是否启用战斗模式"被关掉 ⇒ 提示「此功能未启用」, 不改本地开关也不发包
+            if (ClientFeatureGate.isCombatDisabled()) {
+                ClientFeatureGate.announceCombatDisabled();
+                return null;
+            }
             // 彩蛋: Ctrl 切换 正常模式 / 战斗模式。
             // 保持"按下即反馈": 本地乐观翻转并立刻由 HUD 显示 actionbar(与原来一模一样)。
             // 同时把"想要的值"发给服务端; 若被权限拒绝, 权威回包到达时会**再显示一次**正确值把它覆盖掉

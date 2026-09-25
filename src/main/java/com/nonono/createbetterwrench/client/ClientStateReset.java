@@ -2,6 +2,7 @@ package com.nonono.createbetterwrench.client;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.combat.CombatModeState;
+import com.nonono.createbetterwrench.config.FeatureToggles;
 
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
@@ -58,6 +59,9 @@ public final class ClientStateReset {
         ConnectSelectionHandler.cancel();
         DeconstructSelectionHandler.cancel();
         CombatModeState.clear();
+        // 功能开关快照也要清: 否则换到另一台服务器后会带着上一台"哪些功能被关"的记忆
+        // (登录时服务端会重新下发; 收到之前一律按默认值 = 全开处理)。
+        FeatureToggles.clear();
         // ⚠️ 必须跟着重置: 否则工具条会一直高亮退出前的模式(见 docs/reference/03-known-issues.md A-12)
         WrenchHud.reset();
     }

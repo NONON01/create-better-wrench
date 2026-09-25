@@ -38,12 +38,19 @@ public class BetterWrenchMod {
 
     public BetterWrenchMod(IEventBus modEventBus, ModContainer modContainer) {
         ITEMS.register(modEventBus);
-        // 可调参数(拆除上限/分帧粒度、连接上限与终点距离) → serverconfig/create_better_wrench-server.toml
+        // 功能开关 + 可调参数 → serverconfig/create_better_wrench-server.toml
         // 类型 SERVER: 数值由服务端权威读取; 单人游戏里客户端与内置服务端共用同一份(预览与限制一致)。
+        // 专用服务器上客户端读不到 ⇒ 由 FeatureSyncServer 在登录/配置重载时下发 FeatureTogglePayload 快照。
         modContainer.registerConfig(ModConfig.Type.SERVER, WrenchConfig.SPEC);
         // 数据附件(置物台锁定态)
         com.nonono.createbetterwrench.assemble.AssembleLock.ATTACHMENTS.register(modEventBus);
         modEventBus.addListener(BetterWrenchMod::registerPayloads);
+        // 配置一重载(改 TOML + /reload, 或单人游戏里改配置)就把新开关下发给所有人
+        modEventBus.addListener(com.nonono.createbetterwrench.network.FeatureSyncServer::onConfigReload);
+        // 指令 /cbw(服务端那一半: version / combat); 客户端那一半见 client/CbwClientCommands
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+            (net.neoforged.neoforge.event.RegisterCommandsEvent event) ->
+                com.nonono.createbetterwrench.command.CbwCommands.registerServer(event.getDispatcher()));
         // BuildCreativeModeTabContentsEvent 是 IModBusEvent, 须注册在 mod 事件总线上(非 NeoForge.EVENT_BUS)
         modEventBus.addListener(BetterWrenchMod::addToCreateTab);
         LOGGER.info("{} 正在加载...", MODID);
@@ -82,5 +89,10 @@ public class BetterWrenchMod {
             com.nonono.createbetterwrench.network.AssembleStayPayload.TYPE,
             com.nonono.createbetterwrench.network.AssembleStayPayload.STREAM_CODEC,
             com.nonono.createbetterwrench.network.AssembleStayPayload::handle);
+        // 功能开关快照(服务端 → 客户端): 专用服务器上客户端靠它知道哪些功能被关掉了
+        registrar.playToClient(
+            com.nonono.createbetterwrench.network.FeatureTogglePayload.TYPE,
+            com.nonono.createbetterwrench.network.FeatureTogglePayload.STREAM_CODEC,
+            com.nonono.createbetterwrench.network.FeatureTogglePayload::handle);
     }
 }

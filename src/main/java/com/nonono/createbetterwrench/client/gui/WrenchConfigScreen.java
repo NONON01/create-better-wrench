@@ -6,6 +6,7 @@ import java.util.Locale;
 
 import com.nonono.createbetterwrench.config.WrenchConfig;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
@@ -18,42 +19,44 @@ import net.minecraft.util.Mth;
 /**
  * 「万能扳手」的**专用配置页面**(自绘, 模仿 Tweakeroo / malilib 那种配置界面)。
  *
- * <h2>长什么样</h2>
- * <ul>
- *   <li>顶部: 标题 + **搜索框**(输入关键字过滤选项, 名称/说明/TOML 路径都能匹配);</li>
- *   <li>中间: **可滚动的选项列表**, 每行 = 左边名称 + 右边**滑块** + `-` / `+` 微调按钮,
- *       悬停控件会显示该选项的说明(tooltip);</li>
- *   <li>右侧: 自绘滚动条; 底部: **重置为默认** / **完成** + 一行操作提示。</li>
- * </ul>
+ * <h2>2026-09-25 重构(用户要求"优化配置页面结构")</h2>
+ * <p>页面按**功能分组**展示, 每组第一行是该功能的**总开关**, 下面是它的子开关与数值:</p>
+ * <pre>
+ *   [连接]      总开关 · 拐点上限 · 单段轴长 · 单次方块数
+ *   [拆除]      总开关 · 允许机械动力方块 · 允许红石方块 · 选区上限 · 每刻处理格数
+ *   [加工]      总开关 · 装配 · 注液 · 洗涤 · 冶炼 · 烤制 · 缠魂
+ *   [战斗]      是否启用 · 需要的权限等级(普通 / OP)
+ * </pre>
+ * <p>控件: 布尔 = 开/关按钮; 数值 = 滑块 + `-`/`+` 微调; 权限等级 = 普通 ↔ OP 两档按钮。
+ * 开关之间有联动规则(见 {@code WrenchConfig#applyToggle}), 所以任何一次点击之后会把**所有行**刷新一遍。</p>
  *
  * <h2>怎么读写配置(走 NeoForge 官方路径)</h2>
  * <ul>
  *   <li>读: {@code ConfigValue#get()}; 范围与默认值取 {@code getSpec().getRange()} / {@code getDefault()};</li>
- *   <li>写: {@code ConfigValue#set(v)} —— 它会**立即更新内存缓存**(本 mod 的 getter 马上生效, **不必重进世界**),
- *       所以滑块一拖, 游戏里立刻按新值工作;</li>
- *   <li>落盘: {@code ConfigValue#save()} = {@code ModConfigSpec#save()}(写文件 + 触发重载事件)。
- *       本页面**只在关闭时统一保存一次**, 不在拖动过程中反复写盘。</li>
+ *   <li>写: {@code ConfigValue#set(v)} —— 立即更新内存缓存(本 mod 的 getter 马上生效, 不必重进世界);</li>
+ *   <li>落盘: {@code ModConfigSpec#save()}, 本页面**只在关闭时统一保存一次**, 不在拖动过程中反复写盘。</li>
  * </ul>
  *
  * <p><b>⚠️ 只读情形</b>: 配置是 SERVER 类型。专用服务器上客户端拿不到服务端配置
- * ({@code ModConfigSpec#isLoaded()} 为 false, 此时 {@code get()} 会抛异常)⇒ 本页面自动变**只读**并给出提示。
- * 单人游戏里客户端与内置服务端同进程, 可以直接改。</p>
+ * ({@code ModConfigSpec#isLoaded()} 为 false)⇒ 本页面自动变**只读**并给出提示
+ * (此时开关值来自服务端下发的快照, 见 {@code config/FeatureToggles})。</p>
  */
 public final class WrenchConfigScreen extends Screen {
 
     // ---------------------------------------------------------------- 布局常量
     private static final int ROW_H = 24;
+    private static final int HEADER_H = 22;
     /** 列表区域垂直起点(标题与搜索框之下)。 */
     private static final int LIST_TOP = 58;
     /** 列表区域宽度(水平居中)。 */
-    private static final int LIST_W = 404;
-    private static final int LABEL_W = 150;
-    private static final int SLIDER_W = 170;
+    private static final int LIST_W = 470;
+    private static final int LABEL_W = 240;
+    private static final int CTL_W = 170;
     private static final int STEP_BTN_W = 22;
 
     private final Screen parent;
-    private final List<WrenchConfig.Option> options = WrenchConfig.options();
-    private final List<Row> rows = new ArrayList<>();
+    /** 列表内容 = 分组标题 + 选项行(顺序与 {@link WrenchConfig#rows()} 一致)。 */
+    private final List<Entry> entries = new ArrayList<>();
 
     private String query = "";
     private double scroll;
@@ -75,9 +78,17 @@ public final class WrenchConfigScreen extends Screen {
 
     @Override
     protected void init() {
-        rows.clear();
-        for (WrenchConfig.Option option : options)
-            rows.add(new Row(option));
+        entries.clear();
+        String lastGroup = null;
+        // 内部类不能有 static 工厂方法 ⇒ 借一个实例来造分组标题
+        Entry factory = new Entry(true, "", null);
+        for (WrenchConfig.Row row : WrenchConfig.rows()) {
+            if (!row.group().equals(lastGroup)) {
+                entries.add(factory.header(row.group()));
+                lastGroup = row.group();
+            }
+            entries.add(factory.option(row));
+        }
 
         int searchW = Math.min(240, width - 40);
         search = new EditBox(font, width / 2 - searchW / 2, 30, searchW, 18,
@@ -90,10 +101,9 @@ public final class WrenchConfigScreen extends Screen {
         });
         addRenderableWidget(search);
 
-        for (Row row : rows) {
-            addRenderableWidget(row.slider);
-            addRenderableWidget(row.minus);
-            addRenderableWidget(row.plus);
+        for (Entry entry : entries) {
+            if (!entry.isHeader)
+                entry.createWidgets();
         }
 
         int bottom = height - 30;
@@ -101,7 +111,7 @@ public final class WrenchConfigScreen extends Screen {
             .bounds(width / 2 - 160, bottom, 150, 20)
             .tooltip(Tooltip.create(Component.translatable("gui.create_better_wrench.config.reset.tip")))
             .build();
-        // 复审 B-16: 只读时把「重置为默认」也禁掉(旧写法点了静默无效, 让人以为界面坏了)
+        // 只读时把「重置为默认」也禁掉(旧写法点了静默无效, 让人以为界面坏了)
         resetButton.active = WrenchConfig.isWritable();
         addRenderableWidget(resetButton);
         addRenderableWidget(Button.builder(Component.translatable("gui.create_better_wrench.config.done"), b -> onClose())
@@ -109,14 +119,21 @@ public final class WrenchConfigScreen extends Screen {
             .build());
 
         search.setValue(query);
+        refreshAll();
         layoutRows();
     }
 
     private void resetToDefaults() {
         if (!WrenchConfig.isWritable())
             return;
-        for (Row row : rows)
-            row.resetToDefault();
+        WrenchConfig.resetAll();
+        refreshAll();
+    }
+
+    /** 任何一次改动之后把所有控件刷新一遍(开关之间有联动规则, 别的行也可能变了)。 */
+    private void refreshAll() {
+        for (Entry entry : entries)
+            entry.refresh();
     }
 
     // ---------------------------------------------------------------- 布局 / 滚动
@@ -125,41 +142,41 @@ public final class WrenchConfigScreen extends Screen {
         return Math.max(ROW_H, height - LIST_TOP - 46);
     }
 
-    private int visibleRowCount() {
-        int n = 0;
-        for (Row row : rows)
-            if (row.matches(query))
-                n++;
-        return n;
+    private int entryHeight(Entry entry) {
+        return entry.isHeader ? HEADER_H : ROW_H;
+    }
+
+    private int visibleHeight() {
+        int h = 0;
+        for (Entry entry : entries)
+            if (entry.matches(query))
+                h += entryHeight(entry);
+        return h;
     }
 
     /** 按过滤条件摆放行; 只有**完整落在列表区域内**的行才显示(避免画到标题/按钮上)。 */
     private void layoutRows() {
         int x = width / 2 - LIST_W / 2;
-        double maxScroll = Math.max(0, visibleRowCount() * ROW_H - listHeight());
+        double maxScroll = Math.max(0, visibleHeight() - listHeight());
         scroll = Mth.clamp(scroll, 0, maxScroll);
-        int index = 0;
-        for (Row row : rows) {
-            boolean match = row.matches(query);
-            if (!match) {
-                row.setVisible(false);
+        int y = (int) Math.round(LIST_TOP - scroll);
+        for (Entry entry : entries) {
+            int h = entryHeight(entry);
+            if (!entry.matches(query)) {
+                entry.setVisible(false);
                 continue;
             }
-            int y = (int) Math.round(LIST_TOP - scroll) + index * ROW_H;
-            index++;
-            boolean fullyVisible = y >= LIST_TOP && y + ROW_H <= LIST_TOP + listHeight();
-            if (!fullyVisible) {
-                row.setVisible(false);
-                continue;
-            }
-            row.layout(x, y);
-            row.setVisible(true);
+            boolean fullyVisible = y >= LIST_TOP && y + h <= LIST_TOP + listHeight();
+            if (fullyVisible)
+                entry.layout(x, y);
+            entry.setVisible(fullyVisible);
+            y += h;
         }
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        double maxScroll = Math.max(0, visibleRowCount() * ROW_H - listHeight());
+        double maxScroll = Math.max(0, visibleHeight() - listHeight());
         if (maxScroll > 0) {
             scroll = Mth.clamp(scroll - scrollY * 14, 0, maxScroll);
             layoutRows();
@@ -170,8 +187,7 @@ public final class WrenchConfigScreen extends Screen {
 
     @Override
     public void onClose() {
-        // 复审 B-16: 这里**不再**自己 saveAll() —— 紧接着的 setScreen(parent) 会触发 removed(), 那里统一写盘一次就够
-        // (旧写法会让关闭时写两遍文件)。
+        // 不在这里 saveAll() —— 紧接着的 setScreen(parent) 会触发 removed(), 那里统一写盘一次就够
         if (minecraft != null)
             minecraft.setScreen(parent);
     }
@@ -192,7 +208,7 @@ public final class WrenchConfigScreen extends Screen {
         g.fill(x - 6, LIST_TOP - 6, x + LIST_W + 6, listBottom + 6, 0x60202020);
         g.renderOutline(x - 6, LIST_TOP - 6, LIST_W + 12, listHeight() + 12, 0x60FFFFFF);
 
-        int total = visibleRowCount() * ROW_H;
+        int total = visibleHeight();
         if (total > listHeight()) {
             int barX = x + LIST_W + 2;
             g.fill(barX, LIST_TOP, barX + 4, listBottom, 0x40FFFFFF);
@@ -209,9 +225,17 @@ public final class WrenchConfigScreen extends Screen {
         g.drawCenteredString(font, title, width / 2, 12, 0xFFFFFF);
 
         int x = width / 2 - LIST_W / 2;
-        for (Row row : rows)
-            if (row.shown)
-                g.drawString(font, row.label(), x + 6, row.y + 7, 0xE0E0E0, false);
+        for (Entry entry : entries) {
+            if (!entry.shown)
+                continue;
+            if (entry.isHeader) {
+                g.fill(x + 4, entry.y + 3, x + LIST_W - 4, entry.y + HEADER_H - 3, 0x40FFFFFF);
+                g.drawString(font, entry.groupName(), x + 12, entry.y + 7, 0xFFD070, false);
+            } else {
+                // 子项缩进一点, 视觉上从属于上面的分组
+                g.drawString(font, entry.label(), x + 20, entry.y + 7, 0xE0E0E0, false);
+            }
+        }
 
         boolean writable = WrenchConfig.isWritable();
         Component hint = Component.translatable(writable ? "gui.create_better_wrench.config.hint" : "gui.create_better_wrench.config.readonly");
@@ -220,127 +244,196 @@ public final class WrenchConfigScreen extends Screen {
 
     // ---------------------------------------------------------------- 行
 
-    /** 一行 = 一个配置项(名称 + 滑块 + 微调按钮)。 */
-    private final class Row {
-        private final WrenchConfig.Option option;
-        private final Slider slider;
-        private final Button minus;
-        private final Button plus;
+    /** 列表里的一项: 分组标题 或 一个配置行。 */
+    private final class Entry {
+        private final boolean isHeader;
+        private final String group;
+        private final WrenchConfig.Row row;
+        /** 数值行: 滑块 + `-` / `+`; 其它行为 null。 */
+        private Slider slider;
+        private Button minus;
+        private Button plus;
+        /** 布尔行 / 权限等级行的按钮。 */
+        private Button toggle;
         private int y;
         private boolean shown;
 
-        private Row(WrenchConfig.Option option) {
-            this.option = option;
-            this.slider = new Slider(option);
-            this.slider.setTooltip(Tooltip.create(Component.translatable(option.descKey())));
-            this.minus = Button.builder(Component.literal("-"), b -> step(-stepSize()))
-                .tooltip(Tooltip.create(Component.translatable("gui.create_better_wrench.config.step.tip")))
-                .bounds(0, 0, STEP_BTN_W, 20)
-                .build();
-            this.plus = Button.builder(Component.literal("+"), b -> step(stepSize()))
-                .tooltip(Tooltip.create(Component.translatable("gui.create_better_wrench.config.step.tip")))
-                .bounds(0, 0, STEP_BTN_W, 20)
-                .build();
+        private Entry(boolean isHeader, String group, WrenchConfig.Row row) {
+            this.isHeader = isHeader;
+            this.group = group;
+            this.row = row;
         }
 
-        private boolean matches(String q) {
-            if (q.isEmpty())
-                return true;
-            String label = label().getString().toLowerCase(Locale.ROOT);
-            String desc = Component.translatable(option.descKey()).getString().toLowerCase(Locale.ROOT);
-            return label.contains(q) || desc.contains(q) || option.path().contains(q);
+        private Entry header(String group) {
+            return new Entry(true, group, null);
+        }
+
+        private Entry option(WrenchConfig.Row row) {
+            return new Entry(false, row.group(), row);
+        }
+
+        private Component groupName() {
+            return Component.translatable("gui.create_better_wrench.config.group." + group);
         }
 
         private Component label() {
-            return Component.translatable(option.labelKey());
+            return Component.translatable(row.labelKey());
         }
 
-        /** 微调步长: ±1(小数项 ±0.5); Shift ×10; Ctrl ×100(小数项 ×50)。
-         *  ⚠️ 复审 B-16: **不再**把 Alt 当 Ctrl —— Alt 是本模组呼出模式工具条的键, 边按 Alt 边点 +/- 会意外跳 100 倍。 */
+        private void createWidgets() {
+            if (isHeader)
+                return;
+            boolean writable = WrenchConfig.isWritable();
+            Tooltip tip = Tooltip.create(Component.translatable(row.descKey()));
+            if (row.isToggle() || row.kind() == WrenchConfig.Kind.LEVEL) {
+                toggle = Button.builder(Component.empty(), b -> {
+                    if (!WrenchConfig.isWritable())
+                        return;
+                    if (row.isToggle())
+                        WrenchConfig.applyToggle(row, !row.asBool());
+                    else
+                        // 权限等级只有两档: 0 = 普通玩家, 2 = OP
+                        WrenchConfig.applyNumber(row, row.asNumber() >= 1 ? 0 : 2);
+                    refreshAll();
+                }).bounds(0, 0, CTL_W, 20).tooltip(tip).build();
+                toggle.active = writable;
+                addRenderableWidget(toggle);
+            } else {
+                slider = new Slider(row);
+                slider.setTooltip(tip);
+                minus = Button.builder(Component.literal("-"), b -> step(-stepSize()))
+                    .tooltip(Tooltip.create(Component.translatable("gui.create_better_wrench.config.step.tip")))
+                    .bounds(0, 0, STEP_BTN_W, 20)
+                    .build();
+                plus = Button.builder(Component.literal("+"), b -> step(stepSize()))
+                    .tooltip(Tooltip.create(Component.translatable("gui.create_better_wrench.config.step.tip")))
+                    .bounds(0, 0, STEP_BTN_W, 20)
+                    .build();
+                addRenderableWidget(slider);
+                addRenderableWidget(minus);
+                addRenderableWidget(plus);
+            }
+        }
+
+        /** 名称/说明/TOML 路径/分组名 任一命中即匹配。 */
+        private boolean matches(String q) {
+            if (q.isEmpty())
+                return true;
+            if (isHeader)
+                return groupName().getString().toLowerCase(Locale.ROOT).contains(q);
+            String label = label().getString().toLowerCase(Locale.ROOT);
+            String desc = Component.translatable(row.descKey()).getString().toLowerCase(Locale.ROOT);
+            return label.contains(q) || desc.contains(q) || row.path().contains(q)
+                || groupName().getString().toLowerCase(Locale.ROOT).contains(q);
+        }
+
+        /** 从配置回读当前值, 刷新控件上的文字/位置。 */
+        private void refresh() {
+            if (isHeader)
+                return;
+            if (toggle != null) {
+                if (row.isToggle()) {
+                    boolean on = row.asBool();
+                    toggle.setMessage(Component.translatable(
+                        "gui.create_better_wrench.config.toggle." + (on ? "on" : "off"))
+                        .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED));
+                } else {
+                    boolean op = row.asNumber() >= 1;
+                    toggle.setMessage(Component.translatable(
+                        "gui.create_better_wrench.config.level." + (op ? "op" : "normal")));
+                }
+            }
+            if (slider != null)
+                slider.syncFromRow();
+        }
+
+        /** 微调步长: ±1; Shift ×10; Ctrl ×100(小数项 ×50)。不把 Alt 当 Ctrl(Alt 是呼出工具条的键)。 */
         private double stepSize() {
-            double base = option.isDouble() ? 0.5 : 1;
-            if (Screen.hasControlDown())
-                return base * (option.isDouble() ? 50 : 100);
-            if (Screen.hasShiftDown())
+            double base = 1;
+            if (net.minecraft.client.gui.screens.Screen.hasControlDown())
+                return base * 100;
+            if (net.minecraft.client.gui.screens.Screen.hasShiftDown())
                 return base * 10;
             return base;
         }
 
         private void step(double delta) {
-            if (!WrenchConfig.isWritable())
+            if (!WrenchConfig.isWritable() || row == null)
                 return;
-            option.set(Mth.clamp(option.get() + delta, option.min(), option.max()));
-            slider.syncFromOption();
-        }
-
-        private void resetToDefault() {
-            option.set(Mth.clamp(option.getDefault(), option.min(), option.max()));
-            slider.syncFromOption();
+            WrenchConfig.applyNumber(row, row.asNumber() + delta);
+            refreshAll();
         }
 
         private void setVisible(boolean visible) {
             this.shown = visible;
             boolean editable = visible && WrenchConfig.isWritable();
-            slider.visible = visible;
-            slider.active = editable;   // 只读时滑块也点不动(applyValue 另有兜底)
-            minus.visible = editable;
-            plus.visible = editable;
+            if (slider != null) {
+                slider.visible = visible;
+                slider.active = editable;
+            }
+            if (minus != null)
+                minus.visible = editable;
+            if (plus != null)
+                plus.visible = editable;
+            if (toggle != null) {
+                toggle.visible = visible;
+                toggle.active = editable;
+            }
         }
 
         private void layout(int listX, int rowY) {
             this.y = rowY;
-            int sliderX = listX + 6 + LABEL_W + STEP_BTN_W + 6;
-            minus.setPosition(listX + 6 + LABEL_W + 2, rowY + 2);
+            if (isHeader)
+                return;
+            if (toggle != null) {
+                toggle.setPosition(listX + 20 + LABEL_W, rowY + 2);
+                return;
+            }
+            int sliderX = listX + 20 + LABEL_W + STEP_BTN_W + 6;
+            minus.setPosition(listX + 20 + LABEL_W + 2, rowY + 2);
             slider.setPosition(sliderX, rowY + 2);
-            plus.setPosition(sliderX + SLIDER_W + 4, rowY + 2);
+            plus.setPosition(sliderX + CTL_W + 4, rowY + 2);
         }
     }
 
-    /** 数值滑块: 拖动即改配置(内存), 显示"TOML 路径 = 值"。 */
+    /** 数值滑块: 拖动即改配置(内存), 显示"值"。 */
     private final class Slider extends AbstractSliderButton {
-        private final WrenchConfig.Option option;
+        private final WrenchConfig.Row row;
 
-        private Slider(WrenchConfig.Option option) {
-            super(0, 0, SLIDER_W, 20, Component.empty(), norm(option, option.get()));
-            this.option = option;
-            // 复审 B-16: 必须在这里**主动**刷一次文本 —— `AbstractSliderButton` 的构造器**不会**调 `updateMessage()`
-            // (javap 实测: 构造器只有 super + putfield value; 全类唯一的调用点在 private setValue(double) 里),
-            // 而我们传进去的初始 message 是 Component.empty() ⇒ 不补这一句的话, 刚打开配置页时滑块上是空的,
-            // 得点一下/拖一下才出现"路径 = 值"。
+        private Slider(WrenchConfig.Row row) {
+            super(0, 0, CTL_W, 20, Component.empty(), norm(row, row.asNumber()));
+            this.row = row;
+            // AbstractSliderButton 的构造器**不会**调 updateMessage()(javap 实测) ⇒ 必须自己补一次,
+            // 否则刚打开配置页时滑块上是空的, 得点一下才出现数值。
             updateMessage();
         }
 
-        private static double norm(WrenchConfig.Option option, double value) {
-            double span = option.max() - option.min();
-            return span <= 0 ? 0 : Mth.clamp((value - option.min()) / span, 0, 1);
+        private static double norm(WrenchConfig.Row row, double value) {
+            double span = row.max() - row.min();
+            return span <= 0 ? 0 : Mth.clamp((value - row.min()) / span, 0, 1);
         }
 
         private double raw() {
-            return option.min() + value * (option.max() - option.min());
+            return row.min() + value * (row.max() - row.min());
         }
 
-        /** 外部(重置 / 微调)改了配置后, 把滑块拉回同步。
-         *  ⚠️ 1.21.1 的 {@code AbstractSliderButton} **没有** setValue(): 只能直接写它 protected 的 {@code value} 字段。 */
-        private void syncFromOption() {
-            this.value = norm(option, option.get());
+        /** 外部(重置 / 微调 / 联动)改了配置后, 把滑块拉回同步。 */
+        private void syncFromRow() {
+            this.value = norm(row, row.asNumber());
             updateMessage();
         }
 
         @Override
         protected void updateMessage() {
-            setMessage(Component.literal(option.path() + " = " + format(raw())));
+            setMessage(Component.literal(Long.toString(Math.round(raw()))));
         }
 
         @Override
         protected void applyValue() {
             if (!WrenchConfig.isWritable())
                 return;
-            option.set(Mth.clamp(option.isDouble() ? raw() : Math.round(raw()), option.min(), option.max()));
+            WrenchConfig.applyNumber(row, Math.round(raw()));
             updateMessage();
-        }
-
-        private String format(double v) {
-            return option.isDouble() ? String.format(Locale.ROOT, "%.1f", v) : Long.toString(Math.round(v));
         }
     }
 }

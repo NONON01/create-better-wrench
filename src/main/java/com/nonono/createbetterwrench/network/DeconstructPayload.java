@@ -54,6 +54,12 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
                 return;
 
             // ===== 服务端校验(绝不信任客户端)=====
+            // ⓪ 功能开关: 配置里把「拆除」关掉后, 任何请求一律拒绝(改包客户端也绕不过)
+            if (!WrenchConfig.deconstructEnabled()) {
+                sp.displayClientMessage(Component.translatable(
+                    "msg." + BetterWrenchMod.MODID + ".feature_disabled"), true);
+                return;
+            }
             // ① 资格: 旁观者/无建造权限者一律拒绝;冒险模式下额外提示「当前是冒险模式」
             if (WrenchPermissions.rejectIfCannotBuild(sp))
                 return;
@@ -84,6 +90,9 @@ public record DeconstructPayload(BlockPos cornerA, BlockPos cornerB, String scop
             } catch (Exception e) {
                 scope = DeconstructScope.ALL;
             }
+            // ⓪b 配置里"不允许破坏机械动力/红石方块"时, 服务端**强制**用被锁定的那一档覆盖客户端发来的档
+            //     (用户 2026-09-25 的规则: 不允许机械动力 ⇒ 只能"仅红石"; 不允许红石 ⇒ 只能"仅机械动力")
+            scope = WrenchConfig.effectiveScope(scope);
             // 交给分帧执行器: 小选区当场完成;大选区按**固定片大小**(每服务端刻最多 1024 格)分帧, 避免卡服。
             // 拆除数量由执行器统一回报(actionbar), 文案见 msg.<modid>.deconstruct.count / .batching
             DeconstructJob.start((net.minecraft.server.level.ServerLevel) sp.level(),

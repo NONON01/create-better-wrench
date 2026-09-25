@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.config.WrenchConfig;
+import com.nonono.createbetterwrench.mode.ProcessKind;
 import com.simibubi.create.AllRecipeTypes;
 import com.simibubi.create.content.fluids.spout.FillingBySpout;
 import com.simibubi.create.content.fluids.transfer.GenericItemEmptying;
@@ -97,6 +99,13 @@ public final class AssembleLogic {
         if (held.isEmpty() || held.is(BetterWrenchMod.BETTER_WRENCH))
             return false; // 空手/扳手不参与工作模式(扳手用于锁定/解锁)
 
+        // ⓪ 功能开关(用户 2026-09-25): 「加工」总开关关掉后, 这里什么都不做, 只提示并**吃掉这次交互**
+        //    (返回 true = 已消费 ⇒ AssembleInteractionHandler 不会把手上那摞放上台面)。
+        if (!WrenchConfig.processConfigEnabled()) {
+            notifyFeatureDisabled(player);
+            return true;
+        }
+
         // 台面空了就先从原料堆续一个上来。
         // 正常情况下 consumeAndRefill 已经在每次加工结束时续好了, 这里只是兜底
         // (服务器重启/存档读入后台面可能是空的, 而原料堆还在)。
@@ -120,6 +129,39 @@ public final class AssembleLogic {
         return false;
     }
 
+    // ---------------------------------------------------------------- 功能开关(用户 2026-09-25)
+
+    /** actionbar: 整个「加工」功能被配置关掉了。 */
+    private static void notifyFeatureDisabled(Player player) {
+        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+            "msg." + BetterWrenchMod.MODID + ".feature_disabled"), true);
+    }
+
+    /**
+     * 这一种加工方式被关掉了吗? 关了就地给 actionbar「此子功能未启用」并返回 {@code true}
+     * (调用方返回 true = 吃掉这次交互, 什么都不消耗)。
+     */
+    private static boolean blockedSubKind(Player player, ProcessKind kind) {
+        if (WrenchConfig.processKindEnabled(kind))
+            return false;
+        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+            "msg." + BetterWrenchMod.MODID + ".subfeature_disabled"), true);
+        return true;
+    }
+
+    /** 把 Create 的鼓风类型映射到用户定的六个子功能之一(认不出来返回 null ⇒ 只受总开关约束)。 */
+    private static ProcessKind kindOf(FanProcessingType type) {
+        if (type == AllFanProcessingTypes.SPLASHING)
+            return ProcessKind.SPLASH;
+        if (type == AllFanProcessingTypes.BLASTING)
+            return ProcessKind.BLASTING;
+        if (type == AllFanProcessingTypes.SMOKING)
+            return ProcessKind.SMOKING;
+        if (type == AllFanProcessingTypes.HAUNTING)
+            return ProcessKind.HAUNTING;
+        return null;
+    }
+
     // ---------------------------------------------------------------- 1. 序列装配
 
     private static boolean trySequencedAssembly(Level level, BlockPos pos, DepotBlockEntity depot,
@@ -132,6 +174,9 @@ public final class AssembleLogic {
         DeployerApplicationRecipe recipe = found.get().value();
         if (!recipe.getRequiredHeldItem().test(held))
             return false;
+        // 子功能开关: 「装配」被关 ⇒ 提示「此子功能未启用」并吃掉交互(不消耗任何材料)
+        if (blockedSubKind(player, ProcessKind.ASSEMBLY))
+            return true;
 
         ItemStack working = current.copyWithCount(1);
         splitExtras(level, pos, depot); // 多余的先挪到原料堆, 台面只留正在加工的那一个
@@ -190,6 +235,9 @@ public final class AssembleLogic {
         List<ItemStack> results = RecipeApplier.applyRecipeOn(level, working, recipe, true);
         if (results.isEmpty() || results.get(0).isEmpty())
             return false;
+        // 子功能开关: "机械手式施加"归在「装配」下(用户定的六种里没有单独一类)
+        if (blockedSubKind(player, ProcessKind.ASSEMBLY))
+            return true;
 
         boolean keepHeld = recipe instanceof ItemApplicationRecipe application && application.shouldKeepHeldItem();
         consumeHeld(player, held, hand, keepHeld);
@@ -255,6 +303,9 @@ public final class AssembleLogic {
         int units = available.getAmount() / perItem;
         if (units <= 0)
             return false;
+        // 子功能开关: 「注液」
+        if (blockedSubKind(player, ProcessKind.FILLING))
+            return true;
 
         // 输入 = 台面现有的 + 从原料堆续上来的, 最多凑到 units 个
         int onDepot = current.getCount();
@@ -382,6 +433,10 @@ public final class AssembleLogic {
         // 所有候选都不适用: 不消耗、不提示, 让别的路径继续尝试(与改动前一致)
         if (type == null)
             return false;
+        // 子功能开关: 洗涤/冶炼/烤制/缠魂 —— 具体是哪一种由上面挑出来的 FanProcessingType 决定
+        ProcessKind kind = kindOf(type);
+        if (kind != null && blockedSubKind(player, kind))
+            return true;
 
         // ② 并入**原料堆**里的同类物品, 合计凑到**置物台本身的理论上限**(= 该物品的最大堆叠数, 原版即 64)。
         //    原料堆里的异类型物品**原样放回**(与 trySpoutFilling 同样的防丢料处理)。

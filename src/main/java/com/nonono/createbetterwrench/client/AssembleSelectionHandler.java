@@ -81,9 +81,12 @@ public final class AssembleSelectionHandler {
         if (WrenchModeSwitcher.current == WrenchMode.ASSEMBLE) {
             BlockPos pos = ((BlockHitResult) hit).getBlockPos();
             if (mc.level.getBlockState(pos).getBlock() instanceof DepotBlock) {
-                ClientPacketListener conn = mc.getConnection();
-                if (conn != null)
-                    PacketDistributor.sendToServer(new AssemblePayload(pos));
+                // 功能被配置关掉: 只提示「此功能未启用」, 不发包(服务端也会再拦一次)
+                if (!ClientFeatureGate.blockIfDisabled(WrenchMode.ASSEMBLE)) {
+                    ClientPacketListener conn = mc.getConnection();
+                    if (conn != null)
+                        PacketDistributor.sendToServer(new AssemblePayload(pos));
+                }
             }
         }
 

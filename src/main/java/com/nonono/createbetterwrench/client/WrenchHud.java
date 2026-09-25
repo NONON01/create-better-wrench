@@ -129,6 +129,8 @@ public final class WrenchHud {
         sel.setSelected(WrenchModeSwitcher.current);
         sel.cycle(dir);
         WrenchModeSwitcher.current = sel.getSelected();
+        // 切到"被配置关掉"的功能时提示「此功能未启用」(模式本身仍然切过去, 只是不能用)
+        ClientFeatureGate.announceIfDisabled(WrenchModeSwitcher.current);
         return true;
     }
 

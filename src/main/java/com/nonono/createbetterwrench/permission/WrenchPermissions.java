@@ -24,15 +24,23 @@ import net.neoforged.neoforge.server.permission.nodes.PermissionTypes;
 @EventBusSubscriber(modid = BetterWrenchMod.MODID)
 public final class WrenchPermissions {
 
-    /** OP 判定阈值: 权限等级 ≥ 2(与原版"可执行多数管理指令"的等级一致)。 */
+    /** OP 判定阈值(配置里"需要的权限等级"填 2 时的语义: 与原版"可执行多数管理指令"一致)。 */
     public static final int OP_PERMISSION_LEVEL = 2;
 
-    /** 战斗模式权限节点: cbw.combatmode, **默认仅 OP 拥有**。 */
+    /**
+     * 战斗模式权限节点: cbw.combatmode, **默认按配置里"需要的权限等级"判定**
+     * ({@code combat.permission_level} = 0 普通 / 2 OP)。
+     *
+     * <p>2026-09-25: 以前这里写死 ≥2; 现在改成动态读配置, 否则配置里设成 0(人人可用)时,
+     * 这个节点的默认解析器仍会拒绝普通玩家 ⇒ 两套判定打架。整合包作者依旧可以用 NeoForge 权限 API
+     * 单独改写这个节点来覆盖配置。</p>
+     */
     public static final PermissionNode<Boolean> COMBAT_MODE = new PermissionNode<>(
         ResourceLocation.fromNamespaceAndPath("cbw", "combatmode"),
         PermissionTypes.BOOLEAN,
         // player 可能为 null(离线查询), 此时一律拒绝
-        (player, playerUUID, context) -> player != null && player.hasPermissions(OP_PERMISSION_LEVEL));
+        (player, playerUUID, context) -> player != null
+            && player.hasPermissions(com.nonono.createbetterwrench.config.WrenchConfig.combatPermissionLevel()));
 
     private WrenchPermissions() {
     }
@@ -43,16 +51,27 @@ public final class WrenchPermissions {
     }
 
     /**
-     * 该玩家是否拥有「战斗模式」权限。**默认仅 OP 拥有**。
+     * 该玩家能不能用「战斗模式」。**三重判定**(任一满足即可):
+     * <ol>
+     *   <li>配置里"是否启用战斗模式"= 开(关掉 = 谁都别想用);</li>
+     *   <li>被指令 {@code /cbw combat <选择器> true} **单独授权**过(不受权限等级限制);</li>
+     *   <li>权限等级 ≥ 配置里的 {@code combat.permission_level}(0 = 普通玩家也能开, 2 = 需要 OP);
+     *       另外 NeoForge 权限节点 {@code cbw.combatmode} 也照这个等级解析, 整合包可另行覆盖。</li>
+     * </ol>
      *
-     * <p>审计发现: 原先权限 API 异常时 `return true`(fail-open) ⇒ 任何异常都会把战斗模式
-     * **默认放开给所有人**。越权类功能必须 fail-closed, 故改为 `return false`。</p>
+     * <p>审计发现: 原先权限 API 异常时 {@code return true}(fail-open) ⇒ 任何异常都会把战斗模式
+     * **默认放开给所有人**。越权类功能必须 fail-closed: 异常时**只保留"指令授权"这一条**。</p>
      */
     public static boolean canUseCombatMode(ServerPlayer player) {
-        try {
-            return PermissionAPI.getPermission(player, COMBAT_MODE);
-        } catch (RuntimeException e) {
+        if (!com.nonono.createbetterwrench.config.WrenchConfig.combatEnabled())
             return false;
+        boolean granted = com.nonono.createbetterwrench.combat.WrenchCombatGrant.isGranted(player);
+        try {
+            return granted
+                || PermissionAPI.getPermission(player, COMBAT_MODE)
+                || player.hasPermissions(com.nonono.createbetterwrench.config.WrenchConfig.combatPermissionLevel());
+        } catch (RuntimeException e) {
+            return granted;
         }
     }
 

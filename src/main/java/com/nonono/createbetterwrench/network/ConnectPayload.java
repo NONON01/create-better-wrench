@@ -101,6 +101,12 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
                 return;
 
             // ===== 服务端校验(绝不信任客户端)=====
+            // ⓪ 功能开关: 配置里把「连接」关掉后, 任何请求一律拒绝(改包客户端也绕不过)
+            if (!WrenchConfig.connectEnabled()) {
+                sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "msg." + BetterWrenchMod.MODID + ".feature_disabled"), true);
+                return;
+            }
             // ① 资格: 旁观者/无建造权限者一律拒绝;冒险模式下额外提示「当前是冒险模式」
             if (WrenchPermissions.rejectIfCannotBuild(sp))
                 return;
@@ -114,14 +120,8 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
                     "msg." + BetterWrenchMod.MODID + ".connect.too_many_corners", maxCorners()), true);
                 return;
             }
-            // ④ 审计 A-3: 终点必须在玩家**配置的距离**内(默认 8 格) —— 挡住改包客户端远程施工。
-            //    刻意**不校验** start/拐点: 玩家是一路走过去逐个点拐点的, 起点很可能已在很远处。
-            if (sp.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(end))
-                > WrenchConfig.connectMaxEndDistanceSqr()) {
-                sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                    "msg." + BetterWrenchMod.MODID + ".connect.too_far"), true);
-                return;
-            }
+            // ④ ℹ️ 2026-09-25: 原 `connect.max_end_distance`(终点距离上限)已按用户要求**删除配置项**,
+            //    这条距离校验随之去掉 —— 终点位置仍受下面"区块已加载"+服务端上限约束。
             // ⑤ 所有节点所在区块必须已加载(避免被用来强制生成/加载区块)
             //    isLoaded: hasChunkAt 家族已被弃用(原版, 见 ConnectLogic#loadedCached 的说明) ——
             //    它比 hasChunkAt 多一条"超出建筑高度 ⇒ false": 站在世界顶端对着开阔空气选拐点时, 那个拐点可能

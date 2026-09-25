@@ -9,6 +9,21 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 ## [0.5.0+mc1.21.1] - unreleased
 
 ### Added
+- **Feature switches for every wrench function**, all in the server config: a master switch for **Connect**,
+  **Deconstruct** and **Process**, two "may remove" switches for deconstructing (**Create blocks** / **redstone
+  blocks**), and one switch per processing kind (**Assembly / Filling / Washing / Blasting / Smoking / Haunting**).
+  Rules: enabling a master switch re-enables everything under it; turning off both deconstruct "may remove" switches
+  (or all six processing kinds) turns its master switch off too. A disabled feature can still be selected - every use
+  just reports "This feature is disabled"/"This sub-feature is disabled" and does nothing (enforced on the server too,
+  so a modified client cannot bypass it). Disallowing Create blocks locks deconstructing to **redstone only**, and
+  disallowing redstone locks it to **Create only**.
+- **Combat mode switches**: a master switch for the easter egg plus the **permission level** it requires
+  (everyone / OP).
+- **Commands (`/cbw`)**: `/cbw version`, `/cbw config` (opens the config screen - the **B+C keybind was removed**),
+  and `/cbw combat <selector> <true|false>`, which authorizes **individual players** for combat mode (stored in their
+  player data, bypassing the permission level).
+- **Config sync for dedicated servers**: the server pushes a feature-switch snapshot to clients on login, on config
+  reload and whenever `/cbw combat` changes an authorization, so clients know what is disabled.
 - **Ponder (思索) guidance — nine scenes in total.** Hovering the **Universal Wrench** and holding **W** now walks you
   through: *Linking stress* → *Bulk deconstructing* → *Processing* → *Assembly* → *Filling* → *Washing* → *Blasting* →
   *Smoking* → *Haunting*, in that order (use the Previous/Next buttons or scroll; each scene ends with an
@@ -105,6 +120,13 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   parameter and a dead `DepotSoulFlames.untrack()` were removed.
 
 ### Changed
+- **The config screen was rebuilt around groups**: per function a master switch plus its sub-switches, sliders for the
+  numeric limits, and a two-state "Everyone / OP" button for the combat permission level. Any click refreshes every row
+  because the switches affect each other. On a dedicated server the screen stays read-only and now shows the values the
+  server pushed instead of the defaults.
+- **`connect.max_end_distance` was removed** (config entry and the matching end-point distance check), as requested.
+- **Combat mode permission is now configurable**: the permission node `cbw.combatmode` resolves against the configured
+  level instead of a hard-coded OP level 2.
 - **All nine Ponder scenes were rewritten in Create's own style.** Blocks appear **one at a time** instead of in one slab;
   machines start **still** and only spin once the route is linked (`setKineticSpeed` 0 -> 64); the wrench is shown with
   `showControls(...).withItem(...)` rather than a click animation; text is short and declarative

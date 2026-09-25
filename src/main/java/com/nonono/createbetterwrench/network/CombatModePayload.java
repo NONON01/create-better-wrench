@@ -44,6 +44,7 @@ public record CombatModePayload(boolean combat, boolean announce) implements Cus
             if (!(ctx.player() instanceof ServerPlayer sp))
                 return;
             boolean requested = combat;
+            // canUseCombatMode 里已经含"配置里的战斗模式总开关 + 单独授权 + 权限等级"三重判定
             boolean allowed = requested && WrenchPermissions.canUseCombatMode(sp);
             WrenchCombat.setServer(sp.getUUID(), allowed);
             WrenchCombat.apply(sp, WrenchCombat.holdsWrench(sp) && allowed);
@@ -51,8 +52,11 @@ public record CombatModePayload(boolean combat, boolean announce) implements Cus
             PacketDistributor.sendToPlayer(sp, new CombatModeSyncPayload(allowed, announce));
             if (requested && !allowed)
                 // 用户要求: 走**聊天栏**(不是 actionbar), 前缀 [CBW]: 黄色加粗、正文白色, 且**仅该玩家可见**
-                ChatFeedback.warn(sp,
-                    Component.translatable("msg." + BetterWrenchMod.MODID + ".combat_no_permission"));
+                ChatFeedback.warn(sp, Component.translatable(
+                    "msg." + BetterWrenchMod.MODID
+                        + (com.nonono.createbetterwrench.config.WrenchConfig.combatEnabled()
+                            ? ".combat_no_permission"
+                            : ".feature_disabled")));
         });
     }
 }
