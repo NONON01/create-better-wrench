@@ -54,8 +54,9 @@ How this mod uses Create:
    `client/WrenchToolSelection.java` references
    `com.simibubi.create.foundation.gui.AllGuiTextures.HUD_BACKGROUND` (the mode-bar background).
    That texture is supplied by the **player's own Create installation**; **no Create asset file
-   is included in, or redistributed with, this mod's JAR.** Mode icons and item textures are
-   all drawn by us.
+   is included in, or redistributed with, this mod's JAR.** The five mode icons are script-recoloured
+   from the author's **own hand-drawn originals**, and the item textures are drawn procedurally by
+   this project's own scripts — see §2.3 for the file-by-file record.
 
 3. **Models resolved at runtime.** `models/item/better_wrench.json` is a `neoforge:composite`
    item model whose `body` sub-model `parent` points at `create:item/wrench/item`.
@@ -83,10 +84,23 @@ How this mod uses Create:
 
 - `textures/item/better_wrench.png`, `textures/item/wrench_gear.png` — drawn procedurally by the
   scripts under `scripts/`.
-- `textures/gui/mode_*.png` — produced by script from originals supplied by the user
-  (black → transparent, blue → black).
-  ⚠️ **To be confirmed**: those originals must be the user's own work or properly licensed
-  (see the audit record in `docs/log/01-operations.md`).
+- `textures/gui/mode_*.png` — the five HUD mode icons are produced **by script** from 16×16
+  **originals hand-drawn by the author** (workspace `images/手绘/*.png`; the originals are **not**
+  redistributed — only the recoloured results ship inside the JAR).
+  `scripts/gen_mode_wrench_icon.ps1` only recolours them: **black → transparent, blue → black**,
+  everything else kept as-is. Provenance verified pixel-exact on 2026-09-23:
+
+  | original (`images/手绘/`) | shipped icon | match |
+  | --- | --- | --- |
+  | `扳手.png` | `textures/gui/mode_wrench.png` | exact (0 diff) |
+  | `拆除.png` | `textures/gui/mode_deconstruct.png` | exact (0 diff) |
+  | `工作.png` | `textures/gui/mode_assemble.png` | exact (0 diff) |
+  | `mod描述.png` | `textures/gui/mode_coming_soon.png` | exact (0 diff) |
+  | `连接.png` | `textures/gui/mode_connect.png` | near-exact (hand-tweaked afterwards) |
+  | `曲柄.png`, `物流网络.png` | — | unused, not shipped |
+
+  Command form: `powershell -File scripts/gen_mode_wrench_icon.ps1 -Source "<original>" -Out "<texture>"`.
+  Author confirmed the originals on 2026-09-23 (audit trail: `docs/log/01-operations.md`).
 - `icon.png` — composed by `scripts/gen_mod_icon.ps1` from a render exported in-game.
 
 > If a future change introduces another third-party work, add its entry to §2 of this file.

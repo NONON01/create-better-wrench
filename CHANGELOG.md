@@ -77,6 +77,10 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 - The F9 "export wrench icon" developer tool (and its two lang keys) no longer ships in the jar.
 
 ### Changed
+- **`LICENSE.md` §2.3: the provenance of the five HUD mode icons is now recorded** instead of being flagged
+  "To be confirmed". They are script-recoloured from the author's **own hand-drawn 16×16 originals**
+  (`images/手绘/*.png`, not redistributed); the file now carries the exact original→texture mapping and the
+  generating command. §2.1's wording was tightened to match. (License text only — no asset changed.)
 - **The Wrench mode's tool-bar description is always centred** — even though it now has two lines, it is a
   per-mode exception to the usual "multi-line = left aligned" rule for the tool-tip panel.
 - **The wrench now only works as a mode tool in your main hand.** Held in the **offhand** it is just a
