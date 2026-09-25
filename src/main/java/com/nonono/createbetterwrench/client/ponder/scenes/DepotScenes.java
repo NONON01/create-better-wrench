@@ -7,11 +7,13 @@ import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
 
+import net.createmod.catnip.gui.element.ScreenElement;
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
-import net.createmod.ponder.api.element.InputElementBuilder;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
+import net.createmod.ponder.enums.PonderGuiTextures;
+import net.createmod.ponder.foundation.ui.PonderUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.DustParticleOptions;
@@ -71,6 +73,9 @@ public final class DepotScenes {
         new ItemStack(AllBlocks.LARGE_COGWHEEL.get()),
         new ItemStack(Items.IRON_NUGGET)
     };
+
+    /** 长图标里每个小图标的边长(逻辑像素; 输入元素会把整块放大 1.5 倍 ⇒ 屏幕上 24px)。 */
+    private static final int ICON_SIZE = 16;
 
     private DepotScenes() {
     }
@@ -148,8 +153,10 @@ public final class DepotScenes {
             .attachKeyFrame();
         scene.idle(30);
 
-        // 图标行: 第 1 个是"鼠标右键", 后面三个是要投的材料; 一起出现、一起结束, 位置互不重叠
-        showMaterialRow(scene, util, DEPOT, 60);
+        // **一个长图标**: 鼠标右键 + 小齿轮 + 大齿轮 + 铁粒(自己加宽气泡, 见 materialStrip)
+        scene.overlay().showControls(util.vector().topOf(DEPOT).add(0, 0.55, 0.0), Pointing.DOWN, 60)
+            .showing(materialStrip(MECHANISM_MATERIALS));
+        scene.idle(60);
         scene.idle(30);
 
         hold(scene, util, DEPOT, AllItems.PRECISION_MECHANISM.asStack());
@@ -364,23 +371,26 @@ public final class DepotScenes {
     }
 
     /**
-     * 在置物台上方摆一行"要用的材料"图标: 第 1 个是**鼠标右键**, 后面是 {@link #MECHANISM_MATERIALS}。
+     * 在置物台上方摆**一个长图标**: 「鼠标右键」+ {@link #MECHANISM_MATERIALS} 依次排在里面。
      *
-     * <p>⚠️ 用户 2026-09-23 的两条要求: ①右击图标要和实际相符; ②图标**不能重叠** ——
-     * 所以四个图标**各占一个横向位置**(间距 0.75 格)、**同时出现并且同时结束**(一起 idle 掉, 没有淡入淡出叠影)。</p>
+     * <p>⚠️ Ponder 的输入元素只给自定义 {@code ScreenElement} 留 24px 宽(它自己按"图标/文字/物品"三选几算宽度),
+     * 想塞 4 个就得自己加宽: 这里在渲染回调里**自己再调一次** {@code PonderUI.renderSpeechBox} 画一个够宽的气泡
+     * (它会盖住元素原本那个 24px 的小气泡, 只留下指向置物台的小尾巴), 然后依次画右击鼠标图标
+     * ({@code PonderGuiTextures.ICON_RMB}, 与 {@code .rightClick()} 用的是同一张贴图)和材料图标;
+     * 整条以元素原本的锚点居中, 这样尾巴正好落在长图标中间。</p>
      */
-    private static void showMaterialRow(CreateSceneBuilder scene, SceneBuildingUtil util,
-                                        BlockPos depot, int ticks) {
-        Vec3 anchor = util.vector().topOf(depot).add(0, 0.6, 0.35);
-        int count = MECHANISM_MATERIALS.length + 1;
-        for (int i = 0; i < count; i++) {
-            double dx = 0.75 * (i - (count - 1) / 2.0);
-            InputElementBuilder control = scene.overlay()
-                .showControls(anchor.add(dx, 0, 0), Pointing.DOWN, ticks)
-                .rightClick();
-            if (i > 0)
-                control.withItem(MECHANISM_MATERIALS[i - 1]);
-        }
+    private static ScreenElement materialStrip(ItemStack... materials) {
+        return (graphics, x, y) -> {
+            int width = ICON_SIZE * (materials.length + 1);
+            int left = x + ICON_SIZE / 2 - width / 2;          // 以元素锚点(原小气泡中心)居中
+            PonderUI.renderSpeechBox(graphics, left, y, width, ICON_SIZE, false, Pointing.DOWN, true);
+            PonderGuiTextures.ICON_RMB.render(graphics, left, y);
+            int ix = left + ICON_SIZE;
+            for (ItemStack material : materials) {
+                graphics.renderItem(material, ix, y);
+                ix += ICON_SIZE;
+            }
+        };
     }
 
     /**
