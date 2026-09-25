@@ -71,13 +71,18 @@ public final class DepotScenes {
         new ItemStack(Items.IRON_NUGGET)
     };
 
-    /** 装配段每一拍"右击 + 材料"的气泡时长(比原来长, 用户要求"时间再长一点")。 */
-    private static final int TIP_TICKS = 32;
+    /** 图标气泡的"全亮"时长(用户要求"时间再长一点")。 */
+    private static final int ICON_TICKS = 32;
     /**
-     * 两拍之间的间隔: 上一个气泡的**淡出**要用掉几 tick(LerpedFloat 线性, ~2-3 tick),
-     * 所以必须留一段空档, 否则就是"上一个还在淡出、下一个已经淡入"(用户 2026-09-25 反馈的正是这个)。
+     * Ponder 的淡入 / 淡出各 5 tick。
+     *
+     * <p>实测上游源码 {@code FadeInOutInstruction}:{@code fadeTime = 5}, 构造器是
+     * {@code super(false, duration + 2 * fadeTime)} ⇒ 一个 {@code showControls(pos, dir, D)} 的气泡
+     * **实际活 D + 10 tick**(前 5 tick 淡入、后 5 tick 淡出)。所以"每拍只 idle(D)"必然重叠。</p>
      */
-    private static final int TIP_GAP = 8;
+    private static final int ICON_FADE = 5;
+    /** 上一拍**彻底消失**之后再空这么久才出下一拍(不重叠、也不贴着)。 */
+    private static final int ICON_GAP = 8;
 
     private DepotScenes() {
     }
@@ -140,8 +145,8 @@ public final class DepotScenes {
      * 想在同一个气泡里塞 4 个图标只能自己加宽气泡, 而元素回调拿到的局部坐标系与
      * {@code renderSpeechBox} 摆放气泡用的坐标系**不是同一个**(2026-09-25 实机截图证实: 自己画的气泡与图标
      * 各在一处, 还会多出一个没被盖住的原生气泡) ⇒ 不再走那条路。
-     * 现在改成**原生气泡依次演示**: 每一拍都是 {@code [右击鼠标][材料]}, 每拍 32 tick 之后再空 8 tick
-     * 让上一拍彻底淡出(不重叠、不叠影), 三件材料演完再一次性出成品。</p>
+     * 现在改成**原生气泡依次演示**: 每一拍都是 {@code [右击鼠标][材料]}, 由 {@link #showIconTip} 等它
+     * **彻底淡出后再空 {@link #ICON_GAP} tick** 才出下一拍(不重叠、不叠影), 三件材料演完再一次性出成品。</p>
      */
     public static void assembly(SceneBuilder builder, SceneBuildingUtil util) {
         CreateSceneBuilder scene = start(builder, util, "wrench_process_assembly", "Assembly", DEPOT);
@@ -163,25 +168,35 @@ public final class DepotScenes {
             .attachKeyFrame();
         scene.idle(30);
 
-        // [右击鼠标][小齿轮] → [右击鼠标][大齿轮] → [右击鼠标][铁粒]:
-        // 每拍 32 tick, 之后空 8 tick 让上一拍**彻底淡出**再出下一拍(不重叠、不叠影);
-        // 投下第一件之后台面变成"未完成精密构件"(中间态), 后两件是往这半成品上继续投
+        // [右击鼠标][小齿轮] → 台面变"未完成精密构件"(中间态) → [右击鼠标][大齿轮] → [右击鼠标][铁粒] → 精密构件
+        // 每一拍都由 showIconTip 负责等它**彻底消失**(全亮 32 + 淡出 10 + 空档 8), 所以永远不会重叠
         Vec3 anchor = util.vector().topOf(DEPOT).add(0, 0.55, 0);
-        for (int i = 0; i < MECHANISM_MATERIALS.length; i++) {
-            scene.overlay().showControls(anchor, Pointing.DOWN, TIP_TICKS)
-                .withItem(MECHANISM_MATERIALS[i])
-                .rightClick();
-            scene.idle(TIP_TICKS + TIP_GAP);
-            if (i == 0) {
-                hold(scene, util, DEPOT, AllItems.INCOMPLETE_PRECISION_MECHANISM.asStack());
-                scene.effects().indicateSuccess(DEPOT);
-                scene.idle(20);
-            }
-        }
+        showIconTip(scene, anchor, MECHANISM_MATERIALS[0]);
+        hold(scene, util, DEPOT, AllItems.INCOMPLETE_PRECISION_MECHANISM.asStack());
+        scene.effects().indicateSuccess(DEPOT);
+        scene.idle(20);
+
+        showIconTip(scene, anchor, MECHANISM_MATERIALS[1]);
+        showIconTip(scene, anchor, MECHANISM_MATERIALS[2]);
 
         hold(scene, util, DEPOT, AllItems.PRECISION_MECHANISM.asStack());
         scene.effects().indicateSuccess(DEPOT);
         scene.idle(60);
+    }
+
+    /**
+     * 演示一拍"右击 + 材料"的图标气泡, 并**等到它彻底消失**之后才把时间交还给场景。
+     *
+     * <p>时长 = {@link #ICON_TICKS}(全亮) + 2 × {@link #ICON_FADE}(淡入淡出, Ponder 自己会占用) +
+     * {@link #ICON_GAP}(全空的间隔)。⚠️ 只写 {@code idle(ICON_TICKS)} 会让下一拍压在本拍的淡出上
+     * (用户 2026-09-25 反馈的"上一个淡出的同时下一个淡入"就是这个原因), 所以这里把 10 tick 的淡入淡出也算进去。
+     * 全项目所有 {@code showControls} 都受 {@code tools/audit_icons.ps1} 检查。</p>
+     */
+    private static void showIconTip(CreateSceneBuilder scene, Vec3 anchor, ItemStack material) {
+        scene.overlay().showControls(anchor, Pointing.DOWN, ICON_TICKS)
+            .withItem(material)
+            .rightClick();
+        scene.idle(ICON_TICKS + 2 * ICON_FADE + ICON_GAP);
     }
 
     // ------------------------------------------------------------------ 进行注液
