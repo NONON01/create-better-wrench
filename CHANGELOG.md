@@ -77,6 +77,11 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 - The F9 "export wrench icon" developer tool (and its two lang keys) no longer ships in the jar.
 
 ### Fixed
+- **The nine Ponder scenes rendered an empty world.** The scene structures had been generated as
+  `ponder/wrench/wrench_connect.nbt` while the scene paths resolve to `ponder/wrench/connect.nbt`, so **none** of them
+  loaded: text and particles played normally (they do not depend on the structure) but there was **not a single block**.
+  Ponder only logs `Ponder schematic missing: ...` in that case. The structures are now named after their scene paths
+  (a name check between the registered paths and the shipped `.nbt` files is part of the delivery routine).
 - **Connecting no longer destroys existing blocks.** A path cell that already held a **cogwheel** (or a shaft of a
   different axis, or a shaft where a gearbox was going) used to be treated as "reusable": the plan overwrote it via
   `switchToBlockState` → `setBlock`, which **drops nothing** — the player silently lost the block *and* was charged
@@ -101,6 +106,12 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
   parameter and a dead `DepotSoulFlames.untrack()` were removed.
 
 ### Changed
+- **Ponder categories: three tags to one.** The *Connect* / *Deconstruct* / *Process* tags are gone (they duplicated the
+  scene list without adding navigation). There is now a single **Universal Wrench** tag, attached to **both the wrench and
+  the Depot**: hovering a Depot and holding W shows that one entry on the left, and opening it lists the wrench itself --
+  a pointer from the Depot's page to the wrench's Ponder (the library has no cross-item jump). Its icon is the wrench
+  **item**, so the three 64x64 tag textures (`textures/ponder/tag/*.png`) were removed along with the tags
+  (`scripts/gen_ponder_tag_icons.ps1` can regenerate them if categories ever come back).
 - **`LICENSE.md` §2.3: the provenance of the five HUD mode icons is now recorded** instead of being flagged
   "To be confirmed". They are script-recoloured from the author's **own hand-drawn 16×16 originals**
   (`images/手绘/*.png`, not redistributed); the file now carries the exact original→texture mapping and the

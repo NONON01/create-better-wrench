@@ -119,12 +119,8 @@
   "create_better_wrench.ponder.wrench_process_haunting.text_2": "锁定的置物台会慢慢冒出灵魂火焰（就像这样）",
   "create_better_wrench.ponder.wrench_process_haunting.text_3": "手持打火石右击 = 缠魂",
   "create_better_wrench.ponder.wrench_process_haunting.text_4": "沙子 → 灵魂沙",
-  "create_better_wrench.ponder.tag.connect": "连接",
-  "create_better_wrench.ponder.tag.connect.description": "把机械动力方块连成传动结构，材料从背包扣除",
-  "create_better_wrench.ponder.tag.deconstruct": "拆除",
-  "create_better_wrench.ponder.tag.deconstruct.description": "一次拆掉选区里所有能被扳手拆除的方块",
-  "create_better_wrench.ponder.tag.process": "加工",
-  "create_better_wrench.ponder.tag.process.description": "在锁定的置物台上手动加工：装配、注液，以及类鼓风的水洗 / 熔炼 / 烟熏 / 缠魂",
+  "create_better_wrench.ponder.tag.wrench": "万能扳手",
+  "create_better_wrench.ponder.tag.wrench.description": "万能扳手的全部内容：九个场景（连接 / 拆除 / 加工六种）",
   "create_better_wrench.ponder.shared.hold_alt": "按住 ALT",
   "create_better_wrench.ponder.shared.ctrl_scroll": "Ctrl + 滚轮"
 }

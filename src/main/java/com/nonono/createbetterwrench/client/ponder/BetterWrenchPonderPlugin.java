@@ -47,20 +47,24 @@ public class BetterWrenchPonderPlugin implements PonderPlugin {
 
         // ---- ① 直接附属于万能扳手的两段 ----
         h.forComponents(BetterWrenchMod.BETTER_WRENCH.get())
-            .addStoryBoard("wrench/connect", WrenchScenes::connect, BetterWrenchPonderTags.CONNECT)
-            .addStoryBoard("wrench/deconstruct", WrenchScenes::deconstruct, BetterWrenchPonderTags.DECONSTRUCT);
+            .addStoryBoard("wrench/connect", WrenchScenes::connect, BetterWrenchPonderTags.WRENCH)
+            .addStoryBoard("wrench/deconstruct", WrenchScenes::deconstruct, BetterWrenchPonderTags.WRENCH);
 
         // ---- ② 加工那 7 段: 归在置物台, 同时**也**关联到万能扳手 ----
         //      (Create 的做法: 同一段场景可以喂给多个组件 —— 例如 cog/speedup 同时挂小/大齿轮)
+        //
+        // ⚠️ 场景路径的**尾段必须等于** assets/create_better_wrench/ponder/wrench/<尾段>.nbt 的文件名
+        //    (2026-09-23 踩过: 曾经生成成 wrench_process.nbt, 于是 9 段全部 "schematic missing",
+        //     场景照播但世界里没有任何方块 —— 见 docs/log/01-operations.md)。
         ItemLike[] holders = depotHolders();
         h.forComponents(holders)
-            .addStoryBoard("wrench/process", DepotScenes::process, BetterWrenchPonderTags.PROCESS)
-            .addStoryBoard("wrench/process_assembly", DepotScenes::assembly, BetterWrenchPonderTags.PROCESS)
-            .addStoryBoard("wrench/process_filling", DepotScenes::filling, BetterWrenchPonderTags.PROCESS)
-            .addStoryBoard("wrench/process_splash", DepotScenes::splash, BetterWrenchPonderTags.PROCESS)
-            .addStoryBoard("wrench/process_blasting", DepotScenes::blasting, BetterWrenchPonderTags.PROCESS)
-            .addStoryBoard("wrench/process_smoking", DepotScenes::smoking, BetterWrenchPonderTags.PROCESS)
-            .addStoryBoard("wrench/process_haunting", DepotScenes::haunting, BetterWrenchPonderTags.PROCESS);
+            .addStoryBoard("wrench/process", DepotScenes::process, BetterWrenchPonderTags.WRENCH)
+            .addStoryBoard("wrench/process_assembly", DepotScenes::assembly, BetterWrenchPonderTags.WRENCH)
+            .addStoryBoard("wrench/process_filling", DepotScenes::filling, BetterWrenchPonderTags.WRENCH)
+            .addStoryBoard("wrench/process_splash", DepotScenes::splash, BetterWrenchPonderTags.WRENCH)
+            .addStoryBoard("wrench/process_blasting", DepotScenes::blasting, BetterWrenchPonderTags.WRENCH)
+            .addStoryBoard("wrench/process_smoking", DepotScenes::smoking, BetterWrenchPonderTags.WRENCH)
+            .addStoryBoard("wrench/process_haunting", DepotScenes::haunting, BetterWrenchPonderTags.WRENCH);
     }
 
     @Override

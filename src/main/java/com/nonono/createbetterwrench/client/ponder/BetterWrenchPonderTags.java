@@ -11,38 +11,31 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ItemLike;
 
 /**
- * 本模组的**思索标签**(= 思索索引界面里的"分类")。
+ * 本模组的**思索标签**(= 悬停组件按 W 时左栏那块"分类/条目", 以及 `/ponder` 索引里的条目)。
  *
- * <p>设计(用户 2026-09-22 给出): 扳手功能分三类 —— **连接 / 拆除 / 加工**(加工下再分装配/注液/洗涤/熔炼/烟熏/缠魂)。
- * ⚠️ 2026-09-23 用户确认「**应该是三种模式**」⇒ **就这三个标签, 没有第四个"总标签"** ——
- * 索引页与"按 W 打开的物品界面"里都只出现这三个分类。
- * 标签名与说明的文本键 = {@code <modid>.ponder.tag.<id>(.description)}。</p>
- *
- * <p><b>图标</b>: 三个分类标签用的是**我们 HUD 工具栏那三个模式的小图标**
- * (连接=mode_connect / 拆除=mode_deconstruct / 加工=mode_assemble), 但**不是**直接指向
- * {@code textures/gui/mode_*.png} —— 见下面的"图标路径"说明。</p>
- *
- * <p><b>⚠️ 图标路径(踩过坑, 实测字节码)</b>: {@code TagBuilder.icon(String)} 只接受**裸文件名**,
- * 它会自己补成 {@code <标签命名空间>:textures/ponder/tag/<字符串>.png}。所以</p>
+ * <h2>2026-09-23 用户定案: 只保留一个</h2>
+ * 原先有三个分类标签(`connect` / `deconstruct` / `process`), 用户看过界面后判定
+ * 「**这 3 个小分类删掉…它们没有实际作用**」; 现在改为**一个**名为「万能扳手」的标签:
  * <ul>
- *   <li>写 {@code .icon("connect")} ⇒ {@code create_better_wrench:textures/ponder/tag/connect.png} ✅</li>
- *   <li>写 {@code .icon("textures/gui/mode_connect.png")} ⇒ 指向
- *       {@code textures/ponder/tag/textures/gui/mode_connect.png.png} ⇒ **找不到纹理 = 黑紫格** ❌</li>
+ *   <li>挂在**置物台**上 ⇒ 悬停置物台按 W 时, 左栏出现「万能扳手」这一条(用户说的"置物台思索页面左上角那块");</li>
+ *   <li>同时挂在**扳手**上 ⇒ 点进标签页后能看到**万能扳手这件物品**, 也就是"**定向到万能扳手**"的落点
+ *       (Ponder 没有跨物品跳转的 API, 这是官方机制里最接近"把人引过去"的做法);</li>
+ *   <li>9 段场景全部带这个标签 ⇒ 标签下能看到全部场景。</li>
  * </ul>
- * <p>另: {@code PonderTag} 渲染时按 **64×64** 区域 blit, 所以图标 PNG 必须是 64×64。
- * 两个条件都满足才不会出现黑紫块。三个图标由 {@code scripts/gen_ponder_tag_icons.ps1}
- * 从 16×16 的 {@code textures/gui/mode_*.png} 最近邻放大生成。</p>
  *
- * <p>⚠️ 库里的"章节(PonderChapter)"是空实现({@code of()} 直接 return null), 所以**分类只能用标签** —— 详见 docs/dev/06-ponder.md §4.7。</p>
+ * <p><b>图标</b>: 用**扳手物品图标**(`.item(扳手, useAsIcon=true, useAsMainItem=true)`), 因此
+ * `textures/ponder/tag/*.png` 那三张自绘图标已随三个分类一起删除(要恢复可用
+ * `scripts/gen_ponder_tag_icons.ps1` 重新生成, 但**记得** {@code icon(String)} 只吃裸文件名、
+ * 且 PNG 必须是 64×64 这两个硬条件 —— 见 docs/dev/02-item-and-visuals.md 与 docs/dev/06-ponder.md §4.1)。</p>
+ *
+ * <p>⚠️ **组件↔标签的订阅关系必须显式建立**({@code addTagToComponent}): PonderUI 的左栏是用
+ * `PonderIndex.getTagAccess().getTags(<组件注册名>)` 取的, 只把标签挂到**场景**上不会出现分类
+ * (docs/dev/06-ponder.md §4.6 的坑)。</p>
  */
 public final class BetterWrenchPonderTags {
 
-    /** 分类: 连接(图标 = HUD 的 `mode_connect`)。 */
-    public static final ResourceLocation CONNECT = loc("connect");
-    /** 分类: 拆除(图标 = HUD 的 `mode_deconstruct`)。 */
-    public static final ResourceLocation DECONSTRUCT = loc("deconstruct");
-    /** 分类: 加工(图标 = HUD 的 `mode_assemble`; 下含装配/注液/洗涤/熔炼/烟熏/缠魂)。 */
-    public static final ResourceLocation PROCESS = loc("process");
+    /** 唯一的标签: 「万能扳手」。 */
+    public static final ResourceLocation WRENCH = loc("wrench");
 
     private static ResourceLocation loc(String path) {
         return ResourceLocation.fromNamespaceAndPath(BetterWrenchMod.MODID, path);
@@ -53,44 +46,22 @@ public final class BetterWrenchPonderTags {
 
     /** 由插件在 {@code registerTags} 回调里调用。 */
     static void register(PonderTagRegistrationHelper<ResourceLocation> helper) {
-        // ⚠️ 关键: 还要把**组件(物品)**挂到标签上, 否则:
-        //    ① 打开该物品的 PonderUI 时看不到"分类" —— PonderUI 是用
-        //       `PonderIndex.getTagAccess().getTags(<该物品的注册名>)` 取分类的(实测字节码);
-        //    ② 标签页里点进去也没有条目 —— 那一页列的是 `getItems(<标签>)`。
-        //    Create 的写法是 `HELPER.addToTag(TAG).add(方块/物品...)`(AllCreatePonderTags), 这里同样处理。
         PonderTagRegistrationHelper<ItemLike> itemHelper =
             helper.withKeyFunction(RegisteredObjectsHelper::getKeyOrThrow);
 
-        // ---- 只有这三个分类标签(= 用户要的"三种模式"): 图标用我们的模式小图标(裸文件名! 见类注释) ----
-        helper.registerTag(CONNECT)
-            .addToIndex()
-            .icon("connect")
-            .title("Connect")
-            .description("Link kinetic blocks into a drivetrain, paying the materials from your inventory")
-            .register();
-
-        helper.registerTag(DECONSTRUCT)
-            .addToIndex()
-            .icon("deconstruct")
-            .title("Deconstruct")
-            .description("Remove every wrenchable block inside a selection")
-            .register();
-
-        helper.registerTag(PROCESS)
-            .addToIndex()
-            .icon("process")
-            .title("Process")
-            .description("Work a locked depot by hand: assembly, filling, and fan-style washing / blasting / smoking / haunting")
+        helper.registerTag(WRENCH)
+            .addToIndex()                                           // 也进 /ponder 索引, 当作入口
+            .item(BetterWrenchMod.BETTER_WRENCH.get(), true, true)   // 图标 + "主物品" 都用扳手
+            .title("Universal Wrench")
+            .description("Everything the wrench can do - open its Ponder to see all nine scenes")
             .register();
 
         // ---- 组件 ↔ 标签 ----
-        // 扳手同时属于这三个分类; 加工相关的 7 段场景归在置物台上 ⇒ **置物台也要挂"加工"**
-        // (否则悬停置物台时左侧不出现"加工"那一栏 —— 见上面那条实测结论)。
-        itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), CONNECT);
-        itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), DECONSTRUCT);
-        itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), PROCESS);
+        // 扳手: 让标签页里能列出这件物品 —— 这就是"定向到万能扳手"
+        itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), WRENCH);
+        // 置物台: 让"悬停置物台按 W"时左栏出现这个分类(用户明确要求的位置)
         Item depot = AllBlocks.DEPOT.get().asItem();
         if (depot != Items.AIR)
-            itemHelper.addTagToComponent(depot, PROCESS);
+            itemHelper.addTagToComponent(depot, WRENCH);
     }
 }

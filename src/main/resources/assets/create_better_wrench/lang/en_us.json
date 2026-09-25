@@ -119,12 +119,8 @@
   "create_better_wrench.ponder.wrench_process_haunting.text_2": "A locked Depot on a soul base slowly breathes soul flames",
   "create_better_wrench.ponder.wrench_process_haunting.text_3": "Right-click with Flint and Steel to haunt",
   "create_better_wrench.ponder.wrench_process_haunting.text_4": "Sand becomes Soul Sand",
-  "create_better_wrench.ponder.tag.connect": "Connect",
-  "create_better_wrench.ponder.tag.connect.description": "Link kinetic blocks into a drivetrain, paying the materials from your inventory",
-  "create_better_wrench.ponder.tag.deconstruct": "Deconstruct",
-  "create_better_wrench.ponder.tag.deconstruct.description": "Remove every wrenchable block inside a selection",
-  "create_better_wrench.ponder.tag.process": "Process",
-  "create_better_wrench.ponder.tag.process.description": "Work a locked depot by hand: assembly, filling, and fan-style washing / blasting / smoking / haunting",
+  "create_better_wrench.ponder.tag.wrench": "Universal Wrench",
+  "create_better_wrench.ponder.tag.wrench.description": "Everything the wrench can do - all nine scenes (linking, deconstructing, six kinds of processing)",
   "create_better_wrench.ponder.shared.hold_alt": "Hold ALT",
   "create_better_wrench.ponder.shared.ctrl_scroll": "Ctrl + Scroll"
 }
