@@ -32,9 +32,12 @@ public class BetterWrenchPonderPlugin implements PonderPlugin {
         PonderSceneRegistrationHelper<ItemLike> h = helper.withKeyFunction(RegisteredObjectsHelper::getKeyOrThrow);
 
         // 我们只有一件物品(万能扳手) ⇒ 场景都挂在它上面; 悬停它 + 按住 W 就能看。
-        // ⚠️ 一个场景可以挂多个标签(会同时出现在多个分类下)。
+        // ⚠️ 一个场景可以挂多个标签(会同时出现在多个分类下) ⇒ 总览挂到全部三个分类里都能看到。
         h.forComponents(BetterWrenchMod.BETTER_WRENCH.get())
-            .addStoryBoard("wrench/overview", WrenchScenes::overview, BetterWrenchPonderTags.WRENCH_TOOLS);
+            .addStoryBoard("wrench/overview", WrenchScenes::overview,
+                BetterWrenchPonderTags.CONNECT,
+                BetterWrenchPonderTags.DECONSTRUCT,
+                BetterWrenchPonderTags.PROCESS);
     }
 
     @Override

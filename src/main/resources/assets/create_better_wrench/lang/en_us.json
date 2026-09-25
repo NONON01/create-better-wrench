@@ -84,8 +84,6 @@
   "create_better_wrench.ponder.wrench_overview.text_1": "The Universal Wrench keeps Create's standard wrench behaviour and adds five modes of its own",
   "create_better_wrench.ponder.wrench_overview.text_2": "Hold ALT to open the mode bar, then scroll: Wrench / Connect / Deconstruct / Process / Mod Info",
   "create_better_wrench.ponder.wrench_overview.text_3": "Each mode also has a Ctrl + Scroll option: corner type, deconstruct filter, or product stay time",
-  "create_better_wrench.ponder.tag.wrench_tools": "Universal Wrench",
-  "create_better_wrench.ponder.tag.wrench_tools.description": "Everything added by this mod: the wrench itself and its five modes",
   "create_better_wrench.ponder.tag.connect": "Connect",
   "create_better_wrench.ponder.tag.connect.description": "Link kinetic blocks into a drivetrain, paying the materials from your inventory",
   "create_better_wrench.ponder.tag.deconstruct": "Deconstruct",

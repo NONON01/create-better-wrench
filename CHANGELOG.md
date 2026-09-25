@@ -12,10 +12,10 @@ everything after `+` is build metadata. Earlier releases used `<mod version>+cre
 - **Ponder (思索) support — first scene shipped.** Hovering the **Universal Wrench** in any inventory and holding
   **W** now plays an in-game guide scene ("Universal Wrench overview": the base plate rising, a small kinetic
   drivetrain, and three text beats about the five modes, ALT mode switching and the Ctrl+Scroll options).
-  Four **Ponder tags** are registered for the index screen: a top-level *Universal Wrench* tag (item icon) plus
-  **Connect / Deconstruct / Process** whose icons are the mod's own mode icons (16×16 HUD icons upscaled to the
-  64×64 that `PonderTag` requires — see `scripts/gen_ponder_tag_icons.ps1`) — and the tags are wired to the item
-  itself, so the categories show up **inside the item's PonderUI** and the tag pages have entries.
+  Three **Ponder tags** — one per wrench function (**Connect / Deconstruct / Process**) — are registered for the
+  index screen, and their icons are the mod's own mode icons (16×16 HUD icons upscaled to the 64×64 that
+  `PonderTag` requires — see `scripts/gen_ponder_tag_icons.ps1`). The tags are wired to the item itself, so the
+  categories show up **inside the item's PonderUI** and the tag pages have entries.
   The scene's base plate is a `white_concrete`/`snow_block` checkerboard, matching Create's own scenes.
   Scenes are plain Java "storyboards"
   registered client-side through `PonderIndex.addPlugin`, and the scene structure is a **vanilla structure file**

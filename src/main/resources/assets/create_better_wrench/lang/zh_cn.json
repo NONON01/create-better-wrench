@@ -84,8 +84,6 @@
   "create_better_wrench.ponder.wrench_overview.text_1": "万能扳手在 Create 方块上保持标准的扳手行为，同时带来五种自己的模式",
   "create_better_wrench.ponder.wrench_overview.text_2": "按住 ALT 呼出模式工具栏，滚轮切换：扳手 / 连接 / 拆除 / 加工 / 模组描述",
   "create_better_wrench.ponder.wrench_overview.text_3": "每个模式还有自己的 Ctrl+滚轮 选项：拐角类型、拆除过滤器、成品停留时间",
-  "create_better_wrench.ponder.tag.wrench_tools": "万能扳手",
-  "create_better_wrench.ponder.tag.wrench_tools.description": "本模组的全部内容：扳手本体与它的五种模式",
   "create_better_wrench.ponder.tag.connect": "连接",
   "create_better_wrench.ponder.tag.connect.description": "把机械动力方块连成传动结构，材料从背包扣除",
   "create_better_wrench.ponder.tag.deconstruct": "拆除",

@@ -10,11 +10,14 @@ import net.minecraft.world.level.ItemLike;
 /**
  * 本模组的**思索标签**(= 思索索引界面里的"分类")。
  *
- * <p>设计(用户 2026-09-22 给出): 扳手功能分三类 —— **连接 / 拆除 / 加工**(加工下再分装配/注液/洗涤/熔炼/烟熏/缠魂),
- * 另加一个总标签把整个 mod 收在一起。标签名与说明的文本键 = {@code <modid>.ponder.tag.<id>(.description)}。</p>
+ * <p>设计(用户 2026-09-22 给出): 扳手功能分三类 —— **连接 / 拆除 / 加工**(加工下再分装配/注液/洗涤/熔炼/烟熏/缠魂)。
+ * ⚠️ 2026-09-23 用户确认「**应该是三种模式**」⇒ **就这三个标签, 没有第四个"总标签"** ——
+ * 索引页与"按 W 打开的物品界面"里都只出现这三个分类。
+ * 标签名与说明的文本键 = {@code <modid>.ponder.tag.<id>(.description)}。</p>
  *
- * <p><b>图标</b>: 三个分类标签用的是**我们 HUD 工具栏那套模式小图标**, 但**不是**直接指向
- * {@code textures/gui/mode_*.png} —— 见下面的"图标路径"说明; 总标签则直接用**物品图标**(万能扳手)。</p>
+ * <p><b>图标</b>: 三个分类标签用的是**我们 HUD 工具栏那三个模式的小图标**
+ * (连接=mode_connect / 拆除=mode_deconstruct / 加工=mode_assemble), 但**不是**直接指向
+ * {@code textures/gui/mode_*.png} —— 见下面的"图标路径"说明。</p>
  *
  * <p><b>⚠️ 图标路径(踩过坑, 实测字节码)</b>: {@code TagBuilder.icon(String)} 只接受**裸文件名**,
  * 它会自己补成 {@code <标签命名空间>:textures/ponder/tag/<字符串>.png}。所以</p>
@@ -31,13 +34,11 @@ import net.minecraft.world.level.ItemLike;
  */
 public final class BetterWrenchPonderTags {
 
-    /** 总标签: 本模组的全部功能。 */
-    public static final ResourceLocation WRENCH_TOOLS = loc("wrench_tools");
-    /** 分类: 连接。 */
+    /** 分类: 连接(图标 = HUD 的 `mode_connect`)。 */
     public static final ResourceLocation CONNECT = loc("connect");
-    /** 分类: 拆除。 */
+    /** 分类: 拆除(图标 = HUD 的 `mode_deconstruct`)。 */
     public static final ResourceLocation DECONSTRUCT = loc("deconstruct");
-    /** 分类: 加工(下含装配/注液/洗涤/熔炼/烟熏/缠魂)。 */
+    /** 分类: 加工(图标 = HUD 的 `mode_assemble`; 下含装配/注液/洗涤/熔炼/烟熏/缠魂)。 */
     public static final ResourceLocation PROCESS = loc("process");
 
     private static ResourceLocation loc(String path) {
@@ -57,15 +58,7 @@ public final class BetterWrenchPonderTags {
         PonderTagRegistrationHelper<ItemLike> itemHelper =
             helper.withKeyFunction(RegisteredObjectsHelper::getKeyOrThrow);
 
-        // ---- 总标签: 图标用物品(万能扳手) ----
-        helper.registerTag(WRENCH_TOOLS)
-            .addToIndex()
-            .item(BetterWrenchMod.BETTER_WRENCH.get(), true, false)
-            .title("Universal Wrench")
-            .description("Everything added by this mod: the wrench itself and its five modes")
-            .register();
-
-        // ---- 三个分类标签: 图标用我们的模式小图标(裸文件名! 见类注释) ----
+        // ---- 只有这三个分类标签(= 用户要的"三种模式"): 图标用我们的模式小图标(裸文件名! 见类注释) ----
         helper.registerTag(CONNECT)
             .addToIndex()
             .icon("connect")
@@ -87,8 +80,7 @@ public final class BetterWrenchPonderTags {
             .description("Work a locked depot by hand: assembly, filling, and fan-style washing / blasting / smoking / haunting")
             .register();
 
-        // ---- 组件 ↔ 标签 ----
-        itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), WRENCH_TOOLS);
+        // ---- 组件 ↔ 标签(扳手同时属于这三个分类) ----
         itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), CONNECT);
         itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), DECONSTRUCT);
         itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), PROCESS);
