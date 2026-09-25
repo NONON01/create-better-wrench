@@ -94,7 +94,7 @@ public final class DepotScenes {
         scene.idle(40);
 
         scene.overlay().showText(80)
-            .text("Six kinds can be processed: Assembly, Filling, Washing, Blasting, Smoking and Haunting")
+            .text("Ctrl and Scroll will set how long a product stays on the Depot")
             .pointAt(util.vector().topOf(DEPOT))
             .placeNearTarget();
         scene.idle(80);
@@ -108,7 +108,7 @@ public final class DepotScenes {
 
         hold(scene, util, AllItems.GOLDEN_SHEET.asStack());
         scene.overlay().showText(80)
-            .text("A half-finished item will stay on the Depot - here a Golden Sheet")
+            .text("A half-finished item will stay on the Depot")
             .attachKeyFrame()
             .placeNearTarget()
             .pointAt(util.vector().topOf(DEPOT));
@@ -127,7 +127,7 @@ public final class DepotScenes {
         hold(scene, util, AllItems.PRECISION_MECHANISM.asStack());
         scene.effects().indicateSuccess(DEPOT);
         scene.overlay().showText(80)
-            .text("The Golden Sheet will be worked all the way into a Precision Mechanism");
+            .text("The assembly will keep going until a product comes out");
         scene.idle(90);
     }
 
@@ -154,11 +154,12 @@ public final class DepotScenes {
         scene.idle(50);
 
         scene.overlay().showText(80)
-            .text("A Blaze Cake Base will be filled into a Blaze Cake");
+            .text("The item will be processed once the fluid is in");
         scene.idle(60);
 
+        scene.idle(20);
         scene.overlay().showText(70)
-            .text("The bucket will not be consumed");
+            .text("The bucket itself will not be consumed");
         scene.idle(80);
     }
 
@@ -181,8 +182,9 @@ public final class DepotScenes {
         wash(scene, util);
         hold(scene, util, new ItemStack(Items.FLINT));
         scene.effects().indicateSuccess(DEPOT);
+        scene.idle(30);
         scene.overlay().showText(70)
-            .text("Gravel will be washed into Flint, and the odd Iron Nugget");
+            .text("Washing will take a whole stack at once");
         scene.idle(80);
 
         hold(scene, util, new ItemStack(Items.WHITE_CONCRETE_POWDER));
@@ -191,11 +193,11 @@ public final class DepotScenes {
         hold(scene, util, new ItemStack(Items.WHITE_CONCRETE));
         scene.effects().indicateSuccess(DEPOT);
         scene.overlay().showText(70)
-            .text("Concrete Powder will be washed into Concrete");
+            .text("The washed products will pop out of the Depot");
         scene.idle(80);
 
         scene.overlay().showText(70)
-            .text("One click will wash a whole stack, and the bucket will not be consumed");
+            .text("The water bucket itself will not be consumed");
         scene.idle(90);
     }
 
@@ -218,8 +220,9 @@ public final class DepotScenes {
         puff(scene, util, ParticleTypes.LARGE_SMOKE, 1, 60);
         hold(scene, util, new ItemStack(Items.IRON_INGOT));
         scene.effects().indicateSuccess(DEPOT);
+        scene.idle(30);
         scene.overlay().showText(70)
-            .text("Raw Iron will be blasted into an Iron Ingot");
+            .text("Blasting uses the furnace-type recipes");
         scene.idle(80);
 
         hold(scene, util, new ItemStack(Items.COBBLESTONE));
@@ -232,7 +235,7 @@ public final class DepotScenes {
         hold(scene, util, new ItemStack(Items.SMOOTH_STONE));
         scene.effects().indicateSuccess(DEPOT);
         scene.overlay().showText(80)
-            .text("Cobblestone will be blasted into Stone, and Stone into Smooth Stone");
+            .text("The blasted products will pop out of the Depot");
         scene.idle(90);
     }
 
@@ -255,12 +258,13 @@ public final class DepotScenes {
         puff(scene, util, ParticleTypes.POOF, 1, 60);
         hold(scene, util, new ItemStack(Items.COOKED_BEEF));
         scene.effects().indicateSuccess(DEPOT);
+        scene.idle(30);
         scene.overlay().showText(70)
-            .text("Raw Beef will be smoked into a Steak");
+            .text("Smoking uses the smoker-type recipes");
         scene.idle(80);
 
         scene.overlay().showText(85)
-            .text("On a soul base Haunting will be tried first, and Smoking only as a fallback");
+            .text("On a soul base Haunting will be tried first");
         scene.idle(90);
     }
 
@@ -282,6 +286,7 @@ public final class DepotScenes {
 
         // 台座底下慢慢往上冒的灵魂火焰(游戏里锁定的置物台也会这样, 见 DepotSoulFlames)
         soulFlames(scene, util, 60);
+        scene.idle(5);
         scene.overlay().showText(75)
             .text("A locked Depot on a soul base will slowly emit soul flames");
         scene.idle(80);
@@ -299,8 +304,9 @@ public final class DepotScenes {
         puff(scene, util, ParticleTypes.SMOKE, 1, 60);
         hold(scene, util, new ItemStack(Items.SOUL_SAND));
         scene.effects().indicateSuccess(DEPOT);
+        scene.idle(35);
         scene.overlay().showText(70)
-            .text("Sand will be haunted into Soul Sand");
+            .text("Haunting uses the soul-fire recipes");
         scene.idle(90);
     }
 
