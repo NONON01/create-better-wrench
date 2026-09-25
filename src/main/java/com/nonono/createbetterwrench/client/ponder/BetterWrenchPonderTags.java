@@ -2,8 +2,10 @@ package com.nonono.createbetterwrench.client.ponder;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
 
+import net.createmod.catnip.registry.RegisteredObjectsHelper;
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.ItemLike;
 
 /**
  * 本模组的**思索标签**(= 思索索引界面里的"分类")。
@@ -39,6 +41,14 @@ public final class BetterWrenchPonderTags {
 
     /** 由插件在 {@code registerTags} 回调里调用。 */
     static void register(PonderTagRegistrationHelper<ResourceLocation> helper) {
+        // ⚠️ 关键: 还要把**组件(物品)**挂到标签上, 否则:
+        //    ① 打开该物品的 PonderUI 时看不到"分类" —— PonderUI 是用
+        //       `PonderIndex.getTagAccess().getTags(<该物品的注册名>)` 取分类的(实测字节码);
+        //    ② 标签页里点进去也没有条目 —— 那一页列的是 `getItems(<标签>)`。
+        //    Create 的写法是 `HELPER.addToTag(TAG).add(方块/物品...)`(AllCreatePonderTags), 这里同样处理。
+        PonderTagRegistrationHelper<ItemLike> itemHelper =
+            helper.withKeyFunction(RegisteredObjectsHelper::getKeyOrThrow);
+
         // ---- 总标签: 图标用物品(万能扳手) ----
         helper.registerTag(WRENCH_TOOLS)
             .addToIndex()
@@ -68,5 +78,13 @@ public final class BetterWrenchPonderTags {
             .title("Process")
             .description("Work a locked depot by hand: assembly, filling, and fan-style washing / blasting / smoking / haunting")
             .register();
+
+        // ---- 组件 ↔ 标签 ----
+        itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), WRENCH_TOOLS);
+        itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), CONNECT);
+        itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), DECONSTRUCT);
+        itemHelper.addTagToComponent(BetterWrenchMod.BETTER_WRENCH.get(), PROCESS);
+        // ℹ️ 以后把加工那 6 段挂到 `create:depot` 时, 这里再加一行:
+        //    itemHelper.addTagToComponent(BuiltInRegistries.ITEM.get(...depot...), PROCESS);
     }
 }
