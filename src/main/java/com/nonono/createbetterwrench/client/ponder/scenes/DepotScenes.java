@@ -132,12 +132,16 @@ public final class DepotScenes {
     /**
      * 装配: 台面上放原料(金板) → 依次演示要投的三件材料 → **一次性**显示成品。
      *
+     * <p><b>中间态</b>(用户 2026-09-25 要求补上): 投下第一件材料后台面上的金板就变成 Create 的
+     * {@code create:incomplete_precision_mechanism}(未完成精密构件), 之后两件材料都是往这半成品上继续投,
+     * 最后才变成精密构件 ⇒ 台面上依次是 **金板 → 未完成精密构件 → 精密构件**。</p>
+     *
      * <p>⚠️ 为什么不是"一个长图标": Ponder 的输入气泡宽度是它自己按内容算的(每个物品槽 24px),
      * 想在同一个气泡里塞 4 个图标只能自己加宽气泡, 而元素回调拿到的局部坐标系与
      * {@code renderSpeechBox} 摆放气泡用的坐标系**不是同一个**(2026-09-25 实机截图证实: 自己画的气泡与图标
      * 各在一处, 还会多出一个没被盖住的原生气泡) ⇒ 不再走那条路。
-     * 现在改成**原生气泡依次演示**: 每一拍都是 {@code [右击鼠标][材料]}, 上一拍结束的同一 tick 下一拍才开始
-     * (不重叠、不叠影), 三件材料演完再一次性出成品。</p>
+     * 现在改成**原生气泡依次演示**: 每一拍都是 {@code [右击鼠标][材料]}, 每拍 32 tick 之后再空 8 tick
+     * 让上一拍彻底淡出(不重叠、不叠影), 三件材料演完再一次性出成品。</p>
      */
     public static void assembly(SceneBuilder builder, SceneBuildingUtil util) {
         CreateSceneBuilder scene = start(builder, util, "wrench_process_assembly", "Assembly", DEPOT);
@@ -160,13 +164,19 @@ public final class DepotScenes {
         scene.idle(30);
 
         // [右击鼠标][小齿轮] → [右击鼠标][大齿轮] → [右击鼠标][铁粒]:
-        // 每拍 32 tick, 之后空 8 tick 让上一拍**彻底淡出**再出下一拍(不重叠、不叠影)
+        // 每拍 32 tick, 之后空 8 tick 让上一拍**彻底淡出**再出下一拍(不重叠、不叠影);
+        // 投下第一件之后台面变成"未完成精密构件"(中间态), 后两件是往这半成品上继续投
         Vec3 anchor = util.vector().topOf(DEPOT).add(0, 0.55, 0);
-        for (ItemStack material : MECHANISM_MATERIALS) {
+        for (int i = 0; i < MECHANISM_MATERIALS.length; i++) {
             scene.overlay().showControls(anchor, Pointing.DOWN, TIP_TICKS)
-                .withItem(material)
+                .withItem(MECHANISM_MATERIALS[i])
                 .rightClick();
             scene.idle(TIP_TICKS + TIP_GAP);
+            if (i == 0) {
+                hold(scene, util, DEPOT, AllItems.INCOMPLETE_PRECISION_MECHANISM.asStack());
+                scene.effects().indicateSuccess(DEPOT);
+                scene.idle(20);
+            }
         }
 
         hold(scene, util, DEPOT, AllItems.PRECISION_MECHANISM.asStack());
