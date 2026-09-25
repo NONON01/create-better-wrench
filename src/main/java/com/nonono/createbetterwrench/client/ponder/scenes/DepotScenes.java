@@ -7,6 +7,8 @@ import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+
 import net.createmod.catnip.gui.element.ScreenElement;
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
@@ -74,8 +76,12 @@ public final class DepotScenes {
         new ItemStack(Items.IRON_NUGGET)
     };
 
-    /** 长图标里每个小图标的边长(逻辑像素; 输入元素会把整块放大 1.5 倍 ⇒ 屏幕上 24px)。 */
-    private static final int ICON_SIZE = 16;
+    /** 长图标里每一格的边长(屏幕像素; 与 Ponder 自己的 icon/item 槽一致 = 16 逻辑像素 × 1.5)。 */
+    private static final int SLOT = 24;
+    /** Ponder 渲染输入图标时对自定义元素施加的缩放(`javap`: `InputWindowElement.render` → `pose.scale(1.5f …)`)。 */
+    private static final float INPUT_SCALE = 1.5f;
+    /** 气泡盒体与锚点(尾巴尖)之间的间隙(`javap`: `renderSpeechBox` 的 DOWN 分支 = `h + 8 + 1 + 1`)。 */
+    private static final int TAIL_GAP = 10;
 
     private DepotScenes() {
     }
@@ -373,23 +379,35 @@ public final class DepotScenes {
     /**
      * 在置物台上方摆**一个长图标**: 「鼠标右键」+ {@link #MECHANISM_MATERIALS} 依次排在里面。
      *
-     * <p>⚠️ Ponder 的输入元素只给自定义 {@code ScreenElement} 留 24px 宽(它自己按"图标/文字/物品"三选几算宽度),
-     * 想塞 4 个就得自己加宽: 这里在渲染回调里**自己再调一次** {@code PonderUI.renderSpeechBox} 画一个够宽的气泡
-     * (它会盖住元素原本那个 24px 的小气泡, 只留下指向置物台的小尾巴), 然后依次画右击鼠标图标
-     * ({@code PonderGuiTextures.ICON_RMB}, 与 {@code .rightClick()} 用的是同一张贴图)和材料图标;
-     * 整条以元素原本的锚点居中, 这样尾巴正好落在长图标中间。</p>
+     * <p>⚠️ Ponder 的输入元素只给自定义 {@code ScreenElement} 留 24px(它自己按"图标/文字/物品"三选几算宽度),
+     * 想塞 4 个只能自己加宽。做法(全部按 `javap` 实测的几何来):
+     * 元素的渲染是在 `pose.scale(1.5)` 之后调 {@code icon.render(graphics, 0, 0)} 的, 所以先 `scale(1/1.5)`
+     * **把单位换回屏幕像素**, 然后用与 Ponder **完全相同**的锚点/高度再调一次公开的
+     * {@code PonderUI.renderSpeechBox}(只是宽度变成 4 格) —— 这样气泡除了更宽以外与元素自带那个**逐像素重合**
+     * (它自带的 24px 小气泡被完全盖住, 尾巴也重合), 最后在气泡内部按格画右击鼠标图标
+     * ({@code PonderGuiTextures.ICON_RMB}, 与 {@code .rightClick()} 同一张贴图)与三件材料图标。</p>
      */
     private static ScreenElement materialStrip(ItemStack... materials) {
         return (graphics, x, y) -> {
-            int width = ICON_SIZE * (materials.length + 1);
-            int left = x + ICON_SIZE / 2 - width / 2;          // 以元素锚点(原小气泡中心)居中
-            PonderUI.renderSpeechBox(graphics, left, y, width, ICON_SIZE, false, Pointing.DOWN, true);
-            PonderGuiTextures.ICON_RMB.render(graphics, left, y);
-            int ix = left + ICON_SIZE;
-            for (ItemStack material : materials) {
-                graphics.renderItem(material, ix, y);
-                ix += ICON_SIZE;
+            int count = materials.length + 1;
+            int width = SLOT * count;
+            PoseStack pose = graphics.pose();
+            pose.pushPose();
+            pose.scale(1f / INPUT_SCALE, 1f / INPUT_SCALE, 1f);      // 单位 = 屏幕像素
+            PonderUI.renderSpeechBox(graphics, x, y, width, SLOT, false, Pointing.DOWN, true);
+            int top = y - SLOT - TAIL_GAP;                           // renderSpeechBox 的 DOWN 分支: 盒子在锚点上方
+            int left = x - width / 2;
+            for (int i = 0; i < count; i++) {
+                pose.pushPose();
+                pose.translate(left + i * SLOT, top, 0);
+                pose.scale(INPUT_SCALE, INPUT_SCALE, 1f);
+                if (i == 0)
+                    PonderGuiTextures.ICON_RMB.render(graphics, 0, 0);
+                else
+                    graphics.renderItem(materials[i - 1], 0, 0);
+                pose.popPose();
             }
+            pose.popPose();
         };
     }
 
