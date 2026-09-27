@@ -33,26 +33,27 @@ import net.neoforged.neoforge.common.util.BlockSnapshot;
 import net.neoforged.neoforge.event.EventHooks;
 
 /**
- * 「连接」模式的服务端核心 —— 拐点数量不限, 每段边按几何自动路由。
+ * 「连接」模式的服务端核心: 拐点数量不限, 每段边按几何自动路由。
  *
- * <p>交互(用户 2026-09-07 重定义):
- * 起点 S(机械动力方块) → 若干普通方块拐点 c1..ck(数量上限见 {@link ConnectPayload#maxCorners()}, 可在配置里调) → 终点 E(机械动力方块)。</p>
+ * <p>交互流程(设计约定, 2026-09-07): 起点 S(机械动力方块) 与终点 E(机械动力方块) 之间按序点若干普通
+ * 方块作为拐点 c1..ck(数量上限见 {@link ConnectPayload#maxCorners()}, 可在配置里调),
+ * 节点链依次为 S, c1..ck, E。</p>
  *
- * <p>每段相邻节点 a→b 的边按三档自动路由:
+ * <p>每段相邻节点 a 到 b 的边按三档自动路由:
  * <ul>
- *   <li>差 1 个坐标(同轴)→ 直线铺轴, 无额外齿轮箱;</li>
- *   <li>差 2 个坐标(同一平面)→ 自动一次 90° 拐弯(拐点先对齐 a 的轴再沿 b 的轴, 角点放齿轮箱);</li>
- *   <li>差 3 个坐标(非同一平面, 需 ≥2 次拐弯)→ 拒连(NON_PLANAR)。</li>
+ *   <li>差 1 个坐标(同轴): 直线铺轴, 无额外齿轮箱;</li>
+ *   <li>差 2 个坐标(同一平面): 自动一次 90° 拐弯(拐点先对齐 a 的轴再沿 b 的轴, 角点放齿轮箱);</li>
+ *   <li>差 3 个坐标(非同一平面, 需 2 次以上拐弯): 拒连(NON_PLANAR)。</li>
  * </ul></p>
  *
- * <p>每个方向改变处(被点拐点 + 每条拐弯边的自动角点)放一个齿轮箱。默认材料: 轴 create:shaft +
+ * <p>每个方向改变处(被点拐点 与 每条拐弯边的自动角点)放一个齿轮箱。默认材料: 轴 create:shaft +
  * 齿轮箱 create:gearbox(水平转) / create:vertical_gearbox(涉竖直转)。
- * ⚠️ 2026-09-20: 原先「副手持"轴变体"则优先用副手」这个特性**已按用户要求移除** —— 轴材质**固定**为 create:shaft。
+ * 2026-09-20 起轴材质固定为 create:shaft: 原先"副手持轴变体则优先用副手"的特性已移除(设计约定)。
  * 放置前按 Item 聚合校验材料足量, 不足整拒不部分放; 扣料只按逐格校验通过的实际落块数。</p>
  */
 public final class ConnectLogic {
 
-    // 单段轴长上限改为读配置: config/WrenchConfig → connect.max_leg_length(默认 64)。
+    // 单段轴长上限读配置: config/WrenchConfig 的 connect.max_leg_length(默认 64)。
 
     private ConnectLogic() {
     }
@@ -77,7 +78,7 @@ public final class ConnectLogic {
     private static final int CELL_DUPLICATE = 0;
     private static final int CELL_CONFLICT = -1;
 
-    /** 一截直线轴段(from→to, 不含两端, 沿 axis), to 若为节点则其上是齿轮箱。 */
+    /** 一截直线轴段(from 到 to, 不含两端, 沿 axis), to 若为节点则其上是齿轮箱。 */
     private static final class Leg {
         final Axis axis;
         final BlockPos from;
@@ -131,7 +132,7 @@ public final class ConnectLogic {
     /**
      * 判定一个方块是否为可接轴端的机械动力方块(IRotate + KineticBlockEntity)。
      *
-     * <p>⚠️ 复审 B-14: {@code isLoaded} 必须排在 {@code getBlockState} **之前** —— 后者默认
+     * <p>复审 B-14: {@code isLoaded} 必须排在 {@code getBlockState} <b>之前</b> —— 后者默认
      * {@code requireChunk=true}, 会阻塞式加载/生成区块, 正是审计 A-5 要防的事(旧写法虽有调用方兜着, 但守卫本身是无效的)。</p>
      */
     static boolean isKineticEnd(Level world, BlockPos pos) {
@@ -143,7 +144,7 @@ public final class ConnectLogic {
         return world.getBlockEntity(pos) instanceof KineticBlockEntity;
     }
 
-    // ---- "这一格打算放什么"的状态构造(A-17 的判据与落块状态必须**逐字节一致**, 否则会误判 occupied) ----
+    // ---- "这一格打算放什么"的状态构造(A-17 的判据与落块状态必须逐字节一致, 否则会误判 occupied) ----
 
     /** 轴: 与 {@link #connect} 里落块用的状态完全一致。 */
     private static BlockState shaftState(Axis axis) {
@@ -166,16 +167,16 @@ public final class ConnectLogic {
     /**
      * 单次连接最多允许铺设的方块总数(轴 + 齿轮箱 + 大齿轮), 服务端安全上限。
      *
-     * <p>★ 可在配置里调: {@code config/WrenchConfig} → {@code connect.max_total_blocks}(默认 256)。</p>
+     * <p>可在配置里调: {@code config/WrenchConfig} 的 {@code connect.max_total_blocks}(默认 256)。</p>
      */
     public static int maxTotalBlocks() {
         return WrenchConfig.connectMaxTotalBlocks();
     }
 
-    /** 单次 plan() 内最多组装多少次候选走法(阶段 1 的贪心组装算 1 次); 超预算即放弃 → SELF_CONFLICT。 */
+    /** 单次 plan() 内最多组装多少次候选走法(阶段 1 的贪心组装算 1 次); 超出该预算即结束回溯, 回退到首选走法的失败原因。 */
     private static final int MAX_PLAN_ATTEMPTS = 64;
 
-    /** 计算铺设计划(只读, 不改世界)。corners 为按序点击的拐点(可为空=直线直达); cornerType=拐角用齿轮箱还是大齿轮。 */
+    /** 计算铺设计划(只读, 不改世界)。corners 为按序点击的拐点(可为空, 表示直线直达); cornerType 指定拐角用齿轮箱还是大齿轮。 */
     public static ResultOutcome plan(Level world, BlockPos start, List<BlockPos> corners, BlockPos end,
                                      ConnectCorner cornerType) {
         if (!world.isLoaded(start) || !world.isLoaded(end))
@@ -221,8 +222,8 @@ public final class ConnectLogic {
             return new ResultOutcome(Result.SUCCESS, greedy.plan);
 
         // ===== 阶段 2: 首选走法失败后, 对"有多个候选"的边做有界回溯 =====
-        // 被已有方块挡住 / 终点轴口不过 / 某段过长 / 中间格未加载 / 自相冲突 —— 这些**都可能随 L 取向改变**,
-        // 所以统一进来搜一遍(若某类失败其实与取向无关, 搜索只是白跑几趟, 结论不变)。
+        // 被已有方块挡住 / 终点轴口不过 / 某段过长 / 中间格未加载 / 自相冲突 —— 这些都可能随 L 取向改变,
+        // 所以统一进来搜一遍(若某类失败与取向无关, 搜索只会多消耗几次组装预算, 结论不变)。
         List<Integer> varEdges = new ArrayList<>();
         for (int e = 0; e < variants.size(); e++)
             if (variants.get(e).size() > 1)
@@ -256,8 +257,8 @@ public final class ConnectLogic {
             }
         }
 
-        // 所有候选走法都试过(或超出预算)仍不行: 报**首选走法**的失败原因 ——
-        // 比"一律报自相冲突"更贴合实际(例如其实是"被方块挡住"), 且世界零改动(阶段 2 只做计划)。
+        // 所有候选走法都试过(或超出预算)仍不行: 报首选走法的失败原因 ——
+        // 比"一律报自相冲突"更贴合实际(例如实际是"被方块挡住"), 且世界零改动(阶段 2 只做计划)。
         return new ResultOutcome(greedy.result, null);
     }
 
@@ -301,8 +302,8 @@ public final class ConnectLogic {
     /**
      * 组装并校验一条候选走法(只读世界, 绝不改世界)。
      *
-     * <p>阶段 1 与阶段 2 共用; 检查顺序与改动前逐一对应:
-     * 端点轴口 → 每段中间格(超长/未加载) → 每个节点(大齿轮/齿轮箱) → 各段剩余中间格铺轴。</p>
+     * <p>阶段 1 与阶段 2 共用; 检查顺序与改动前逐一对应, 依次为:
+     * 端点轴口; 每段中间格(超长/未加载); 每个节点(大齿轮/齿轮箱); 各段剩余中间格铺轴。</p>
      */
     private static Attempt assemble(Level world, BlockPos start, BlockPos end, List<Leg> legs,
                                     ConnectCorner cornerType, Map<BlockPos, BlockState> occupiedCache,
@@ -336,7 +337,7 @@ public final class ConnectLogic {
         }
 
         Plan plan = new Plan();
-        // 审计 A-4: 记录"已规划坐标 → 该格要放什么", 用于去重/冲突检测, 并禁止任何计划格落到起点/终点上
+        // 审计 A-4: 记录"已规划坐标 与 该格要放什么"的对应关系, 用于去重/冲突检测, 并禁止任何计划格落到起点/终点上
         Map<BlockPos, String> planned = new LinkedHashMap<>();
 
         // 每个内部节点(被点拐点 / 自动角点): 按拐角类型放齿轮箱 或 两个大齿轮
@@ -368,7 +369,7 @@ public final class ConnectLogic {
                 if (r2 != CELL_DUPLICATE)
                     plan.cogs.add(new CogPlace(l2, next.axis));
             } else {
-                // 齿轮箱节点: 允许把**可替换方块/已就位的同款齿轮箱**换掉, 但**不能覆盖**别的东西
+                // 齿轮箱节点: 允许把可替换方块/已就位的同款齿轮箱换掉, 但不能覆盖别的东西
                 // (审计发现 #7 修"完全不校验"; 复审 A-17 进一步把判据收紧到"与要放的方块完全一致")
                 if (!loadedCached(world, jp, loadedCache))
                     return Attempt.failure(Result.UNLOADED);
@@ -402,7 +403,7 @@ public final class ConnectLogic {
         return Attempt.success(plan);
     }
 
-    /** 该坐标**当前**方块状态的记忆化(阶段 2 的回溯会反复问同一批坐标; 判据见 {@link #blocked})。 */
+    /** 该坐标当前方块状态的记忆化(阶段 2 的回溯会反复问同一批坐标; 判据见 {@link #blocked})。 */
     private static BlockState stateAt(Level world, BlockPos pos, Map<BlockPos, BlockState> cache) {
         BlockState hit = cache.get(pos);
         if (hit != null)
@@ -417,14 +418,14 @@ public final class ConnectLogic {
         Boolean hit = cache.get(pos);
         if (hit != null)
             return hit;
-        // ⚠️ 2026-09-20: 原来是 world.hasChunkAt(pos)。`LevelReader` 的整个 hasChunk* 家族
-        //    (hasChunk / hasChunkAt / hasChunksAt)都带 @Deprecated —— 经核实**来源是原版 1.21.1**,
+        // 2026-09-20: 原来是 world.hasChunkAt(pos)。`LevelReader` 的整个 hasChunk* 家族
+        //    (hasChunk / hasChunkAt / hasChunksAt)都带 @Deprecated —— 经核实来源是原版 1.21.1,
         //    不是 NeoForge: 补丁前的产物里就已经带注解, 而 NeoForge 的 LevelReader 补丁只有 600 余字符、
         //    仅追加 ILevelReaderExtension 接口(见 neoforge-*-userdev.jar 内 patches/.../LevelReader.java.patch)。
-        //    原版没有给出替代说明, 这里取**语义最近且更保守**的 Level#isLoaded(BlockPos)
-        //    (= getChunkSource().hasChunk(区块坐标) + 一条"超出建筑高度 ⇒ false"); Create 本体也全用 isLoaded
+        //    原版没有给出替代说明, 这里取语义最近且更保守的 Level#isLoaded(BlockPos)
+        //    (= getChunkSource().hasChunk(区块坐标) + 一条"超出建筑高度则为 false"); Create 本体也全用 isLoaded
         //    (world/level.isLoaded(...) 60+ 处, hasChunkAt 0 处)。
-        //    ⚠️ 顺带修掉一个**客户端**语义坑: ClientLevel.hasChunk() 恒为 true ⇒ 旧的 hasChunkAt 在客户端
+        //    注意: 这同时修掉一个客户端语义差异 —— ClientLevel.hasChunk() 恒为 true, 因此旧的 hasChunkAt 在客户端
         //    形同没查; 换成 isLoaded 后, 幽灵预览里的"区块已加载"判定才真正生效(与服务端 A-5 同口径)。
         boolean value = world.isLoaded(pos);
         cache.put(pos.immutable(), value);
@@ -434,9 +435,9 @@ public final class ConnectLogic {
     /**
      * 登记一个计划格(审计 A-4)。
      *
-     * <p>同一坐标、同一内容 → {@link #CELL_DUPLICATE}(调用方跳过: 不重复计材料、不重复放置);
-     * 同一坐标、不同内容(例如先排竖直齿轮箱后又排水平齿轮箱) → {@link #CELL_CONFLICT};
-     * 坐标等于起点或终点 → 同样判冲突(绝不允许把起点/终点方块换成齿轮箱或轴)。</p>
+     * <p>同一坐标、同一内容: 返回 {@link #CELL_DUPLICATE}(调用方跳过, 不重复计材料、不重复放置);
+     * 同一坐标、不同内容(例如先排竖直齿轮箱后又排水平齿轮箱): 返回 {@link #CELL_CONFLICT};
+     * 坐标等于起点或终点: 同样判冲突(绝不允许把起点/终点方块换成齿轮箱或轴)。</p>
      */
     private static int registerCell(Map<BlockPos, String> planned, BlockPos pos, String kind,
                                     BlockPos start, BlockPos end) {
@@ -456,15 +457,15 @@ public final class ConnectLogic {
             return Result.SAME_POS;
         if (n >= 3)
             return Result.NON_PLANAR;
-        // 1 或 2 维的 routeEdgeVariants 返回空列表, 只可能是首段起点轴口不被满足 → 报"无法接轴"
+        // 1 或 2 维的 routeEdgeVariants 返回空列表, 只可能是首段起点轴口不被满足, 因此报"无法接轴"
         return Result.NOT_KINETIC;
     }
 
     /**
-     * 路由一条边, 返回**按偏好排序的全部候选走法**(第 0 个与改动前 {@code routeEdge} 选出的完全一致)。
+     * 路由一条边, 返回按偏好排序的全部候选走法(第 0 个与改动前 {@code routeEdge} 选出的完全一致)。
      *
      * <p>n==1: 只有 1 个候选(直线); n==2: 两种 L 取向里能接上起点轴口的都作为候选
-     * (第 0 个 = 原偏好逻辑选中的那个, 第 1 个 = 另一种取向)。返回空列表 = 两种取向都不可用。</p>
+     * (第 0 个即原偏好逻辑选中的那个, 第 1 个为另一种取向)。返回空列表表示两种取向都不可用。</p>
      */
     private static List<Leg[]> routeEdgeVariants(Level world, BlockPos a, BlockPos b, boolean first,
                                                  BlockPos start, BlockPos end, BlockState startState) {
@@ -535,7 +536,7 @@ public final class ConnectLogic {
 
     /**
      * L 取向打分: 避免自动拐点紧贴端点(尤其紧贴终点方块)。
-     * 第二段(拐点→b)越长越优先(不在终点旁拐), 其次第一段(不在起点旁拐)。
+     * 第二段(拐点 到 b)越长越优先(不在终点旁拐), 其次第一段(不在起点旁拐)。
      */
     private static int orientationScore(BlockPos a, BlockPos b, BlockPos corner) {
         int score = 0;
@@ -609,7 +610,7 @@ public final class ConnectLogic {
         return ds.size() == 1 ? ds.get(0) : null;
     }
 
-    /** from→to(不含两端)的中间格(走向由两点之差决定); 任一格超长无法铺完时返回 null。 */
+    /** from 到 to(不含两端)的中间格(走向由两点之差决定); 任一格超长无法铺完时返回 null。 */
     private static List<BlockPos> interiorCells(BlockPos from, BlockPos to) {
         List<BlockPos> out = new ArrayList<>();
         Direction dir = directionBetween(from, to);
@@ -625,13 +626,13 @@ public final class ConnectLogic {
     /**
      * 该格能不能放「wanted」。
      *
-     * <p>⚠️ **2026-09-23 复审修复(A-17)**: 旧实现是"凡是 {@code AbstractSimpleShaftBlock} 且带 {@code AXIS} 就算可复用",
-     * 而 Create 的 {@code CogWheelBlock extends AbstractSimpleShaftBlock}(小/大齿轮都是它) ⇒ **已有齿轮的格子被判成空**,
-     * 计划照常在那格放轴/齿轮箱, 落块走 {@code switchToBlockState}→{@code setBlock}(**不掉落**, 实测该类 0 处
-     * {@code dropResources/destroyBlock}) ⇒ **玩家的齿轮被静默销毁、还要为新方块付费**。</p>
+     * <p><b>2026-09-23 复审修复(A-17)</b>: 旧实现是"凡是 {@code AbstractSimpleShaftBlock} 且带 {@code AXIS} 就算可复用",
+     * 而 Create 的 {@code CogWheelBlock extends AbstractSimpleShaftBlock}(小/大齿轮都是它), 因此已有齿轮的格子被判成空,
+     * 计划照常在那格放轴/齿轮箱, 落块走 {@code switchToBlockState} 再到 {@code setBlock}(不掉落, 实测该类 0 处
+     * {@code dropResources/destroyBlock}), 结果玩家的齿轮被静默销毁、还要为新方块付费。</p>
      *
      * <p>现在的判据只有两条: <b>可替换方块</b>(= 空气/草等)算空; <b>与 wanted 完全一致</b>(同方块同属性)算"已就位"
-     * —— 已就位的那格不重复放、也不扣料(见 {@link #connect}); 其余一律算阻挡 ⇒ 友好拒绝(PATH_BLOCKED), 绝不覆盖。</p>
+     * —— 已就位的那格不重复放、也不扣料(见 {@link #connect}); 其余一律算阻挡, 因此友好拒绝(PATH_BLOCKED), 绝不覆盖。</p>
      */
     private static boolean blocked(BlockState existing, BlockState wanted) {
         if (existing.canBeReplaced())
@@ -653,7 +654,7 @@ public final class ConnectLogic {
             return Result.TOO_LONG;
 
         // 审计 A-3: 每个将要落块的坐标都要先过原版交互权限(服务端实现里含出生点保护与世界边界)。
-        // 单独给一个 PROTECTED 结果码, 免得玩家看到"路径被方块阻挡"却看不出是保护规则在拦。
+        // 单独给一个 PROTECTED 结果码, 使玩家看到的失败原因能区分"保护规则拦截"与"路径被方块阻挡"。
         for (BlockPos p : plan.shaftPositions)
             if (!world.mayInteract(player, p))
                 return Result.PROTECTED;
@@ -668,17 +669,17 @@ public final class ConnectLogic {
         Item verticalItem = AllItems.VERTICAL_GEARBOX.get();
         Item cogItem = AllBlocks.LARGE_COGWHEEL.asItem();
 
-        // 审计 A-1: 材料需求先按 Item **聚合**再一次性校验(而不是按用途分头校验)。
-        // 这条口径在 2026-09-20 之前是用来防"副手持轴变体(齿轮)当轴用 ⇒ 同一堆叠被两个用途重复计入"的复制漏洞;
-        // 现在那个副手特性**已移除**(轴固定 create:shaft), 但聚合校验保留 —— 它本来就是正确的记账方式。
+        // 审计 A-1: 材料需求先按 Item 聚合再一次性校验(而不是按用途分头校验)。
+        // 这条口径在 2026-09-20 之前用来防"副手持轴变体(齿轮)当轴用, 同一堆叠被两个用途重复计入"的复制漏洞;
+        // 那个副手特性现已移除(轴固定 create:shaft), 但聚合校验保留 —— 它本来就是正确的记账方式。
         if (!hasMaterials(player, plan))
             return Result.MATERIALS;
 
-        // 放置, 并逐格确认真的落上了(审计 A-16: switchToBlockState→setBlock 可能静默失败,
+        // 放置, 并逐格确认真的落上了(审计 A-16: switchToBlockState 再到 setBlock 可能静默失败,
         // 所以扣料只按"校验通过的实际落块数", 不能照 plan 计数扣)。
         //
-        // 每格还会**补发原版的 EntityPlaceEvent**(审计 A-3 残留修复): 只监听该事件的领地/保护插件
-        // 从此也能拦住; 一旦被拦 => **逆序整体还原 + 拒连**(世上不留半截传动结构, 也不扣料)。
+        // 每格还会补发原版的 EntityPlaceEvent(审计 A-3 残留修复): 只监听该事件的领地/保护插件
+        // 从此也能拦住; 一旦被拦则逆序整体还原并拒连(世上不留半截传动结构, 也不扣料)。
         BlockState shaftBase = AllBlocks.SHAFT.getDefaultState();
         Map<Item, Integer> placedItems = new LinkedHashMap<>();
         List<BlockSnapshot> undo = new ArrayList<>();
@@ -687,7 +688,7 @@ public final class ConnectLogic {
             BlockState st = shaftBase.hasProperty(BlockStateProperties.AXIS)
                 ? shaftBase.setValue(BlockStateProperties.AXIS, plan.shaftAxes.get(i))
                 : shaftBase;
-            // 复审 A-17: 该格已经是"要放的那个方块"(同方块同属性) ⇒ 不重复放、也不扣料(玩家不为"复用"付费)
+            // 复审 A-17: 该格已经是"要放的那个方块"(同方块同属性), 因此不重复放、也不扣料(玩家不为复用付费)
             if (world.getBlockState(p).equals(st))
                 continue;
             PlaceOutcome outcome = placeWithEvent(world, p, st, player, undo);
@@ -701,7 +702,7 @@ public final class ConnectLogic {
         for (GearboxPlace g : plan.gearboxes) {
             BlockState st = AllBlocks.GEARBOX.getDefaultState()
                 .setValue(BlockStateProperties.AXIS, g.axis);
-            // 复审 A-17: 已就位(同款齿轮箱) ⇒ 不重复放、不扣料
+            // 复审 A-17: 已就位(同款齿轮箱), 因此不重复放、不扣料
             if (world.getBlockState(g.pos).equals(st))
                 continue;
             PlaceOutcome outcome = placeWithEvent(world, g.pos, st, player, undo);
@@ -715,7 +716,7 @@ public final class ConnectLogic {
         for (CogPlace c : plan.cogs) {
             BlockState st = AllBlocks.LARGE_COGWHEEL.getDefaultState()
                 .setValue(BlockStateProperties.AXIS, c.axis);
-            // 复审 A-17: 已就位(同款大齿轮) ⇒ 不重复放、不扣料
+            // 复审 A-17: 已就位(同款大齿轮), 因此不重复放、不扣料
             if (world.getBlockState(c.pos).equals(st))
                 continue;
             PlaceOutcome outcome = placeWithEvent(world, c.pos, st, player, undo);
@@ -746,22 +747,22 @@ public final class ConnectLogic {
     private enum PlaceOutcome {
         /** 落上了且没被保护事件拦下 —— 可计入扣料。 */
         OK,
-        /** 方块没落上(极端情形, 例如 debug 世界) —— 不计料, 但**不**中止整次操作。 */
+        /** 方块没落上(极端情形, 例如 debug 世界) —— 不计料, 但不中止整次操作。 */
         FAILED,
         /** 被 {@code EntityPlaceEvent} 取消 —— 调用方必须整体还原并拒连。 */
         DENIED
     }
 
     /**
-     * 落一块方块, 并**补发原版的「实体放置方块」事件**(审计 A-3 残留修复)。
+     * 落一块方块, 并补发原版的「实体放置方块」事件(审计 A-3 残留修复)。
      *
      * <p><b>为什么必须补</b>: 本模组是用 {@code KineticBlockEntity.switchToBlockState} 直接改方块的,
-     * 原版那条 {@code BlockEvent.EntityPlaceEvent} 不会发出 ⇒ **只监听该事件的领地/保护插件拦不住**
+     * 原版那条 {@code BlockEvent.EntityPlaceEvent} 不会发出, 因此只监听该事件的领地/保护插件拦不住
      * (出生点保护与世界边界已由 {@code world.mayInteract} 覆盖, 见 {@link #connect} 开头)。</p>
      *
-     * <p><b>顺序照 {@code CommonHooks} 的官方做法</b>: 先落块 → 再发事件(这样
-     * {@code snapshot.getCurrentState()} 已经是新方块, 插件读到的"placedBlock"才是要放的那一块) → 被取消再还原。
-     * 放置朝向取 {@code Direction.UP} —— 我们没有"点击面", 把"下方那一格"当作 placedAgainst 是最自然的近似。</p>
+     * <p><b>顺序照 {@code CommonHooks} 的官方做法</b>: 先落块, 再发事件(这样
+     * {@code snapshot.getCurrentState()} 已经是新方块, 插件读到的"placedBlock"才是要放的那一块), 被取消再还原。
+     * 放置朝向取 {@code Direction.UP} —— 本类没有"点击面"信息, 把"下方那一格"当作 placedAgainst 是最自然的近似。</p>
      *
      * <p>放置成功时把 {@code snapshot}(放置前的状态)记进 {@code undo}, 供被拒时逆序整体还原。</p>
      */
@@ -782,7 +783,7 @@ public final class ConnectLogic {
         return PlaceOutcome.OK;
     }
 
-    /** 把本次已放置的方块按**逆序**还原(被保护插件拦下后, 世上不留半截传动结构)。 */
+    /** 把本次已放置的方块按逆序还原(被保护插件拦下后, 世上不留半截传动结构)。 */
     private static void revertAll(List<BlockSnapshot> undo) {
         for (int i = undo.size() - 1; i >= 0; i--) {
             BlockSnapshot snapshot = undo.get(i);
@@ -834,11 +835,11 @@ public final class ConnectLogic {
     }
 
     /**
-     * 统计玩家**主背包**里某物品的数量(不含副手)。
+     * 统计玩家主背包里某物品的数量(不含副手)。
      *
-     * <p>⚠️ 2026-09-20(用户要求): 连接模式的材料来源**限定为主背包** ——
-     * 原先会额外把副手也算进来("副手放材料"), 现按用户要求去掉:
-     * 副手既不参与计数, 也不参与扣除({@link #consumeItem})。客户端预览与服务端用的是**同一个函数**, 口径一致。</p>
+     * <p>2026-09-20(设计约定): 连接模式的材料来源限定为主背包 ——
+     * 原先会额外把副手也算进来("副手放材料"), 现已去掉:
+     * 副手既不参与计数, 也不参与扣除({@link #consumeItem})。客户端预览与服务端用的是同一个函数, 口径一致。</p>
      */
     private static int countItem(Player player, Item item) {
         int count = 0;
@@ -848,7 +849,7 @@ public final class ConnectLogic {
         return count;
     }
 
-    /** 从**主背包**扣除指定物品; 扣不满返回 false(调用方须记录日志, 不静默吞掉)。副手不参与。 */
+    /** 从主背包扣除指定物品; 扣不满返回 false(调用方须记录日志, 不静默吞掉)。副手不参与。 */
     private static boolean consumeItem(Player player, Item item, int count) {
         int remain = count;
         for (int i = player.getInventory().items.size() - 1; i >= 0 && remain > 0; i--) {

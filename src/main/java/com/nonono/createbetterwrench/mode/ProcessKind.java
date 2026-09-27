@@ -5,17 +5,18 @@ import com.nonono.createbetterwrench.BetterWrenchMod;
 import net.minecraft.network.chat.Component;
 
 /**
- * 「加工」模式下的**六种加工方式** —— 与用户定的六个子功能开关一一对应。
+ * 「加工」模式下的<b>六种加工方式</b> —— 与配置中的六个子功能开关一一对应。
  *
  * <pre>
  *   装配 assembly · 注液 filling · 洗涤 splash · 冶炼 blasting · 烤制 smoking · 缠魂 haunting
  * </pre>
  *
- * <p>它们各自可以在配置里单独关掉(见 {@code config/WrenchConfig} → {@code process.*});
- * 关掉后玩家用那种方式加工时会收到 actionbar「此子功能未启用」。</p>
+ * <p>它们各自可以在配置里单独关掉(见 {@code config/WrenchConfig} 的 {@code process.*} 键);
+ * 关掉后玩家用那种方式加工时会收到 actionbar 提示, 文案为 lang key
+ * {@code msg.create_better_wrench.subfeature_disabled}。</p>
  *
- * <p>ℹ️ 本模组的加工模式其实还有第 7 条路径"**原木去皮**"(手持斧头右击原木), 用户没把它列进六个子功能里,
- * 所以它只受**总开关**约束。</p>
+ * <p>注意: 本模组的加工模式还有第 7 条路径"原木去皮"(手持斧头右击原木)。该路径不属于上述六个子功能,
+ * 因此只受总开关约束。</p>
  */
 public enum ProcessKind {
 

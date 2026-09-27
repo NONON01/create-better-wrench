@@ -27,15 +27,17 @@ import net.neoforged.fml.ModList;
  *   /cbw combat &lt;目标选择器&gt; &lt;true|false&gt;  单独给玩家开/关战斗模式(需要 OP 2 级)
  * </pre>
  *
- * <p>为什么要拆成"服务端 + 客户端"两半: {@code /cbw config} 要打开**客户端**的界面,
- * 而本类在通用代码里, 绝不能引用客户端类(专用服务器会加载它, 见 docs/reference/03-known-issues.md B-1)。</p>
+ * <p>拆成"服务端 + 客户端"两半的原因: {@code /cbw config} 要打开<b>客户端</b>的界面,
+ * 而本类在通用代码里, 绝不能引用客户端类(专用服务器会加载它, 见 docs/design/known-issues.md B-1)。
+ * {@code /cbw combat} 的授权写进玩家持久化数据, 并立即把新快照下发给该客户端
+ * (见 {@link FeatureSyncServer#sendTo})。</p>
  */
 public final class CbwCommands {
 
     private CbwCommands() {
     }
 
-    /** GAME 总线: {@code RegisterCommandsEvent} → 服务端指令树。 */
+    /** GAME 总线: {@code RegisterCommandsEvent} 注册服务端指令树。 */
     public static void registerServer(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("cbw")
             .then(Commands.literal("version")
@@ -67,7 +69,7 @@ public final class CbwCommands {
         for (ServerPlayer sp : targets) {
             WrenchCombatGrant.set(sp, enabled);
             if (!enabled) {
-                // 立即收回加成(否则他会一直挂着 +5 伤害 / +20 攻速 直到重新登录)
+                // 立即收回加成(否则该玩家会一直挂着 +5 伤害 / +20 攻速 直到重新登录)
                 WrenchCombat.setServer(sp.getUUID(), false);
                 WrenchCombat.apply(sp, false);
             }

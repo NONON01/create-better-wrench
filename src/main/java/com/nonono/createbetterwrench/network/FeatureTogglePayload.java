@@ -10,13 +10,16 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
- * 服务端 → 客户端: 下发**功能开关快照**(总开关 / 各类上限 / 六个加工子开关 / 战斗开关与权限等级 / 本玩家的战斗授权)。
+ * 服务端到客户端: 下发<b>功能开关快照</b>(总开关 / 各类上限 / 六个加工子开关 / 战斗开关与权限等级 / 本玩家的战斗授权)。
  *
- * <p>为什么需要: 配置是 SERVER 类型, 专用服务器上客户端读不到 ⇒ 不知道"某个功能已被服主关掉"。
+ * <p>为什么需要: 配置是 SERVER 类型, 专用服务器上客户端读不到, 因此不知道"某个功能已被服主关掉"。
  * 客户端收到后只做两件事: ① 切到被关闭的模式时提示「此功能未启用」; ② 提前拦住不该发的请求(服务端仍会再校验)。</p>
  *
- * <p>⚠️ 本类在**通用包**里, 专用服务器也会加载它 —— 所以 {@link #handle} 只把快照塞进纯 JDK 的
- * {@link FeatureToggles}, **不引用任何客户端类**(见 docs/reference/03-known-issues.md B-1)。</p>
+ * <p>载荷: {@link FeatureToggles.Snapshot} 的 19 个字段, 编解码按同一固定顺序逐字段读写 ——
+ * 字段顺序即协议, 两端必须一致。客户端侧不校验内容, 直接整份存下。</p>
+ *
+ * <p>本类在<b>通用包</b>里, 专用服务器也会加载它 —— 所以 {@link #handle} 只把快照塞进纯 JDK 的
+ * {@link FeatureToggles}, <b>不引用任何客户端类</b>(见 docs/design/known-issues.md B-1)。</p>
  */
 public record FeatureTogglePayload(FeatureToggles.Snapshot snapshot) implements CustomPacketPayload {
 

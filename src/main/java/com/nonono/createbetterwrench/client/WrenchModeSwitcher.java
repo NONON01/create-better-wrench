@@ -16,12 +16,12 @@ import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 
 /**
- * 客户端:ALT 呼出/聚焦底部工具条所需的按键绑定与当前模式状态。
+ * 客户端: ALT 呼出/聚焦底部工具条所需的按键绑定与当前模式状态。
  */
 @OnlyIn(Dist.CLIENT)
 public final class WrenchModeSwitcher {
 
-    /** 呼出/聚焦工具条用的键(默认左 ALT, 用户可改)。 */
+    /** 呼出/聚焦工具条用的键(默认左 ALT, 可在原版按键设置里改绑)。 */
     public static final KeyMapping TOOLS_KEY = new KeyMapping(
         "key." + BetterWrenchMod.MODID + ".tools",
         InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT,
@@ -30,27 +30,27 @@ public final class WrenchModeSwitcher {
     /** 当前选中的模式。 */
     public static WrenchMode current = WrenchMode.WRENCH;
 
-    /** 「拆除」模式当前的 Ctrl 范围过滤(全部/仅机械动力/仅红石)。 */
+    /** 「拆除」模式当前的 Ctrl 范围过滤(全部 / 仅机械动力 / 仅红石)。 */
     public static DeconstructScope deconstructScope = DeconstructScope.ALL;
 
-    /** 「连接」模式当前的 Ctrl 拐角类型(齿轮箱/大齿轮)。 */
+    /** 「连接」模式当前的 Ctrl 拐角类型(齿轮箱 / 大齿轮)。 */
     public static ConnectCorner connectCorner = ConnectCorner.GEARBOX;
 
-    /** 「加工」模式当前的 Ctrl 成品停留时间(不停留/短/中/长 = 0/2/4/8 tick)。 */
+    /** 「加工」模式当前的 Ctrl 成品停留时间(不停留 / 短 / 中 / 长 = 0 / 2 / 4 / 8 tick)。 */
     public static AssembleStay assembleStay = AssembleStay.DEFAULT;
 
-    /** 「模组描述」里的彩蛋开关: false=正常模式, true=战斗模式(才应用伤害/攻速/取消无敌)。 */
+    /** 「模组描述」里的战斗加成(可选)开关: false = 正常模式, true = 战斗模式(才应用伤害/攻速/取消无敌)。 */
     public static boolean combatMode = false;
 
     private WrenchModeSwitcher() {
     }
 
     /**
-     * 断开连接(退出世界 / 换服务器)时把客户端状态恢复成**出厂默认**。
+     * 断开连接(退出世界 / 换服务器)时把客户端状态恢复成<b>出厂默认</b>。
      *
-     * <p>审计发现: 这些静态字段没有登出清理 ⇒ 换到一个新服务器后会出现
-     * 「本地显示已开战斗模式、服务端却完全没收到」这类假象(进入世界时的同步包只在新世界建立时发,
-     * 而旧值一直留着)。所以登出时统一归零, 与"出厂默认 = 扳手模式"的设计一致。</p>
+     * <p>审计发现: 这些静态字段此前没有登出清理, 于是换到一个新服务器后会出现
+     * 本地已开战斗模式、服务端却完全没收到同步这类假象(进入世界时的同步包只在新世界建立时发,
+     * 而旧值一直留着)。因此登出时统一归零, 与"出厂默认 = 扳手模式"的设计一致。</p>
      */
     public static void reset() {
         current = WrenchMode.WRENCH;
@@ -65,7 +65,7 @@ public final class WrenchModeSwitcher {
         event.register(TOOLS_KEY);
     }
 
-    /** 滚轮循环切换模式(direction>0 向前)。 */
+    /** 滚轮循环切换模式: direction > 0 取枚举中的下一个模式, 越界回绕。 */
     public static WrenchMode cycle(int direction) {
         WrenchMode[] all = WrenchMode.values();
         int idx = current.ordinal() + (direction < 0 ? -1 : 1);
@@ -76,16 +76,21 @@ public final class WrenchModeSwitcher {
 
     /**
      * 循环切换"当前模式自己的 Ctrl 选项"。
-     * 拆除 → 拆除范围(全部/仅机械动力/仅红石); 连接 → 拐角类型(齿轮箱/大齿轮);
-     * 加工 → 成品停留时间(不停留/短/中/长); 模组描述 → 彩蛋开关(正常/战斗); 其它模式返回 null。
+     * 拆除: 拆除范围(全部 / 仅机械动力 / 仅红石); 连接: 拐角类型(齿轮箱 / 大齿轮);
+     * 加工: 成品停留时间(不停留 / 短 / 中 / 长); 模组描述: 战斗加成(可选)开关(正常 / 战斗);
+     * 其它模式返回 {@code null}。
+     *
+     * <p>返回值语义: 一般是切换后的选项值; 功能被配置关闭时返回当前值(档位不变);
+     * 「模组描述」的战斗开关被关闭时返回 {@code null}, 正常路径下返回本地乐观翻转后的值,
+     * 随后由服务端权威回包覆盖(见 {@code client/WrenchCombatClient})。</p>
      */
     public static Object cycleCtrlOption(int direction) {
         if (current == WrenchMode.DECONSTRUCT) {
-            // 功能被关: 提示一句并原样返回(不改变范围档) —— 服务端也会再拦一次
+            // 功能被配置关闭: 仅提示并原样返回当前范围档(不改变档位) —— 服务端也会再拦截一次
             if (ClientFeatureGate.blockIfDisabled(WrenchMode.DECONSTRUCT))
                 return deconstructScope;
-            // 配置里"不允许破坏机械动力/红石方块"时, 范围档被**强制锁定**(用户 2026-09-25 的规则):
-            //   不允许机械动力 ⇒ 运行于「仅红石」; 不允许红石 ⇒ 运行于「仅机械动力」。
+            // 配置里"不允许破坏机械动力/红石方块"时, 范围档被强制锁定(设计约定, 2026-09-25):
+            //   不允许机械动力, 即运行于「仅红石」; 不允许红石, 即运行于「仅机械动力」。
             DeconstructScope forced = WrenchConfig.deconstructForcedScope();
             if (forced != null) {
                 deconstructScope = forced;
@@ -108,19 +113,20 @@ public final class WrenchModeSwitcher {
             if (ClientFeatureGate.blockIfDisabled(WrenchMode.ASSEMBLE))
                 return assembleStay;
             assembleStay = assembleStay.cycle(direction);
-            // 停留时间由**服务端**执行(弹出延时), 所以切换后必须同步过去
+            // 停留时间由服务端执行(弹出延时), 因此切换后必须把新档位同步给服务端
             AssembleStayClient.send();
             return assembleStay;
         }
         if (current == WrenchMode.COMING_SOON) {
-            // 配置里"是否启用战斗模式"被关掉 ⇒ 提示「此功能未启用」, 不改本地开关也不发包
+            // 配置里"是否启用战斗模式"被关掉: 由 ClientFeatureGate 提示 lang key
+            // msg.create_better_wrench.feature_disabled, 不改本地开关也不发包
             if (ClientFeatureGate.isCombatDisabled()) {
                 ClientFeatureGate.announceCombatDisabled();
                 return null;
             }
-            // 彩蛋: Ctrl 切换 正常模式 / 战斗模式。
-            // 保持"按下即反馈": 本地乐观翻转并立刻由 HUD 显示 actionbar(与原来一模一样)。
-            // 同时把"想要的值"发给服务端; 若被权限拒绝, 权威回包到达时会**再显示一次**正确值把它覆盖掉
+            // 战斗加成(可选): Ctrl 切换 正常模式 / 战斗模式。
+            // 保持"按下即反馈": 本地乐观翻转并立刻由 HUD 显示 actionbar, 与旧实现的表现一致。
+            // 同时把"想要的值"发给服务端; 若被权限拒绝, 权威回包到达时会再显示一次正确值把它覆盖掉
             // (见 WrenchCombatClient#onPlayerTick), 因此不会停在"战斗模式"上。
             combatMode = !combatMode;
             WrenchCombatClient.sendCombatModeRequest(combatMode);
@@ -129,7 +135,7 @@ public final class WrenchModeSwitcher {
         return null;
     }
 
-    /** 当前模式 Ctrl 选项的完整展示文案; 无 Ctrl 选项则返回 null。文案在语言文件: hint.<modid>.*。 */
+    /** 当前模式 Ctrl 选项的完整展示文案; 无 Ctrl 选项则返回 {@code null}。文案在语言文件: hint.<modid>.*。 */
     public static net.minecraft.network.chat.Component ctrlOptionHint() {
         if (current == WrenchMode.DECONSTRUCT)
             return net.minecraft.network.chat.Component.translatable(

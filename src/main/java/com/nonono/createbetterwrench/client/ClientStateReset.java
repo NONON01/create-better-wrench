@@ -11,20 +11,20 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 
 /**
- * 客户端: **断开连接时统一清理本模组的全部客户端静态状态**。
+ * 客户端: <b>断开连接时统一清理本模组的全部客户端静态状态</b>。
  *
- * <p>审计发现的问题: 客户端这些状态原本没有登出清理, 于是存在跨世界残留 ——</p>
+ * <p>审计发现: 这些状态原本没有登出清理, 于是存在跨世界残留 ——</p>
  * <ul>
  *   <li>{@code WrenchModeSwitcher} 的模式/Ctrl 选项/战斗开关 ——
- *       换服务器后会出现「本地显示已开战斗模式、服务端却没生效」的假象;</li>
- *   <li>{@code ConnectSelectionHandler} / {@code DeconstructSelectionHandler} 的**未完成选区** ——
- *       里面存的是**旧世界的 BlockPos**, 进了新世界后下一次右键会拿旧坐标去发包;</li>
+ *       换服务器后会出现"本地显示已开战斗模式、服务端却没生效"的假象;</li>
+ *   <li>{@code ConnectSelectionHandler} / {@code DeconstructSelectionHandler} 的<b>未完成选区</b> ——
+ *       里面存的是<b>旧世界的 BlockPos</b>, 进了新世界后下一次右键会拿旧坐标去发包;</li>
  *   <li>{@code CombatModeState} 里还没被取走的待处理开关;</li>
  *   <li>{@code WrenchHud} 里懒加载的模式选择器(它的内部下标才是"画哪个高亮"的依据)。</li>
  * </ul>
  *
- * <p><b>两个触发点</b>: ①{@code LoggingOut}(退出世界/换服务器) → 全部归零;
- * ②{@code Clone}(切换维度/重生) → **只清选区**(旧世界坐标), 模式保持不变。</p>
+ * <p><b>两个触发点</b>: ①{@code LoggingOut}(退出世界/换服务器) 上述状态全部归零;
+ * ②{@code Clone}(切换维度/重生) <b>只清选区</b>(旧世界坐标), 模式保持不变。</p>
  *
  * <p>统一放在这一处, 而不是分散到各个类里各写一个监听器(那样很容易漏掉新加的状态)。</p>
  */
@@ -42,9 +42,9 @@ public final class ClientStateReset {
     }
 
     /**
-     * 切换维度 / 重生时调用(见 docs/reference/03-known-issues.md A-7)。
+     * 切换维度 / 重生时调用(见 docs/design/known-issues.md A-7)。
      *
-     * <p>⚠️ 这里**只清"未完成的选区"**: 选区里存的是**旧维度的 BlockPos**, 不清掉的话玩家在新维度
+     * <p>这里<b>只清"未完成的选区"</b>: 选区里存的是<b>旧维度的 BlockPos</b>, 不清掉的话玩家在新维度
      * 一右击就会拿旧坐标发包(下界 1:8 坐标缩放时甚至可能隔着维度施工并扣料)。
      * <b>不清模式与 Ctrl 选项</b> —— 换个维度通常还希望保持当前模式。</p>
      */
@@ -60,9 +60,9 @@ public final class ClientStateReset {
         DeconstructSelectionHandler.cancel();
         CombatModeState.clear();
         // 功能开关快照也要清: 否则换到另一台服务器后会带着上一台"哪些功能被关"的记忆
-        // (登录时服务端会重新下发; 收到之前一律按默认值 = 全开处理)。
+        // (登录时服务端会重新下发; 收到之前回落: 本地配置可用则用本地配置, 否则用出厂默认值)。
         FeatureToggles.clear();
-        // ⚠️ 必须跟着重置: 否则工具条会一直高亮退出前的模式(见 docs/reference/03-known-issues.md A-12)
+        // 必须跟着重置: 否则工具条会一直高亮退出前的模式(见 docs/design/known-issues.md A-12)
         WrenchHud.reset();
     }
 }

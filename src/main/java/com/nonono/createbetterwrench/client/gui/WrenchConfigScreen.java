@@ -17,28 +17,28 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
 /**
- * 「万能扳手」的**专用配置页面**(自绘, 模仿 Tweakeroo / malilib 那种配置界面)。
+ * 「万能扳手」的<b>专用配置页面</b>(自绘, 参照 Tweakeroo / malilib 的配置界面)。
  *
- * <h2>2026-09-25 重构(用户要求"优化配置页面结构")</h2>
- * <p>页面按**功能分组**展示, 每组第一行是该功能的**总开关**, 下面是它的子开关与数值:</p>
+ * <h2>2026-09-25 重构(设计约定: 优化配置页面结构)</h2>
+ * <p>页面按<b>功能分组</b>展示, 每组第一行是该功能的<b>总开关</b>, 下面是它的子开关与数值:</p>
  * <pre>
  *   [连接]      总开关 · 拐点上限 · 单段轴长 · 单次方块数
  *   [拆除]      总开关 · 允许机械动力方块 · 允许红石方块 · 选区上限 · 每刻处理格数
  *   [加工]      总开关 · 装配 · 注液 · 洗涤 · 冶炼 · 烤制 · 缠魂
  *   [战斗]      是否启用 · 需要的权限等级(普通 / OP)
  * </pre>
- * <p>控件: 布尔 = 开/关按钮; 数值 = 滑块 + `-`/`+` 微调; 权限等级 = 普通 ↔ OP 两档按钮。
- * 开关之间有联动规则(见 {@code WrenchConfig#applyToggle}), 所以任何一次点击之后会把**所有行**刷新一遍。</p>
+ * <p>控件: 布尔 = 开/关按钮; 数值 = 滑块 + {@code -}/{@code +} 微调; 权限等级 = 普通与 OP 两档按钮。
+ * 开关之间有联动规则(见 {@code WrenchConfig#applyToggle}), 所以任何一次点击之后会把<b>所有行</b>刷新一遍。</p>
  *
- * <h2>怎么读写配置(走 NeoForge 官方路径)</h2>
+ * <h2>配置的读写路径(NeoForge 官方 API)</h2>
  * <ul>
  *   <li>读: {@code ConfigValue#get()}; 范围与默认值取 {@code getSpec().getRange()} / {@code getDefault()};</li>
  *   <li>写: {@code ConfigValue#set(v)} —— 立即更新内存缓存(本 mod 的 getter 马上生效, 不必重进世界);</li>
- *   <li>落盘: {@code ModConfigSpec#save()}, 本页面**只在关闭时统一保存一次**, 不在拖动过程中反复写盘。</li>
+ *   <li>落盘: {@code ModConfigSpec#save()}, 本页面<b>只在关闭时统一保存一次</b>, 不在拖动过程中反复写盘。</li>
  * </ul>
  *
- * <p><b>⚠️ 只读情形</b>: 配置是 SERVER 类型。专用服务器上客户端拿不到服务端配置
- * ({@code ModConfigSpec#isLoaded()} 为 false)⇒ 本页面自动变**只读**并给出提示
+ * <p><b>只读情形</b>: 配置是 SERVER 类型。专用服务器上客户端拿不到服务端配置
+ * ({@code ModConfigSpec#isLoaded()} 为 false), 因此本页面自动变<b>只读</b>并给出提示
  * (此时开关值来自服务端下发的快照, 见 {@code config/FeatureToggles})。</p>
  */
 public final class WrenchConfigScreen extends Screen {
@@ -61,7 +61,7 @@ public final class WrenchConfigScreen extends Screen {
     private String query = "";
     private double scroll;
     private EditBox search;
-    /** 「重置为默认」按钮: 只读(专用服务器客户端)时会被禁用, 免得点了没反应。 */
+    /** 「重置为默认」按钮: 只读(专用服务器客户端)时会被禁用, 避免点击后无任何反馈。 */
     private Button resetButton;
 
     public WrenchConfigScreen(Screen parent) {
@@ -80,7 +80,7 @@ public final class WrenchConfigScreen extends Screen {
     protected void init() {
         entries.clear();
         String lastGroup = null;
-        // 内部类不能有 static 工厂方法 ⇒ 借一个实例来造分组标题
+        // 内部类不能有 static 工厂方法, 因此借一个实例来造分组标题
         Entry factory = new Entry(true, "", null);
         for (WrenchConfig.Row row : WrenchConfig.rows()) {
             if (!row.group().equals(lastGroup)) {
@@ -111,7 +111,7 @@ public final class WrenchConfigScreen extends Screen {
             .bounds(width / 2 - 160, bottom, 150, 20)
             .tooltip(Tooltip.create(Component.translatable("gui.create_better_wrench.config.reset.tip")))
             .build();
-        // 只读时把「重置为默认」也禁掉(旧写法点了静默无效, 让人以为界面坏了)
+        // 只读时把「重置为默认」也禁掉(否则点击静默无效, 会被误认为界面失效)
         resetButton.active = WrenchConfig.isWritable();
         addRenderableWidget(resetButton);
         addRenderableWidget(Button.builder(Component.translatable("gui.create_better_wrench.config.done"), b -> onClose())
@@ -159,7 +159,7 @@ public final class WrenchConfigScreen extends Screen {
         return h;
     }
 
-    /** 按过滤条件摆放行; 只有**完整落在列表区域内**的行才显示(避免画到标题/按钮上)。 */
+    /** 按过滤条件摆放行; 只有<b>完整落在列表区域内</b>的行才显示(避免画到标题/按钮上)。 */
     private void layoutRows() {
         int x = width / 2 - listW() / 2;
         double maxScroll = Math.max(0, visibleHeight() - listHeight());
@@ -254,7 +254,7 @@ public final class WrenchConfigScreen extends Screen {
         private final boolean isHeader;
         private final String group;
         private final WrenchConfig.Row row;
-        /** 数值行: 滑块 + `-` / `+`; 其它行为 null。 */
+        /** 数值行: 滑块与减号 / 加号按钮; 其它行为 null。 */
         private Slider slider;
         private Button minus;
         private Button plus;
@@ -289,7 +289,7 @@ public final class WrenchConfigScreen extends Screen {
             if (isHeader)
                 return;
             boolean writable = WrenchConfig.isWritable();
-            // 说明文本可能被语言文件置空(用户明确不要文字) ⇒ 空说明**不挂 tooltip**, 免得弹出一个空框
+            // 说明文本可能被语言文件置空(设计约定: 不显示文字), 因此空说明不挂 tooltip, 避免弹出空框
             Component desc = Component.translatable(row.descKey());
             Tooltip tip = desc.getString().isBlank() ? null : Tooltip.create(desc);
             if (row.isToggle() || row.kind() == WrenchConfig.Kind.LEVEL) {
@@ -412,15 +412,15 @@ public final class WrenchConfigScreen extends Screen {
         }
     }
 
-    /** 数值滑块: 拖动即改配置(内存), 显示"值"。 */
+    /** 数值滑块: 拖动即改配置(内存), 显示当前值。 */
     private final class Slider extends AbstractSliderButton {
         private final WrenchConfig.Row row;
 
         private Slider(WrenchConfig.Row row) {
             super(0, 0, CTL_W, 20, Component.empty(), norm(row, row.asNumber()));
             this.row = row;
-            // AbstractSliderButton 的构造器**不会**调 updateMessage()(javap 实测) ⇒ 必须自己补一次,
-            // 否则刚打开配置页时滑块上是空的, 得点一下才出现数值。
+            // AbstractSliderButton 的构造器不会调 updateMessage()(javap 实测), 因此必须自己补一次,
+            // 否则刚打开配置页时滑块上是空的, 需点击一次才出现数值。
             updateMessage();
         }
 

@@ -7,11 +7,11 @@ import java.util.UUID;
 import com.nonono.createbetterwrench.mode.AssembleStay;
 
 /**
- * 服务端: 每个玩家选的「**成品停留时间**」(由客户端发包同步, 见 {@code network/AssembleStayPayload})。
+ * 服务端: 每个玩家选的<b>成品停留时间</b>(由客户端发包同步, 见 {@code network/AssembleStayPayload})。
  *
- * <p>为什么需要它: 弹出延时是**服务端**逻辑(见 {@link DepotProductEjector}), 而"加工"是在
+ * <p>为什么需要它: 弹出延时是<b>服务端</b>逻辑(见 {@link DepotProductEjector}), 而加工是在
  * {@code PlayerInteractEvent.RightClickBlock} 上触发的 —— 那是一条普通右键, 没有自定义包携带客户端选项,
- * 所以只能像战斗模式那样**先把选择同步到服务端存着**。</p>
+ * 所以只能像战斗模式那样<b>先把选择同步到服务端存着</b>。</p>
  *
  * <p>收到同步前 / 玩家从未调过时用 {@link AssembleStay#DEFAULT} 兜底, 因此即使客户端一个包都没发,
  * 服务端行为也与默认档一致。</p>

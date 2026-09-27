@@ -13,10 +13,10 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * 客户端: 把「加工」模式当前选的**成品停留时间**同步给服务端。
+ * 客户端: 把「加工」模式当前选的<b>成品停留时间</b>同步给服务端。
  *
- * <p>弹出延时由服务端决定({@code DepotProductEjector}), 而"加工"本身是一条普通右键、没有自定义包,
- * 所以必须在**切换选项时**以及**进入世界时**把值发过去(与战斗模式的同步方式一致)。</p>
+ * <p>弹出延时由服务端决定({@code DepotProductEjector}), 而「加工」本身是一条普通右键、没有自定义包,
+ * 因此必须在<b>切换选项时</b>以及<b>进入世界时</b>把值发过去(与战斗模式的同步方式一致)。</p>
  */
 @OnlyIn(Dist.CLIENT)
 public final class AssembleStayClient {

@@ -20,10 +20,11 @@ import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
  * 客户端: 底部"模式工具条"(仿 Create 蓝图部署的 ToolSelection 风格)。
  *
  * <p>仅在玩家手持扳手时绘制。平时很淡/几乎隐藏, 按住 TOOLS_KEY(默认 ALT)聚焦后变清晰,
- * 松开后逐渐淡出(淡入淡出靠 displayAlpha / yOffset 每帧插值)。
+ * 松开后逐渐淡出(淡入淡出靠每帧插值的 yOffset, 见 {@link WrenchToolSelection#update()} 与
+ * {@link WrenchToolSelection#render})。
  * 底部横条中央显示各模式(当前项上浮高亮), Ctrl+滚轮/ALT+滚轮 切换见 WrenchInputHandler。</p>
  *
- * <p>ℹ️ HUD 层的注册走**显式注册**(见 {@code client/BetterWrenchClient} 的 {@code @Mod(dist = Dist.CLIENT)} 入口) ——
+ * <p>HUD 层的注册走<b>显式注册</b>(见 {@code client/BetterWrenchClient} 的 {@code @Mod(dist = Dist.CLIENT)} 入口) ——
  * NeoForge 21.1 已把 {@code @EventBusSubscriber(bus = ...)} 标记为待删除, MOD 总线的事件不再用注解订阅。</p>
  */
 public final class WrenchHud {
@@ -45,9 +46,9 @@ public final class WrenchHud {
     }
 
     /**
-     * 状态推进: **每客户端刻一次(20Hz)**, 与原版一致 —— 原版是在 {@code ClientTickEvent.Post} 里调
+     * 状态推进: <b>每客户端刻一次(20Hz)</b>, 与原版一致 —— 原版是在 {@code ClientTickEvent.Post} 里调
      * {@code SchematicHandler.tick()} 再调 {@code ToolSelectionScreen.update()}。
-     * 早先我们把它放在每帧渲染里, 帧率 60~200 ⇒ 动画快了 3~10 倍。
+     * 本模组早先把这一步放在每帧渲染里, 帧率 60~200 时动画速度快了 3~10 倍。
      */
     public static void tick() {
         Minecraft mc = Minecraft.getInstance();
@@ -64,7 +65,7 @@ public final class WrenchHud {
         sel.update(); // yOffset 插值(上浮 / 落回)
     }
 
-    /** 渲染层: 只负责画, 不再推进状态。 */
+    /** 渲染层: 只负责画(转交 {@link WrenchToolSelection#render}), 不再推进状态。 */
     private static void renderLayer(GuiGraphics g, DeltaTracker deltaTracker) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen != null)
@@ -87,9 +88,9 @@ public final class WrenchHud {
     }
 
     /**
-     * 是否**主手**持着万能扳手 —— 工具条只在这种情况下显示、也只在此时响应滚轮。
+     * 是否<b>主手</b>持着万能扳手 —— 工具条只在这种情况下显示、也只在此时响应滚轮。
      *
-     * <p>⚠️ 2026-09-20(用户约定): 扳手在**副手**时"只作普通扳手" ⇒ **不显示 HUD**,
+     * <p>2026-09-20(设计约定): 扳手在<b>副手</b>时"只作普通扳手", 因此<b>不显示 HUD</b>,
      * ALT+滚轮也不切模式(滚轮照常切物品栏)。</p>
      */
     private static boolean isHoldingOurWrench(Minecraft mc) {
@@ -109,12 +110,12 @@ public final class WrenchHud {
         int dir = (int) Math.signum(delta);
 
         // 规则一: 当前模式有自己的"Ctrl 选项"(如拆除范围)时, 按住 Ctrl+滚轮即切换(无需再按 ALT)。
-        // 这样避免与"滚轮切换热键栏物品"冲突——必须先在此消费并返回。
+        // 这样避免与"滚轮切换热键栏物品"冲突, 因此必须先在此消费并返回。
         if (net.minecraft.client.gui.screens.Screen.hasControlDown()
             && modeHasCtrlOption(WrenchModeSwitcher.current)) {
             Object opt = WrenchModeSwitcher.cycleCtrlOption(dir);
             // opt == null 表示"这次切换的结果要等服务端授权后再显示"(战斗模式, 见 WrenchCombatClient),
-            // 此时**不要**乐观显示, 否则无权限时会先冒出"战斗模式"再被推翻。
+            // 此时不要乐观显示, 否则无权限时会先冒出"战斗模式"再被推翻。
             if (opt != null)
                 showCtrlOptionHint();
             return true;
@@ -129,7 +130,7 @@ public final class WrenchHud {
         sel.setSelected(WrenchModeSwitcher.current);
         sel.cycle(dir);
         WrenchModeSwitcher.current = sel.getSelected();
-        // 切到"被配置关掉"的功能时提示「此功能未启用」(模式本身仍然切过去, 只是不能用)
+        // 切到"被配置关掉"的功能时提示功能未启用(模式本身仍然切过去, 只是不能用)
         ClientFeatureGate.announceIfDisabled(WrenchModeSwitcher.current);
         return true;
     }
@@ -144,9 +145,9 @@ public final class WrenchHud {
     }
 
     /**
-     * 断开连接时复位工具条(见 docs/reference/03-known-issues.md A-12)。
+     * 断开连接时复位工具条(见 docs/design/known-issues.md A-12)。
      *
-     * <p>⚠️ 必须与 {@link WrenchModeSwitcher#reset()} **成对**调用: 画高亮的依据是选择器**内部的下标**
+     * <p>必须与 {@link WrenchModeSwitcher#reset()} <b>成对</b>调用: 画高亮的依据是选择器<b>内部的下标</b>
      * ({@code WrenchToolSelection.render} 里的 {@code if (i == selection)}), 只重置 current 的话,
      * 工具条会一直高亮"退出世界前那个模式", 直到玩家第一次 ALT+滚轮才对齐。
      * 这里直接把单例丢掉 —— 下次 {@link #getSelection()} 会按 current 重建。</p>

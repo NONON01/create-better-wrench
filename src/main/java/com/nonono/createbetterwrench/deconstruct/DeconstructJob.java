@@ -9,7 +9,7 @@ import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.mode.DeconstructScope;
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
-// ⚠️ 包名注意: 开发源码树里目录叫 waterWheel, 但**正式 jar 里是小写** waterwheel(javap 已确认) —— 必须按 jar 写。
+// 包名注意: 开发源码树里目录叫 waterWheel, 但正式 jar 里是小写 waterwheel(javap 已确认) —— 必须按 jar 写。
 import com.simibubi.create.content.kinetics.waterwheel.WaterWheelStructuralBlock;
 
 import net.minecraft.core.BlockPos;
@@ -24,19 +24,19 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
- * 「拆除」的**逐刻执行器**:把一个大选区切成若干片, 每服务端刻处理一片。
+ * 「拆除」的<b>逐刻执行器</b>: 把一个大选区切成若干片, 每服务端刻处理一片。
  *
- * <p>为什么需要分片:一次拆几千格会长时间占住服务端主线程(单机时客户端一起冻)。
- * 但**分片的粒度不该按时间预算精调** —— 实测表明卡顿的真正来源是
+ * <p>为什么需要分片: 一次拆几千格会长时间占住服务端主线程(单机时客户端一起冻结)。
+ * 但分片的粒度不该按时间预算精调 —— 实测表明卡顿的真正来源是
  * <b>Create {@code onSneakWrenched} 每格产生的破坏粒子 / 音效 / 经验球</b>,
  * 而不是拆除本身的计算量。那部分已在 {@link DeconstructLogic#deconstructBlock} 里
  * 通过"静默拆除"消除(绝大多数方块不再走 Create 那条产生特效的路径)。</p>
  *
- * <p>所以这里只用**一个朴素的固定片大小** {@link #blocksPerTick}:每刻最多处理这么多格。
+ * <p>所以这里只用一个朴素的固定片大小 {@link #blocksPerTick}: 每刻最多处理这么多格。
  * 简单、可预测、便于解释, 没有时钟读取也没有自适应逻辑。</p>
  *
- * <p>提交时先**当场处理一片**:小选区因此立即完成(保持即时反馈), 没做完才登记为跨刻任务。
- * 同一玩家只保留一个任务;玩家登出或换维度会丢弃任务。</p>
+ * <p>提交时先当场处理一片: 小选区因此立即完成(保持即时反馈), 没做完才登记为跨刻任务。
+ * 同一玩家只保留一个任务; 玩家登出或换维度会丢弃任务。</p>
  */
 public final class DeconstructJob {
 
@@ -44,9 +44,9 @@ public final class DeconstructJob {
      * 每服务端刻处理的格数上限 —— 读配置 {@code deconstruct.blocks_per_tick}(默认 1024)。
      *
      * <p>默认值 1024 的依据: 静默拆除后每格只剩「BreakEvent + 产物入包 + removeBlock」,
-     * 16240 格约 16 刻(≈0.8 秒)完成。若改大则单刻更重(可能感觉到顿), 改小则总耗时更长。</p>
+     * 16240 格约 16 刻(≈0.8 秒)完成。若改大则单刻更重(可能出现可察觉的顿挫), 改小则总耗时更长。</p>
      *
-     * <p>⚠️ 每个任务在**创建时读一次**(不是每格去查配置)。</p>
+     * <p>注意: 每个任务在创建时读一次(不是每格去查配置)。</p>
      */
     private final int blocksPerTick;
 
@@ -63,12 +63,12 @@ public final class DeconstructJob {
     private boolean done;
 
     /**
-     * 本次要上报的**拆除单元数** —— 一次成功的"扳手操作"记 1。
+     * 本次要上报的拆除单元数 —— 一次成功的"扳手操作"记 1。
      *
-     * <p>⚠️ 2026-09-22 语义变更(用户要求): 以前上报的是"选区里少掉的方块数"(开始时数一遍、结束时再数一遍的差值),
-     * 于是**大型水车这种多方块结构会报 8**(它由 1 个主体 + 7 个 {@code WaterWheelStructuralBlock} 结构块组成)。
-     * 用户要求"**把大水车只视为一个方块**" ⇒ 现在改为**按操作计数**, 结构块残骸另行静默清理且不计数
-     * (见 {@link #runSlice})。顺带好处: 不再有两次全量扫描, 大选区也不会因 32³ 阈值而换算法。</p>
+     * <p>2026-09-22 语义变更(设计约定): 以前上报的是"选区里少掉的方块数"(开始时数一遍、结束时再数一遍的差值),
+     * 于是大型水车这种多方块结构会报 8(它由 1 个主体 + 7 个 {@code WaterWheelStructuralBlock} 结构块组成)。
+     * 现约定"把大水车只视为一个方块", 因此改为按操作计数, 结构块残骸另行静默清理且不计数
+     * (见 {@link #runSlice})。附带好处: 不再有两次全量扫描, 大选区也不会因 32³ 阈值而换算法。</p>
      */
     private int removed;
 
@@ -102,8 +102,8 @@ public final class DeconstructJob {
         DeconstructJob job = new DeconstructJob(level, player.getUUID(), scope,
             minX, minY, minZ, maxX, maxY, maxZ);
 
-        // 用户要求: 拆除时在**玩家处播放一次** Create 扳手音效。
-        // (Create 的默认实现是**每格**一次 —— 批量拆除时那是成千上万个音效事件, 正是卡顿来源之一;
+        // 设计约定: 拆除时在玩家处播放一次 Create 扳手音效。
+        // (Create 的默认实现是每格一次 —— 批量拆除时那是成千上万个音效事件, 正是卡顿来源之一;
         //  现改为整次操作只播一次, 位置取玩家脚下, 保留"扳手把东西拆下来"的听感。)
         IWrenchable.playRemoveSound(level, player.blockPosition());
 
@@ -126,20 +126,20 @@ public final class DeconstructJob {
         for (int i = 0; i < blocksPerTick && !done; i++) {
             int x = minX + cx, y = minY + cy, z = minZ + cz;
             BlockPos pos = new BlockPos(x, y, z);
-            // ⚠️ 口径必须与 countNonAir() 一致(2026-09-20 审计发现的不一致): 那边特意跳过未加载区块,
+            // 注意: 口径必须与 countNonAir() 一致(2026-09-20 审计发现的不一致): 那边特意跳过未加载区块,
             //    这里原先却直接 level.getBlockState(pos) —— 而 Level#getBlockState 走的是 requireChunk=true 的
-            //    getChunk, 会**同步强制加载/生成区块**(改包客户端可发"两角已加载、中间跨未加载缝隙"的选区
-            //    反复触发 ⇒ 服务端卡顿/额外落盘)。合法玩家碰不到(两角都在触及距离内 ⇒ 整框都在已加载区)。
+            //    getChunk, 会同步强制加载/生成区块(改包客户端可发"两角已加载、中间跨未加载缝隙"的选区
+            //    反复触发, 于是服务端卡顿/额外落盘)。合法玩家碰不到(两角都在触及距离内, 故整框都在已加载区)。
             if (!level.isLoaded(pos)) {
                 advance();
                 continue;
             }
             BlockState state = level.getBlockState(pos);
-            // ⚠️ 2026-09-22(用户要求: 大水车只算 1 个方块): 多方块的**结构块残骸**不计入上报数。
+            // 2026-09-22(设计约定: 大水车只算 1 个方块): 多方块的结构块残骸不计入上报数。
             //    Create 的大水车 = 1 个主体 + 7 个 WaterWheelStructuralBlock; 主体一没, 这 7 块就"失效"了,
-            //    但它们是靠**下一 tick** 的 updateShape→scheduleTick→tick() 才自清的(见其源码 119-164 行),
-            //    而我们的循环在**同一 tick** 就会走到它们 ⇒ 以前会把 7 块残骸也逐块拆掉并计数(合计 8)。
-            //    现在: 遇到"主体已不在"的结构块就**直接静默清掉、不计数**(确定性清理, 不依赖它自己的 tick)。
+            //    但它们是靠下一 tick 的 updateShape 到 scheduleTick 再到 tick() 才自清的(见其源码 119-164 行),
+            //    而本类的循环在同一 tick 就会走到它们, 以前会把 7 块残骸也逐块拆掉并计数(合计 8)。
+            //    现在: 遇到"主体已不在"的结构块就直接静默清掉、不计数(确定性清理, 不依赖它自己的 tick)。
             if (state.getBlock() instanceof WaterWheelStructuralBlock wheel
                 && !wheel.stillValid(level, pos, state, false)) {
                 level.removeBlock(pos, false);
@@ -154,7 +154,7 @@ public final class DeconstructJob {
         }
     }
 
-    /** 游标前进一格: z → y → x, 自底向上扫;走到头就置 done。 */
+    /** 游标前进一格: 依次前进 z、y、x, 自底向上扫; 走到头就置 done。 */
     private void advance() {
         if (++cz < sizeZ) {
             return;
@@ -170,9 +170,9 @@ public final class DeconstructJob {
     }
 
     /**
-     * 上报用的拆除数量 = **成功的扳手操作次数**(多方块结构算 1)。
+     * 上报用的拆除数量 = 成功的扳手操作次数(多方块结构算 1)。
      *
-     * <p>2026-09-22: 旧的"开始−结束方块差值"版本会把大水车报成 8, 已按用户要求改掉(见 {@link #removed})。</p>
+     * <p>2026-09-22: 旧的"开始−结束方块差值"版本会把大水车报成 8, 现按设计约定改掉(见 {@link #removed})。</p>
      */
     private int reportCount() {
         return removed;
@@ -191,7 +191,7 @@ public final class DeconstructJob {
         while (it.hasNext()) {
             DeconstructJob job = it.next().getValue();
             ServerPlayer player = server.getPlayerList().getPlayer(job.playerId);
-            // 玩家已离线 / 换了维度 -> 放弃任务(不报错)
+            // 玩家已离线 / 换了维度, 放弃任务(不报错)
             if (player == null || player.serverLevel() != job.level) {
                 it.remove();
                 continue;

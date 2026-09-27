@@ -36,13 +36,13 @@ import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * 客户端「连接」选择状态机(新交互, 2026-09-07 用户重定义)。
+ * 客户端「连接」选择状态机(2026-09-07 重定义)。
  *
  * <p>交互:
  * <ol>
- *   <li>右击机械动力方块 → 选定起点 S(金框);</li>
- *   <li>之后右击普通方块 → 追加一个拐点(金框, 数量不限);</li>
- *   <li>之后右击机械动力方块 → 选定终点 E, 把 S→拐点…→E 的铺设计划发给服务端。</li>
+ *   <li>右击机械动力方块: 选定起点 S(金框);</li>
+ *   <li>之后右击普通方块: 追加一个拐点(金框, 数量不限);</li>
+ *   <li>之后右击机械动力方块: 选定终点 E, 把 S 经拐点…到 E 的铺设计划发给服务端。</li>
  * </ol>
  * 每段相邻点的边按"同轴=直线 / 同平面=自动一次 90° 拐弯 / 非平面=拒连"由服务端路由; 放置前校验背包材料。
  */
@@ -62,10 +62,10 @@ public final class ConnectSelectionHandler {
     private static final List<BlockPos> corners = new ArrayList<>();
 
     // ---- 幽灵预览的节流缓存(复审 B-13) ----
-    // 旧写法是**每客户端 tick**都调一次 ConnectLogic.plan(); 而 plan 内部最多会组装 64 次候选走法
-    // (拐点多 + 首选走法被挡时), 单次尝试就要遍历上千格 ⇒ 每 tick 都在主线程上跑一遍, 有可见卡顿风险。
+    // 旧写法是每客户端 tick都调一次 ConnectLogic.plan(); 而 plan 内部最多会组装 64 次候选走法
+    // (拐点多 + 首选走法被挡时), 单次尝试就要遍历上千格, 于是每 tick 都在主线程上跑一遍, 有可见卡顿风险。
     // 现在: 只有当"起点 / 拐点集合 / 瞄准方块 / 拐角类型"变化、或缓存超过 PREVIEW_MAX_AGE_TICKS 时才重算;
-    // 世界变化(别人放了方块之类)最多滞后这么多 tick —— 预览而已, 这个滞后看不出来。
+    // 世界变化(例如其他玩家放置方块)最多滞后这么多 tick; 该延迟只影响预览显示, 不参与任何服务端判定。
     private static ConnectLogic.ResultOutcome cachedOutcome;
     private static boolean cachedAffordable;
     private static BlockPos cachedStart;
@@ -79,9 +79,9 @@ public final class ConnectSelectionHandler {
     }
 
     /**
-     * 仅当**主手**持扳手且当前模式为「连接」时才接管。
+     * 仅当<b>主手</b>持扳手且当前模式为「连接」时才接管。
      *
-     * <p>⚠️ 2026-09-20(用户约定): 扳手在**副手**时"只作普通扳手" ⇒ 本模式不生效, 右键原样交给 Create。</p>
+     * <p>2026-09-20(设计约定): 扳手在<b>副手</b>时"只作普通扳手", 因此本模式不生效, 右键原样交给 Create。</p>
      */
     private static boolean active(Minecraft mc) {
         return mc.player != null
@@ -93,7 +93,7 @@ public final class ConnectSelectionHandler {
         Minecraft mc = Minecraft.getInstance();
         if (!active(mc))
             return false;
-        // 功能被配置关掉: 提示「此功能未启用」, 吃掉这次点击(什么都不做)
+        // 功能被配置关掉: 提示功能未启用, 消费这次点击(什么都不做)
         if (ClientFeatureGate.blockIfDisabled(WrenchMode.CONNECT))
             return true;
         // 审计 A-14: Shift+右键 = 放弃当前起点与全部拐点(在 active 判定之后)
@@ -134,7 +134,7 @@ public final class ConnectSelectionHandler {
             return true;
         }
 
-        // 拐点 = 直接选中"空气格": 取点击方块命中面旁的空气格(不选中完整方块本身)
+        // 拐点 = 命中面旁的空气格: 目标是普通方块时, 不选中方块本身, 而是取该面外侧的空气格
         addCorner(mc, hit.relative(bhr.getDirection()));
         return true;
     }
@@ -145,7 +145,7 @@ public final class ConnectSelectionHandler {
      * <p>拐点数量上限与 {@link ConnectPayload#maxCorners()}(配置项 {@code connect.max_corners}, 默认 32)对齐:
      * 客户端若不设上限, 超出上限的载荷会让服务端解码抛 DecoderException, 直接把玩家踢下线
      * (且此时选点已被清空, 没有任何提示)。
-     * 与**最后一个拐点重复**的格也直接忽略 —— 零长边会被服务端整单判 SAME_POS 拒连。</p>
+     * 与<b>最后一个拐点重复</b>的格也直接忽略: 零长边会被服务端整单判 SAME_POS 拒连。</p>
      */
     private static void addCorner(Minecraft mc, BlockPos pos) {
         int limit = ConnectPayload.maxCorners();
@@ -178,7 +178,7 @@ public final class ConnectSelectionHandler {
      * 丢弃当前未完成的连接选择(起点 + 全部拐点 + 预览框)。
      *
      * <p>供登出清理使用: 否则玩家在世界 A 选了一半起点、退出后进世界 B,
-     * 那些**属于旧世界坐标**的静态状态仍在, 下一次右键会拿旧坐标去做连接。</p>
+     * 那些<b>属于旧世界坐标</b>的静态状态仍在, 下一次右键会拿旧坐标去做连接。</p>
      */
     public static void cancel() {
         resetSelection();
@@ -191,7 +191,12 @@ public final class ConnectSelectionHandler {
         return null;
     }
 
-    /** 拐点应直接落在"空气格": 点到实体方块 → 取其命中面旁的空气格; 指向开阔空气 → 取准星所看的空气格。 */
+    /**
+     * 拐点应落在的空气格: 点到实体方块则取其命中面旁的空气格; 指向开阔空气则取准星所看的空气格。
+     *
+     * <p>供悬停预览使用({@code onClientTick} 的"拐点候选"分支)。右键路径不调本方法, 而是内联了同样的表达式
+     * ({@code hit.relative(bhr.getDirection())}), 两处必须保持一致, 否则预览高亮的格与真正落下的拐点会不同。</p>
+     */
     private static BlockPos cornerTargetAirCell(Minecraft mc) {
         BlockHitResult bhr = rayTraceHit(mc);
         if (bhr != null)
@@ -340,7 +345,7 @@ public final class ConnectSelectionHandler {
 
     /**
      * 审计 A-15: 服务端除了几何还会卡"总方块数上限"和"材料是否够", 客户端画绿框前先按同一口径自查,
-     * 避免"预览是绿的、服务端却回 路径过长 / 材料不足"的割裂体验
+     * 避免"预览是绿的、服务端却返回 路径过长 / 材料不足"的不一致体验
      * (材料口径直接复用 {@link ConnectLogic#hasMaterials}, 与服务端扣料完全一致)。
      */
     private static boolean affordable(Minecraft mc, Plan plan) {

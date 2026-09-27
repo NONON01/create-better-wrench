@@ -12,10 +12,10 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import java.util.function.Supplier;
 
 /**
- * 「装配」模式的置物台"锁定"状态。
+ * 「装配」模式的置物台锁定状态。
  *
  * <p>用 NeoForge 数据附件(AttachmentType)挂在方块实体上, 会随世界保存。锁定的置物台:
- * ①不会被右键把物品取走; ②可被玩家用对应物品右键, 按 Create 的 {@code create:sequenced_assembly}(序列装配)推进。</p>
+ * ①右键不会把物品取走; ②可被玩家用对应物品右键, 按 Create 的 {@code create:sequenced_assembly}(序列装配)推进。</p>
  */
 public final class AssembleLock {
 
@@ -42,7 +42,7 @@ public final class AssembleLock {
             return;
         be.setData(LOCKED.get(), locked);
         be.setChanged();
-        // 锁定的置物台要在下方是灵魂底座时冒灵魂火焰粒子 ⇒ 上锁/解锁时同步登记表(见 DepotSoulFlames)
+        // 锁定的置物台在下方是灵魂底座时要冒灵魂火焰粒子, 因此上锁/解锁时同步登记表(见 DepotSoulFlames)
         DepotSoulFlames.setTracked(be.getLevel(), be.getBlockPos(), locked);
     }
 }

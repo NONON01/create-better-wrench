@@ -23,6 +23,9 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  * <p>纯 Create addon:不新增方块, 提供一把更好用的 Create 扳手「万能扳手」。
  * 物品注册在 {@link #BETTER_WRENCH}; 它加入 {@code c:tools/wrench} 标签使 Create 把它当扳手,
  * 并用 ALT 呼出底部工具条切换多种功能模式(连接/拆除)。物品放进 Create 的 BASE 创造标签。</p>
+ *
+ * <p>构造器依次完成: 物品注册、SERVER 类型配置注册、数据附件注册、
+ * 网络载荷注册({@link #registerPayloads})、配置重载监听、{@code /cbw} 服务端指令注册与创造标签注入。</p>
  */
 @Mod(BetterWrenchMod.MODID)
 public class BetterWrenchMod {
@@ -38,9 +41,9 @@ public class BetterWrenchMod {
 
     public BetterWrenchMod(IEventBus modEventBus, ModContainer modContainer) {
         ITEMS.register(modEventBus);
-        // 功能开关 + 可调参数 → serverconfig/create_better_wrench-server.toml
+        // 功能开关 + 可调参数写入 config/create_better_wrench-server.toml(实测位置: 实例或服务器根目录)
         // 类型 SERVER: 数值由服务端权威读取; 单人游戏里客户端与内置服务端共用同一份(预览与限制一致)。
-        // 专用服务器上客户端读不到 ⇒ 由 FeatureSyncServer 在登录/配置重载时下发 FeatureTogglePayload 快照。
+        // 专用服务器上客户端读不到, 因此由 FeatureSyncServer 在登录/配置重载时下发 FeatureTogglePayload 快照。
         modContainer.registerConfig(ModConfig.Type.SERVER, WrenchConfig.SPEC);
         // 数据附件(置物台锁定态)
         com.nonono.createbetterwrench.assemble.AssembleLock.ATTACHMENTS.register(modEventBus);
@@ -62,7 +65,12 @@ public class BetterWrenchMod {
             event.accept(BETTER_WRENCH.get().getDefaultInstance());
     }
 
-    /** 注册自定义网络载荷(packet)。 */
+    /**
+     * 注册自定义网络载荷(packet)。
+     *
+     * <p>协议版本 {@code "1"}; 方向: 拆除 / 连接 / 战斗模式切换 / 装配锁定 / 加工停留时间为
+     * 客户端到服务端, 战斗模式权威回包与功能开关快照为服务端到客户端。</p>
+     */
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(MODID).versioned("1");
         registrar.playToServer(
@@ -89,7 +97,7 @@ public class BetterWrenchMod {
             com.nonono.createbetterwrench.network.AssembleStayPayload.TYPE,
             com.nonono.createbetterwrench.network.AssembleStayPayload.STREAM_CODEC,
             com.nonono.createbetterwrench.network.AssembleStayPayload::handle);
-        // 功能开关快照(服务端 → 客户端): 专用服务器上客户端靠它知道哪些功能被关掉了
+        // 功能开关快照(服务端到客户端): 专用服务器上客户端靠它知道哪些功能被关掉了
         registrar.playToClient(
             com.nonono.createbetterwrench.network.FeatureTogglePayload.TYPE,
             com.nonono.createbetterwrench.network.FeatureTogglePayload.STREAM_CODEC,

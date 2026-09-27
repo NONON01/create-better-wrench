@@ -6,7 +6,40 @@ Versions are SemVer; the current scheme is `<mod version>+mc<Minecraft version>`
 everything after `+` is build metadata. Earlier releases used `<mod version>+create<Create version>`
 (e.g. `0.4.0+create6.0.10`), and `1.0.0-beta` was a short-lived prerelease-style label.
 
-## [1.0.0-beta+mc1.21.1] - unreleased
+## [1.0.1-beta+mc1.21.1] - 2026-09-27
+
+### Changed
+- **Source comments were rewritten in the third person, non-colloquial register**: 219 style violations across
+  48 files were removed (attributed speech such as "the user said", first person, colloquial wording, marker
+  symbols and Markdown emphasis inside comments). Compiled behaviour is unchanged.
+- **Configuration descriptions follow the same rules.** The `b.comment(...)` texts written into
+  `config/create_better_wrench-server.toml` lost their `★`, `**` and `⇒` markers and colloquial wording;
+  all keys, defaults and ranges are unchanged.
+- **The development documentation was restructured** into `architecture/`, `modules/`, `reference/`,
+  `operations/`, `design/` and `standards/` plus an index, and rewritten from the code instead of from working
+  notes. Operational records (`docs/log/`, `docs/history/` and the local handover document) remain local-only
+  and are not published with the repository.
+
+### Fixed
+- Comments that contradicted the implementation were corrected. Examples: the combat-mode javadoc claimed the
+  client does not touch its local switch while the caller toggles it optimistically first; `WrenchHud`
+  referenced a `displayAlpha` field that does not exist; one comment still claimed the removed B + C keybind
+  opened the config screen; and a permission node was described as granted by default although the
+  implementation requires the configured level (default 2).
+- Documentation facts were re-derived from code and from the file system: the configuration file lands at
+  `config/create_better_wrench-server.toml` (not `serverconfig/`), there are **159** language keys, **7**
+  network payloads and **4** config groups with **18** entries; `connect.max_end_distance`,
+  `assemble.fan_batch_limit` and `client/WrenchConfigKeybinds` no longer exist.
+
+### Added
+- Reproducible checks: `scripts/check_comment_style.py` (style rules plus a comment-only diff gate),
+  `scripts/check_doc_links.py` (documentation cross-references), `scripts/fix_bom.py`,
+  `scripts/fix_comment_markup.py`, `scripts/fix_doc_paths.py`, `scripts/fix_new_doc_refs.py` and
+  `scripts/gen_lang_keys_doc.py`.
+- `docs/operations/verification.md` records the gate set, the comparison granularity and the baseline policy,
+  including the one authorised exception for configuration description texts.
+
+## [1.0.0-beta+mc1.21.1] - 2026-09-25
 
 ### Added
 - **Feature switches for every wrench function**, all in the server config: a master switch for **Connect**,

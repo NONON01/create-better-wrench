@@ -3,10 +3,10 @@ package com.nonono.createbetterwrench.combat;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * 服务端: **单独给某个玩家**开/关战斗模式的授权(指令 {@code /cbw combat <目标选择器> true|false})。
+ * 服务端: <b>单独给某个玩家</b>开/关战斗模式的授权(指令 {@code /cbw combat <目标选择器> true|false})。
  *
- * <p>存在玩家自己的持久化数据里({@code Entity#getPersistentData()} → 存档时随玩家 NBT 一起保存),
- * 所以重启服务器后依然有效。被单独授权的玩家**不受**配置里"需要的权限等级"限制
+ * <p>授权状态存在玩家自己的持久化数据里({@code Entity#getPersistentData()}, 存档时随玩家 NBT 一起保存),
+ * 因此重启服务器后依然有效。被单独授权的玩家<b>不受</b>配置里"需要的权限等级"限制
  * (见 {@code permission/WrenchPermissions#canUseCombatMode})。</p>
  */
 public final class WrenchCombatGrant {

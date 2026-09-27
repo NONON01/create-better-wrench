@@ -13,10 +13,10 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * 「万能扳手」战斗模式(彩蛋)的运行时加成。
+ * 「万能扳手」战斗模式(战斗加成, 可选)的运行时加成。
  *
- * <p>扳手原始的 +5 伤害 / +20 攻速原本烘焙在物品属性里(永远生效); 现改为**运行时条件加成**:
- * 只有在「模组描述」工具里用 Ctrl 切到**战斗模式**且手持扳手时, 才把两个瞬态修饰符加到玩家的
+ * <p>扳手原始的 +5 伤害 / +20 攻速原本烘焙在物品属性里(永远生效); 现改为<b>运行时条件加成</b>:
+ * 只有在「模组描述」工具里用 Ctrl 切到<b>战斗模式</b>且手持扳手时, 才把两个瞬态修饰符加到玩家的
  * ATTACK_DAMAGE / ATTACK_SPEED 上; 正常模式下移除。</p>
  *
  * <p>服务端按玩家 UUID 记录开关(由客户端发包同步), 客户端使用本地开关(见 client/WrenchCombatClient)。</p>
@@ -52,10 +52,10 @@ public final class WrenchCombat {
     }
 
     /**
-     * 玩家**主手**是否持有万能扳手。
+     * 玩家<b>主手</b>是否持有万能扳手。
      *
-     * <p>⚠️ 2026-09-20(用户约定): 扳手在**副手**时一律"只作普通扳手" —— 不显示 HUD、模式功能不生效,
-     * 彩蛋的战斗加成也随之不生效, 所以这里只看主手。</p>
+     * <p>2026-09-20(设计约定): 扳手在<b>副手</b>时一律"只作普通扳手" —— 不显示 HUD、模式功能不生效,
+     * 战斗加成也随之不生效, 因此这里只检查主手。</p>
      */
     public static boolean holdsWrench(Player player) {
         return player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH);

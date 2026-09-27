@@ -10,7 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * 扳手的"模式"(用 ALT 呼出底部工具条 + 滚轮循环切换)。
  *
- * <p>图标: **全部 5 个模式都用自绘 PNG**(ResourceLocation) —— 本类**不再持有** Create 的
+ * <p>图标: 全部 5 个模式都用<b>本模组自绘 PNG</b>(ResourceLocation) —— 本类<b>不再持有</b> Create 的
  * {@code AllIcons} 之类的蓝图图标(2026-09-17 已彻底移除该分支), 因此本模组对 Create 资源的
  * 运行时引用只剩 HUD 底纹 {@code AllGuiTextures.HUD_BACKGROUND} 一处。</p>
  */
@@ -27,7 +27,7 @@ public enum WrenchMode {
     COMING_SOON("coming_soon", ResourceLocation.fromNamespaceAndPath(
         BetterWrenchMod.MODID, "textures/gui/mode_coming_soon.png"));
 
-    /** HUD 顶部提示与描述里"按键/可选项"提示共用的蓝色(与顶部 "[SCROLL] 循环" 那行同色)。 */
+    /** HUD 顶部提示与描述里"按键/可选项"提示共用的蓝色(与 {@code hint.create_better_wrench.toolbar.scroll} 那行同色)。 */
     public static final int HINT_BLUE = 0xCCDDFF;
 
     private final String id;
@@ -42,7 +42,7 @@ public enum WrenchMode {
         return Component.translatable("mode." + BetterWrenchMod.MODID + "." + id);
     }
 
-    /** 该模式小图标 —— 一律是我们自绘的 PNG。 */
+    /** 该模式的小图标 —— 一律为本模组自绘的 PNG。 */
     public ResourceLocation icon() {
         return icon;
     }
@@ -53,10 +53,10 @@ public enum WrenchMode {
     }
 
     /**
-     * 描述里被 {@code []} 或 {@code {}} 包起来的文字设为**加粗 + 蓝色**, **括号本身不加粗也不变色**。
+     * 描述里被 {@code []} 或 {@code {}} 包起来的文字设为<b>加粗 + 蓝色</b>, <b>括号本身不加粗也不变色</b>。
      *
      * <p>这些是"按键提示"与"可选项"提示(例如 {@code [右键]} / {@code [Ctrl+滚轮]} / {@code {齿轮箱/大齿轮}})。
-     * 用组件样式实现而不是 {@code §l}/{@code §b} 代码, 免得依赖渲染器对旧式格式码的解析。</p>
+     * 用组件样式实现而不是 {@code §l}/{@code §b} 代码, 以避免依赖渲染器对旧式格式码的解析。</p>
      */
     private static Component emphasizeBrackets(Component raw) {
         String text = raw.getString();

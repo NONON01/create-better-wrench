@@ -26,11 +26,11 @@ import net.neoforged.neoforge.network.PacketDistributor;
 /**
  * 客户端「拆除」选框状态机(仿 Create SchematicAndQuillHandler)。
  *
- * <p>仅当:手持我们的扳手 + 当前模式为 DECONSTRUCT 时生效。
- * 通过拦截客户端鼠标右键(MouseButton.Pre)抢在 Create WrenchEventHandler 之前吃掉本次点击,
+ * <p>仅当"主手持本模组扳手 + 当前模式为 DECONSTRUCT"时生效。
+ * 通过拦截客户端鼠标右键(MouseButton.Pre)抢在 Create WrenchEventHandler 之前消费本次点击,
  * 从而让右键只做"选角 A / 选角 B", 不会触发普通扳手的旋转/拆除。</p>
  *
- * <p>交互: 第一次右键定 A, 之后移动视角会用 catnip Outliner 画蓝色选区框(A → 当前视线块);
+ * <p>交互: 第一次右键定 A, 之后移动视角会用 catnip Outliner 画蓝色选区框(A 到当前视线块);
  * 第二次右键定 B 并立即向服务端发送 DeconstructPayload 执行拆除。</p>
  */
 @EventBusSubscriber(modid = BetterWrenchMod.MODID, value = Dist.CLIENT)
@@ -45,10 +45,10 @@ public final class DeconstructSelectionHandler {
     private static final int COLOR_TOO_LARGE = 0xE0392B;
 
     /**
-     * 单轴最大边长 —— 与服务端**读同一份配置**({@code config/WrenchConfig} → {@code deconstruct.max_edge})。
+     * 单轴最大边长: 与服务端<b>读同一份配置</b>({@code config/WrenchConfig}, 配置键 {@code deconstruct.max_edge})。
      *
-     * <p>以前这里是各写一份的常量(必须手工与服务端同步, 否则会出现"框还是蓝的、服务端却拒绝"的割裂体验);
-     * 现在两端同一个来源, 这个隐患从根上消除(docs/reference/01-hardcoded-data.md 的 E-1)。</p>
+     * <p>以前这里是各写一份的常量(必须手工与服务端同步, 否则会出现"框还是蓝的、服务端却拒绝"的不一致体验);
+     * 现在两端同一个来源, 这个隐患从根上消除(docs/reference/hardcoded-data.md 的 E-1)。</p>
      */
     private static int maxEdge() {
         return WrenchConfig.deconstructMaxEdge();
@@ -69,9 +69,9 @@ public final class DeconstructSelectionHandler {
     }
 
     /**
-     * 仅当**主手**持扳手且当前模式为「拆除」时才接管。
+     * 仅当<b>主手</b>持扳手且当前模式为「拆除」时才接管。
      *
-     * <p>⚠️ 2026-09-20(用户约定): 扳手在**副手**时"只作普通扳手" ⇒ 本模式不生效, 右键原样交给 Create。</p>
+     * <p>2026-09-20(设计约定): 扳手在<b>副手</b>时"只作普通扳手", 因此本模式不生效, 右键原样交给 Create。</p>
      */
     private static boolean active(Minecraft mc) {
         return mc.player != null
@@ -84,10 +84,10 @@ public final class DeconstructSelectionHandler {
         Minecraft mc = Minecraft.getInstance();
         if (!active(mc))
             return false;
-        // 功能被配置关掉: 提示「此功能未启用」, 吃掉这次点击(什么都不做)
+        // 功能被配置关掉: 提示功能未启用, 消费这次点击(什么都不做)
         if (ClientFeatureGate.blockIfDisabled(WrenchMode.DECONSTRUCT))
             return true;
-        // 潜行 + 右键 = 放弃当前选区(cancel() 本来就有, 这里把输入接上; 见 docs/reference/03-known-issues.md A-14)
+        // 潜行 + 右键 = 放弃当前选区(cancel() 本来就有, 这里把输入接上; 见 docs/design/known-issues.md A-14)
         if (mc.player != null && mc.player.isShiftKeyDown()) {
             cancel();
             return true;
@@ -103,7 +103,7 @@ public final class DeconstructSelectionHandler {
         }
         // 第二次右键: 定 B 并发包
         BlockPos b = hit;
-        // 配置里"不允许破坏机械动力/红石方块"时范围档被强制锁定 ⇒ 发出去的也是那个档
+        // 配置里"不允许破坏机械动力/红石方块"时范围档被强制锁定, 因此发出去的就是那个档
         // (服务端同样会用 effectiveScope() 覆盖一次, 改包也绕不过去)
         DeconstructScope scope = WrenchConfig.effectiveScope(WrenchModeSwitcher.deconstructScope);
         ClientPacketListener conn = mc.getConnection();
@@ -142,7 +142,7 @@ public final class DeconstructSelectionHandler {
     /**
      * 每帧刷新: 拆除模式下用 Outliner 画"蓝图与笔式"蓝框(蓝线 + 淡蓝格纹面)。
      * - 未选 A: 画准星所指的单个方块框;
-     * - 已选 A: 画 A → 当前视线块 的区域框。
+     * - 已选 A: 画 A 到当前视线块的区域框。
      * 由本类的 ClientTickEvent.Post 订阅驱动(仿 Create 每帧刷新 outliner 的惯用法)。
      */
     @SubscribeEvent
@@ -174,7 +174,7 @@ public final class DeconstructSelectionHandler {
             return;
         }
 
-        // 已选 A: 画 A → 当前视线块 的区域框;超限则整框变红
+        // 已选 A: 画 A 到当前视线块 的区域框;超限则整框变红
         previewB = hit != null ? hit : cornerA;
         AABB box = new AABB(Vec3.atLowerCornerOf(cornerA), Vec3.atLowerCornerOf(previewB))
             .expandTowards(1, 1, 1);
@@ -187,8 +187,8 @@ public final class DeconstructSelectionHandler {
     /**
      * 丢掉当前未完成的选区(角 A + 预览框)。
      *
-     * <p>两个调用方: ①客户端登出/切维度时的统一清理(`client/ClientStateReset`);
-     * ②玩家在拆除模式下 **Shift + 右键** 主动取消(见 docs/reference/03-known-issues.md A-14)。</p>
+     * <p>两个调用方: ①客户端登出/切维度时的统一清理({@code client/ClientStateReset});
+     * ②玩家在拆除模式下 <b>Shift + 右键</b> 主动取消(见 docs/design/known-issues.md A-14)。</p>
      */
     public static void cancel() {
         resetSelection();

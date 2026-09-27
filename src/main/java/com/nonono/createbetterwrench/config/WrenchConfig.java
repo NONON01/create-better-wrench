@@ -8,17 +8,19 @@ import com.nonono.createbetterwrench.mode.ProcessKind;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * 「万能扳手」的**可调参数 + 功能开关**(NeoForge 配置)。
+ * 「万能扳手」的<b>可调参数 + 功能开关</b>(NeoForge 配置)。
  *
  * <h2>配置文件在哪 / Where is the file</h2>
  * <ul>
- *   <li>单人游戏: <b>存档目录</b>下的 <code>serverconfig/create_better_wrench-server.toml</code>;</li>
- *   <li>专用服务器: 服务器根目录的 <code>serverconfig/create_better_wrench-server.toml</code>;</li>
- *   <li>游戏里改: 指令 {@code /cbw config} 打开本模组的自绘配置页面(或模组列表 → 配置)。</li>
+ *   <li>单人游戏: 实例目录下的 <code>config/create_better_wrench-server.toml</code>;</li>
+ *   <li>专用服务器: 服务器根目录下的 <code>config/create_better_wrench-server.toml</code>;</li>
+ *   <li>游戏里改: 指令 {@code /cbw config} 打开本模组的自绘配置页面(或模组列表里的配置按钮)。</li>
  * </ul>
- * <p>类型是 <b>SERVER</b>: 数值由**服务端权威**读取与校验。单人游戏里客户端与内置服务端在同一进程,
- * 因此客户端预览读到的是同一份值; **专用服务器**上客户端读不到 ⇒ 走服务端登录时下发的
- * {@link FeatureToggles} 快照(没有快照时一律按**默认值 = 全开**处理, 真正的限制仍由服务端执行)。</p>
+ * <p>该路径为实测结论: 测试服务器与测试客户端下均只有 <code>config/</code> 一份文件,
+ * 不存在 <code>world/serverconfig/</code> 副本。</p>
+ * <p>类型是 <b>SERVER</b>: 数值由<b>服务端权威</b>读取与校验。单人游戏里客户端与内置服务端在同一进程,
+ * 因此客户端预览读到的是同一份值; <b>专用服务器</b>上客户端读不到, 只能走服务端登录时下发的
+ * {@link FeatureToggles} 快照(无快照时按出厂默认值处理, 真正的限制仍由服务端执行)。</p>
  *
  * <h2>四个分组</h2>
  * <pre>
@@ -28,14 +30,15 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *   [combat]      是否启用战斗模式 + 需要的权限等级(0=普通 / 2=OP)
  * </pre>
  *
- * <h2>联动规则(用户 2026-09-25 定, 见 {@link #normalize()} / {@link #applyToggle})</h2>
+ * <h2>联动规则(设计约定, 2026-09-25; 见 {@link #normalize()} / {@link #applyToggle})</h2>
  * <ul>
- *   <li>拆除: 两个"允许"都关 ⇒ **总开关跟着关**; 总开关打开 ⇒ 两个"允许"都回到开;</li>
- *   <li>加工: 六个子功能都关 ⇒ **总开关跟着关**; 总开关打开 ⇒ 六个子功能都回到开;</li>
- *   <li>任何一个子功能被**打开**时, 它所属的**总开关也一并打开**(免得"子开着、总关着"这种看不出效果的状态)。</li>
+ *   <li>拆除: 两个"允许"都关闭时<b>总开关跟着关闭</b>; 总开关打开时两个"允许"都回到打开;</li>
+ *   <li>加工: 六个子功能都关闭时<b>总开关跟着关闭</b>; 总开关打开时六个子功能都回到打开;</li>
+ *   <li>任何一个子功能被<b>打开</b>时, 它所属的<b>总开关也一并打开</b>(避免出现"子开关开启、
+ *       总开关关闭"这一状态无法生效的组合)。</li>
  * </ul>
  *
- * <p>⚠️ 本类**不引用任何客户端类**, 两端都能安全加载。</p>
+ * <p>本类<b>不引用任何客户端类</b>, 两端都能安全加载。</p>
  */
 public final class WrenchConfig {
 
@@ -67,7 +70,7 @@ public final class WrenchConfig {
     /** 加工: 六个子功能的默认值(都开)。 */
     public static final boolean DEFAULT_PROCESS_SUB = true;
 
-    /** 战斗: 是否启用战斗模式(整个彩蛋的总开关)。 */
+    /** 战斗: 是否启用战斗模式(战斗加成总开关)。 */
     public static final boolean DEFAULT_COMBAT_ENABLED = true;
     /** 战斗: 需要的权限等级(0 = 普通玩家, 2 = OP)。 */
     public static final int DEFAULT_COMBAT_PERMISSION_LEVEL = 2;
@@ -104,46 +107,46 @@ public final class WrenchConfig {
             "Create Better Wrench —— 功能开关与可调参数 / Feature switches and tunable values",
             "数值由服务端权威读取; 单人游戏里客户端与服务端共用同一份配置。",
             "Values are authoritative on the server; in single-player the client and the integrated server share them.",
-            "游戏内用 /cbw config 打开配置页面(改完关页面即保存并立即生效)。",
-            "Open the config screen in game with /cbw config (changes apply immediately and are saved on close).");
+            "游戏内可用 /cbw config 打开配置页面; 关闭页面时保存并立即生效。",
+            "Open the config screen in game with /cbw config; changes are applied immediately and saved when the screen is closed.");
 
         // ------------------------------------------------------------ 连接 / Connect
         b.comment(
                 "[连接] Connect",
-                "★ 总开关关掉后, 连接模式仍可切换, 但每次使用都会提示「此功能未启用」。",
-                "★ When disabled the mode can still be selected, but every attempt reports it as unavailable.")
+                "总开关关闭后连接模式仍可切换, 但每次使用都会收到该功能未启用的提示。",
+                "When disabled the mode can still be selected, but every attempt reports the feature as unavailable.")
             .push("connect");
 
         CONNECT_ENABLED = b
             .comment(
                 "连接功能总开关, 默认开。",
-                "★ 关掉 = 整个「连接」模式不可用(切过去/右键都会提示「此功能未启用」, 且不放任何方块)。",
+                "关闭后整个「连接」模式不可用: 切换模式或右键使用都会收到该功能未启用的提示, 且不会放置任何方块。",
                 "Master switch for the Connect feature (default on).",
-                "★ Off = the whole Connect mode is unavailable (switching/using it reports it as unavailable, nothing is placed).")
+                "When off, the whole Connect mode is unavailable: switching to it or using it reports the feature as unavailable and places no blocks.")
             .define("enabled", DEFAULT_CONNECT_ENABLED);
 
         CONNECT_MAX_CORNERS = b
             .comment(
                 "连接模式: 拐点数量上限, 默认 32。",
-                "★ 超过就点不下新拐点了(actionbar 会提示)。数值越大, 一条路线能拐的弯越多。",
+                "达到上限后无法继续添加拐点(动作栏会给出提示)。数值越大, 单条路线允许的拐弯越多。",
                 "Connect: maximum number of corner points (default 32).",
-                "★ Beyond this you cannot add more corners (an action-bar hint appears). Bigger = more turns per route.")
+                "Beyond this limit no further corners can be added (an action-bar hint is shown). A larger value allows more turns per route.")
             .defineInRange("max_corners", DEFAULT_CONNECT_MAX_CORNERS, 1, 256);
 
         CONNECT_MAX_LEG_LENGTH = b
             .comment(
-                "连接模式: **单段**两个节点之间的直线长度上限(格), 默认 64。",
-                "★ 超过就会报'某段路径过长'; 想连更远就多加拐点, 或把这个值调大。",
+                "连接模式: 单段两个节点之间的直线长度上限(格), 默认 64。",
+                "超过上限时该段按路径过长处理; 需要连接更远时应增加拐点, 或调高此值。",
                 "Connect: maximum length of a single straight segment between two nodes, in blocks (default 64).",
-                "★ Longer segments are reported as 'a segment is too long'; add a corner, or raise this value.")
+                "A longer segment is reported as a segment that is too long; add a corner or raise this value.")
             .defineInRange("max_leg_length", DEFAULT_CONNECT_MAX_LEG_LENGTH, 1, 512);
 
         CONNECT_MAX_TOTAL_BLOCKS = b
             .comment(
                 "连接模式: 一次连接最多铺设多少方块(轴 + 齿轮箱 + 大齿轮), 默认 256。",
-                "★ 这是**服务端安全上限**(挡住超大工程把服务器卡住); 调大会同时放宽客户端的绿色预览。",
+                "该值是服务端安全上限, 用于限制超大规模连接对服务端的影响; 调高时会同时放宽客户端的绿色预览范围。",
                 "Connect: maximum total blocks placed by one connection (shafts + gearboxes + large cogwheels), default 256.",
-                "★ This is a server-side safety cap against huge builds; raising it also relaxes the client's green preview.")
+                "This is a server-side safety cap limiting the impact of very large connections; raising it also extends the client's green preview.")
             .defineInRange("max_total_blocks", DEFAULT_CONNECT_MAX_TOTAL_BLOCKS, 1, 4096);
 
         b.pop();
@@ -151,48 +154,48 @@ public final class WrenchConfig {
         // ------------------------------------------------------------ 拆除 / Deconstruct
         b.comment(
                 "[拆除] Deconstruct",
-                "★ 这里的三项影响'能不能拆'、'能拆什么'与'拆起来卡不卡'。",
-                "★ These control whether a selection is allowed, which blocks may be removed, and how smoothly.")
+                "以下三项分别控制选区是否被接受、允许拆除哪些方块, 以及拆除过程的平滑程度。",
+                "These control whether a selection is accepted, which blocks may be removed, and how smoothly removal runs.")
             .push("deconstruct");
 
         DECONSTRUCT_ENABLED = b
             .comment(
                 "拆除功能总开关, 默认开。",
-                "★ 关掉 = 整个「拆除」模式不可用(切过去/右键都会提示「此功能未启用」)。",
+                "关闭后整个「拆除」模式不可用: 切换模式或右键使用都会收到该功能未启用的提示。",
                 "Master switch for the Deconstruct feature (default on).",
-                "★ Off = the whole Deconstruct mode is unavailable.")
+                "When off, the whole Deconstruct mode is unavailable and every attempt reports the feature as unavailable.")
             .define("enabled", DEFAULT_DECONSTRUCT_ENABLED);
 
         DECONSTRUCT_ALLOW_CREATE = b
             .comment(
-                "是否允许拆除**机械动力方块**(命名空间 create), 默认允许。",
-                "★ 关掉后玩家只能拆红石类方块(范围档自动锁定为「仅红石」, Ctrl 切不动); 两个都关则总开关一并关闭。",
+                "是否允许拆除机械动力方块(命名空间 create), 默认允许。",
+                "关闭后范围档被强制锁定为「仅红石」, Ctrl 无法切换; 本项与红石项同时关闭时, 总开关一并关闭。",
                 "Whether Create blocks (namespace 'create') may be removed (default yes).",
-                "★ When off the scope is forced to 'redstone only' (Ctrl cannot change it); turning both off also disables the master switch.")
+                "When off the scope is forced to redstone only and Ctrl cannot change it; disabling both this and the redstone option also disables the master switch.")
             .define("allow_create_blocks", DEFAULT_DECONSTRUCT_ALLOW_CREATE);
 
         DECONSTRUCT_ALLOW_REDSTONE = b
             .comment(
-                "是否允许拆除**红石类方块**(拉杆/中继器/比较器/漏斗/铁轨/红石线等), 默认允许。",
-                "★ 关掉后玩家只能拆机械动力方块(范围档自动锁定为「仅机械动力」)。",
-                "Whether redstone components may be removed (default yes).",
-                "★ When off the scope is forced to 'create only'.")
+                "是否允许拆除红石类方块(拉杆/中继器/比较器/漏斗/铁轨/红石线等), 默认允许。",
+                "关闭后范围档被强制锁定为「仅机械动力」。",
+                "Whether redstone components (levers, repeaters, comparators, hoppers, rails, redstone wire, ...) may be removed (default yes).",
+                "When off the scope is forced to Create blocks only.")
             .define("allow_redstone_blocks", DEFAULT_DECONSTRUCT_ALLOW_REDSTONE);
 
         DECONSTRUCT_MAX_EDGE = b
             .comment(
                 "拆除选区单轴上限(格), 默认 64。",
-                "★ 选区的任意一条边超过这个值就会被**拒绝**(不会拆任何方块); 客户端会顺手把选区框画成红色提示。",
+                "选区任意一条边超过该值时请求会被拒绝, 不会拆除任何方块; 客户端同时把选区框绘制为红色以作提示。",
                 "Max edge length of a deconstruct selection, in blocks (default 64).",
-                "★ If any axis of the selection is longer than this, the request is rejected (nothing is removed); the client draws the selection box red as a hint.")
+                "If any axis of the selection exceeds this value the request is rejected (nothing is removed) and the client draws the selection box in red.")
             .defineInRange("max_edge", DEFAULT_DECONSTRUCT_MAX_EDGE, 1, 512);
 
         DECONSTRUCT_BLOCKS_PER_TICK = b
             .comment(
                 "拆除分帧粒度: 每个服务端刻最多拆除多少格, 默认 1024。",
-                "★ 调大 = 拆得更快但单刻更卡(可能导致服务器瞬间卡顿); 调小 = 更平滑但总时间更长。",
+                "数值越大拆除越快, 但单刻负载更高(可能出现瞬时卡顿); 数值越小越平滑, 总耗时更长。",
                 "Deconstruct: how many blocks are removed per server tick (default 1024).",
-                "★ Higher = faster but a heavier single tick (can cause a visible hitch); lower = smoother but takes longer overall.")
+                "A higher value removes blocks faster but increases per-tick load (a short hitch is possible); a lower value is smoother but takes longer overall.")
             .defineInRange("blocks_per_tick", DEFAULT_DECONSTRUCT_BLOCKS_PER_TICK, 16, 16384);
 
         b.pop();
@@ -200,16 +203,16 @@ public final class WrenchConfig {
         // ------------------------------------------------------------ 加工 / Process
         b.comment(
                 "[加工] Process",
-                "★ 总开关 + 六种加工方式各自的开关(装配/注液/洗涤/冶炼/烤制/缠魂)。",
-                "★ Master switch plus one switch per processing kind (assembly/filling/washing/blasting/smoking/haunting).")
+                "总开关, 以及六种加工方式各自的开关(装配/注液/洗涤/冶炼/烤制/缠魂)。",
+                "Master switch plus one switch per processing kind (assembly/filling/washing/blasting/smoking/haunting).")
             .push("process");
 
         PROCESS_ENABLED = b
             .comment(
                 "加工功能总开关, 默认开。",
-                "★ 关掉 = 整个「加工」模式不可用(切过去/右键都会提示「此功能未启用」)。",
+                "关闭后整个「加工」模式不可用: 切换模式或右键使用都会收到该功能未启用的提示。",
                 "Master switch for the Process feature (default on).",
-                "★ Off = the whole Process mode is unavailable.")
+                "When off, the whole Process mode is unavailable and every attempt reports the feature as unavailable.")
             .define("enabled", DEFAULT_PROCESS_ENABLED);
 
         PROCESS_ASSEMBLY = subSwitch(b, "assembly", "装配(序列装配 / 机械手式施加)");
@@ -224,26 +227,26 @@ public final class WrenchConfig {
         // ------------------------------------------------------------ 战斗 / Combat
         b.comment(
                 "[战斗] Combat",
-                "★ 战斗模式是本模组的彩蛋: 在「模组描述」模式下用 Ctrl 切换, 手持扳手时获得 +5 伤害 / +20 攻速。",
-                "★ Combat mode is an easter egg: toggle it with Ctrl in the 'mod description' mode.")
+                "战斗模式是本模组的可选加成: 在「模组描述」模式下用 Ctrl 切换, 手持扳手时获得 +5 伤害与 +20 攻速。",
+                "Combat mode is an optional bonus: toggle it with Ctrl in the mod-description mode to gain +5 attack damage and +20 attack speed while holding the wrench.")
             .push("combat");
 
         COMBAT_ENABLED = b
             .comment(
                 "是否启用战斗模式, 默认启用。",
-                "★ 关掉 = 任何人都打不开战斗模式(切换时提示「此功能未启用」)。",
-                "Whether combat mode exists at all (default yes).",
-                "★ Off = nobody can toggle it on.")
+                "关闭后任何玩家都无法开启战斗模式, 切换时会收到该功能未启用的提示。",
+                "Whether combat mode is available at all (default yes).",
+                "When off nobody can toggle it on and the attempt reports the feature as unavailable.")
             .define("enabled", DEFAULT_COMBAT_ENABLED);
 
         COMBAT_PERMISSION_LEVEL = b
             .comment(
                 "战斗模式需要的权限等级, 默认 2。",
-                "★ 0 = 普通玩家也能开; 2 = 需要 OP(与原版'可执行多数管理指令'的等级一致); 也可填 1/3/4。",
-                "★ 另外可用指令单独授权某个玩家: /cbw combat <目标选择器> true —— 被单独授权的玩家不受这个等级限制。",
+                "0 = 所有玩家均可开启; 2 = 需要 OP(与原版可执行多数管理指令的等级一致); 1/3/4 亦可填。",
+                "也可用指令为单个玩家单独授权: /cbw combat <目标选择器> true; 被单独授权的玩家不受该等级限制。",
                 "Permission level required for combat mode (default 2).",
-                "★ 0 = everyone, 2 = OP only; 1/3/4 also accepted.",
-                "★ Individual players can be authorized with /cbw combat <selector> true, bypassing the level.")
+                "0 = everyone, 2 = OP only (matching the vanilla level that allows most management commands); 1/3/4 are also accepted.",
+                "Individual players can be authorized with /cbw combat <selector> true, which bypasses this level.")
             .defineInRange("permission_level", DEFAULT_COMBAT_PERMISSION_LEVEL, 0, 4);
 
         b.pop();
@@ -256,9 +259,9 @@ public final class WrenchConfig {
         return b
             .comment(
                 "加工方式「" + zhName + "」的开关, 默认开。",
-                "★ 关掉后仍可保持在加工模式, 但用这种方式加工时只会收到「此子功能未启用」, 不消耗任何材料。",
+                "关闭后仍可停留在加工模式, 但以该方式加工时只会收到该子功能未启用的提示, 且不消耗任何材料。",
                 "Switch for the '" + id + "' processing kind (default on).",
-                "★ When off the attempt only reports the sub-feature as unavailable and consumes nothing.")
+                "When off the attempt only reports the sub-feature as unavailable and consumes nothing.")
             .define(id, DEFAULT_PROCESS_SUB);
     }
 
@@ -266,7 +269,7 @@ public final class WrenchConfig {
     }
 
     // ---------------------------------------------------------------- 读取(带兜底)
-    // ⚠️ 专用服务器上的客户端读不到 SERVER 配置 ⇒ SPEC.isLoaded() 为 false,
+    // 注意: 专用服务器上的客户端读不到 SERVER 配置, SPEC.isLoaded() 为 false;
     //    此时优先用服务端下发的 FeatureToggles 快照, 再退到默认值, 绝不抛异常。
 
     private static FeatureToggles.Snapshot remote() {
@@ -306,14 +309,14 @@ public final class WrenchConfig {
     }
 
     /**
-     * 拆除: 功能是否启用(把"两个子项都关掉 ⇒ 总开关也算关"这条规则也算进来)。
+     * 拆除: 功能是否启用(把"两个子项都关闭时总开关也算关"这条规则也算进来)。
      * 即使有人直接改 TOML 把两个子项都设成 false 而总开关仍是 true, 这里也会正确返回 false。
      */
     public static boolean deconstructEnabled() {
         return deconstructConfigEnabled() && (deconstructAllowCreate() || deconstructAllowRedstone());
     }
 
-    /** 拆除: 配置文件里那个总开关的**原始**值(界面显示用; 功能是否可用请看 {@link #deconstructEnabled()})。 */
+    /** 拆除: 配置文件里那个总开关的<b>原始</b>值(界面显示用; 功能是否可用请看 {@link #deconstructEnabled()})。 */
     public static boolean deconstructConfigEnabled() {
         if (SPEC.isLoaded())
             return DECONSTRUCT_ENABLED.get();
@@ -338,9 +341,9 @@ public final class WrenchConfig {
     }
 
     /**
-     * 拆除: 被**强制锁定**的范围档; {@code null} = 两个子项都允许 ⇒ 玩家可以自由 Ctrl 切换。
+     * 拆除: 被<b>强制锁定</b>的范围档; {@code null} = 两个子项都允许, 玩家可以自由 Ctrl 切换。
      *
-     * <p>用户规则: 不允许机械动力 ⇒ 只能"仅红石"; 不允许红石 ⇒ 只能"仅机械动力"。</p>
+     * <p>锁定规则(设计约定, 2026-09-25): 不允许机械动力时只能"仅红石"; 不允许红石时只能"仅机械动力"。</p>
      */
     public static DeconstructScope deconstructForcedScope() {
         boolean create = deconstructAllowCreate();
@@ -351,10 +354,10 @@ public final class WrenchConfig {
             return DeconstructScope.REDSTONE_ONLY;
         if (create)
             return DeconstructScope.CREATE_ONLY;
-        return DeconstructScope.ALL;   // 两个都关(总开关也会关) ⇒ 不会真正生效
+        return DeconstructScope.ALL;   // 两个都关(总开关也会关), 因此不会真正生效
     }
 
-    /** 拆除: 客户端/服务端共用的"这一档到底能拆什么" —— 强制档会**覆盖**玩家选的那档。 */
+    /** 拆除: 客户端/服务端共用的"这一档到底能拆什么" —— 强制档会<b>覆盖</b>玩家选的那档。 */
     public static DeconstructScope effectiveScope(DeconstructScope requested) {
         DeconstructScope forced = deconstructForcedScope();
         return forced == null ? requested : forced;
@@ -386,7 +389,7 @@ public final class WrenchConfig {
         return false;
     }
 
-    /** 加工: 配置文件里那个总开关的**原始**值。 */
+    /** 加工: 配置文件里那个总开关的<b>原始</b>值。 */
     public static boolean processConfigEnabled() {
         if (SPEC.isLoaded())
             return PROCESS_ENABLED.get();
@@ -394,7 +397,7 @@ public final class WrenchConfig {
         return s == null ? DEFAULT_PROCESS_ENABLED : s.processEnabled();
     }
 
-    /** 加工: 某一种加工方式是否启用(**不含**总开关, 调用方需要自行叠加 {@link #processConfigEnabled()})。 */
+    /** 加工: 某一种加工方式是否启用(<b>不含</b>总开关, 调用方需要自行叠加 {@link #processConfigEnabled()})。 */
     public static boolean processKindEnabled(ProcessKind kind) {
         if (SPEC.isLoaded()) {
             return switch (kind) {
@@ -419,7 +422,7 @@ public final class WrenchConfig {
         };
     }
 
-    /** 加工: 这一种方式**整体**能不能用(总开关 + 子开关)。 */
+    /** 加工: 这一种方式<b>整体</b>能不能用(总开关 + 子开关)。 */
     public static boolean processKindUsable(ProcessKind kind) {
         return processConfigEnabled() && processKindEnabled(kind);
     }
@@ -454,7 +457,7 @@ public final class WrenchConfig {
             combatEnabled(), combatPermissionLevel(), combatGranted);
     }
 
-    /** 当前进程能不能改这些值(专用服务器上的客户端拿不到 SERVER 配置 ⇒ false, 界面自动变只读)。 */
+    /** 当前进程能不能改这些值(专用服务器上的客户端拿不到 SERVER 配置, 返回 false, 界面自动变只读)。 */
     public static boolean isWritable() {
         return SPEC.isLoaded();
     }
@@ -487,7 +490,7 @@ public final class WrenchConfig {
         /**
          * 布尔行的当前值。
          *
-         * <p>⚠️ 专用服务器上的客户端读不到 SERVER 配置({@code SPEC} 未加载)⇒ 优先显示**服务端下发的快照**
+         * <p>注意: 专用服务器上的客户端读不到 SERVER 配置({@code SPEC} 未加载), 因此优先显示<b>服务端下发的快照</b>
          * ({@link FeatureToggles}), 没有快照才回落到默认值 —— 这样 OP 在只读页面上看到的也是"服务器实际开着什么"。</p>
          */
         public boolean asBool() {
@@ -609,7 +612,7 @@ public final class WrenchConfig {
         return false;
     }
 
-    /** 写一个布尔开关, 并应用全部联动规则(用户 2026-09-25 定)。 */
+    /** 写一个布尔开关, 并应用全部联动规则(设计约定, 2026-09-25)。 */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public static void applyToggle(Row row, boolean on) {
         if (!SPEC.isLoaded() || !row.isToggle())
@@ -618,14 +621,14 @@ public final class WrenchConfig {
         String path = row.path();
 
         if (on) {
-            // 总开关打开 ⇒ 它下面的子功能一并打开
+            // 总开关打开时, 它下面的子功能一并打开
             if (path.equals("deconstruct.enabled")) {
                 DECONSTRUCT_ALLOW_CREATE.set(true);
                 DECONSTRUCT_ALLOW_REDSTONE.set(true);
             } else if (path.equals("process.enabled")) {
                 setAllProcessKinds(true);
             } else if (isSub(path) || isMaster(path)) {
-                // 子功能打开 ⇒ 它所属的总开关也打开(免得"子开着、总关着"看不出效果)
+                // 子功能打开时, 它所属的总开关也打开(避免"子开关开启、总开关关闭"的无效组合)
                 masterOf(path).set(true);
             }
             // 打开"允许机械动力/红石"时, 总开关也一并打开
@@ -686,7 +689,7 @@ public final class WrenchConfig {
     }
 
     /**
-     * 规则兜底(用户 2026-09-25): 拆除的两个"允许"都关 ⇒ 总开关关; 加工的六个子功能都关 ⇒ 总开关关。
+     * 规则兜底(设计约定, 2026-09-25): 拆除的两个"允许"都关闭时总开关关; 加工的六个子功能都关闭时总开关关。
      * 这样即使有人直接编辑 TOML, 也不会出现"总开关开着但什么都不能做"的自相矛盾状态。
      */
     public static void normalize() {
