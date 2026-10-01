@@ -6,6 +6,15 @@ Versions are SemVer; the current scheme is `<mod version>+mc<Minecraft version>`
 everything after `+` is build metadata. Earlier releases used `<mod version>+create<Create version>`
 (e.g. `0.4.0+create6.0.10`), and `1.0.0-beta` was a short-lived prerelease-style label.
 
+## [Unreleased]
+
+### Changed
+- **The source code is now MIT-licensed** (`LICENSE.md` §1.1, with the project's own copyright line and the
+  full MIT text). Non-code assets created by this project stay **All Rights Reserved** (§1.2), and the portions
+  derived from Create remain MIT (§1.3, Appendix A). The published `1.0.1-beta` jar still carries the previous
+  wording; the new terms ship with the next build.
+- `README.md`'s license section now states the three parts (source MIT / own assets ARR / Create-derived MIT).
+
 ## [1.0.1-beta+mc1.21.1] - 2026-09-27
 
 ### Changed

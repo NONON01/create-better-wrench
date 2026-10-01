@@ -54,15 +54,19 @@ Requires **JDK 21**. Dependencies resolve from `maven.createmod.net` (Create, Po
 
 ## License / 许可
 
-**All Rights Reserved**, with a **Create-MIT exception** for the portions derived from Create.
+**Source code: MIT.** **Own assets (textures/models/sounds): All Rights Reserved.**
+Portions derived from Create remain under Create's **MIT**.
 
-- You may play, ship this jar unmodified in modpacks/servers, and feature it in videos.
-- You may **not** redistribute modified versions or reuse the code elsewhere without permission.
+- The source code may be freely used, modified and redistributed (including commercially),
+  provided the copyright and permission notice is kept — see §1.1 of [`LICENSE.md`](LICENSE.md).
+- Own assets may not be redistributed in modified form or reused in other projects without
+  permission; playing, shipping the unmodified jar in modpacks/servers and featuring it in
+  videos is always fine — see §1.2.
 - Portions derived from Create's MIT-licensed code **remain MIT**; the full MIT notice is
-  reproduced **verbatim in Appendix A** of [`LICENSE.md`](LICENSE.md).
+  reproduced **verbatim in Appendix A** of [`LICENSE.md`](LICENSE.md) — see §1.3.
 
 Everything lives in that **single file** — our terms, every third-party notice, and the
-verbatim MIT text. It is also what the in-game mod menu links to via its `license` field.
+verbatim MIT texts. It is also what the in-game mod menu links to via its `license` field.
 
 ---
 
