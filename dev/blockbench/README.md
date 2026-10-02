@@ -31,7 +31,7 @@ Create 6.0.10 的扳手模型由 `assets/create/models/item/wrench.json` 拆分�
 3. **被旋转过的元素必须加 `neoforge_data: { "calculate_normals": true }`。**
    该字段为 NeoForge 扩展: 元素一旦带 `rotation` 而不写此字段, 法线不正确, 光照会异常或发黑。
    Create 的 `axle`、`gear case` 与齿轮模型均带该字段。
-   Blockbench 原生不识别该字段, 可能提示未知数据或直接丢弃 ⇒ 导入后需补回。
+   Blockbench 原生不识别该字段, 可能提示未知数据或直接丢弃 => 导入后需补回。
 
 ## 3. 建模流程
 
@@ -85,7 +85,7 @@ Create 6.0.10 的扳手模型由 `assets/create/models/item/wrench.json` 拆分�
 
 3D 模型上线后, 物品栏显示的是该模型, 2D 图标不再用于物品本身, 但仍可复用为:
 
-- 模组列表与 Modrinth 的项目图标 ⇒ `mods.toml` 的 `logoFile`(建议另存为 128×128, 该项在待办清单中尚未完成);
+- 模组列表与 Modrinth 的项目图标 => `mods.toml` 的 `logoFile`(建议另存为 128×128, 该项在待办清单中尚未完成);
 - 文档插图与封面。
 
 因此 `images/wrench_icon_*.png` 保留, 不删除。
