@@ -430,10 +430,13 @@ public final class DepotScenes {
     }
 
     /**
-     * 缠魂场景里从置物台下方慢慢冒出来的灵魂火焰(游戏内由 {@code DepotSoulFlames} 负责)。
+     * 缠魂场景里从置物台下方冒出来的灵魂火焰(游戏内由 {@code DepotSoulFlames} 负责)。
      *
      * <p>注意: 不能只在置物台<b>中心</b>喷: 置物台的模型是整格底座(0~11/16 高、横向铺满),
      * 中心处的粒子会被模型挡住, 因此与游戏内一样, 沿<b>四条竖边外侧一丝</b>各喷一处。</p>
+     *
+     * <p>2026-10-02 与游戏内同步调整: 密度提高, 速度由 0.01 提到 0.05, 并沿各自边的<b>朝外方向</b>
+     * 给一个小的水平初速(游戏内的水平初速是随机方向, 这里为了回放稳定改为固定朝外)。</p>
      */
     private static void soulFlames(CreateSceneBuilder scene, SceneBuildingUtil util, BlockPos depot, int ticks) {
         Vec3 center = util.vector().centerOf(depot);
@@ -445,10 +448,17 @@ public final class DepotScenes {
             new Vec3(center.x, y, center.z + out),
             new Vec3(center.x - out, y, center.z)
         };
-        for (Vec3 rim : rims) {
-            scene.effects().emitParticles(rim,
-                scene.effects().simpleParticleEmitter(ParticleTypes.SOUL_FIRE_FLAME, new Vec3(0, 0.01, 0)),
-                0.2f, ticks);
+        Vec3[] outward = {
+            new Vec3(0, 0, -1),
+            new Vec3(1, 0, 0),
+            new Vec3(0, 0, 1),
+            new Vec3(-1, 0, 0)
+        };
+        for (int i = 0; i < rims.length; i++) {
+            Vec3 motion = outward[i].scale(0.02).add(0, 0.05, 0);
+            scene.effects().emitParticles(rims[i],
+                scene.effects().simpleParticleEmitter(ParticleTypes.SOUL_FIRE_FLAME, motion),
+                0.5f, ticks);
         }
     }
 }

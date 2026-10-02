@@ -24,11 +24,14 @@ import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
- * 「锁定的置物台 + 下方是灵魂底座」时<b>缓慢往上冒灵魂火焰粒子</b>。
+ * 「锁定的置物台 + 下方是灵魂底座」时从台座<b>下方</b>往上冒灵魂火焰粒子。
  *
- * <h2>设计约定(2026-09-23)</h2>
- * <p>置物台下方有灵魂沙且该置物台被锁定时, 置物台缓慢地冒灵魂火焰粒子,
+ * <h2>设计约定</h2>
+ * <p><b>2026-09-23</b>: 置物台下方有灵魂沙且该置物台被锁定时, 置物台缓慢地冒灵魂火焰粒子,
  * 效果看起来要像是从置物台下方冒出来的。</p>
+ * <p><b>2026-10-02</b>: 需求改为<b>更密、更快、更扩散</b> —— 发射周期由 10 tick 缩短到 4 tick,
+ * 每次发 2 颗, 向上初速由 0.02 提到 0.05, 并给水平初速一个正负 0.02 的随机范围(原先水平速度恒为 0),
+ * 离面距离也加了随机抖动。四项参数都可独立调整, 见下方常量。</p>
  *
  * <h2>为什么要自己记一份坐标表</h2>
  * 置物台是 Create 的方块实体, 本模组<b>无法</b>给它挂 ticker(那需要 Mixin 改
@@ -44,25 +47,37 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * <h2>粒子位置: 看起来像从置物台下方冒出来</h2>
  * 置物台的模型是<b>整格</b>的底座(实测 {@code assets/create/models/block/depot/block.json}:
  * 主体 y=0~11/16、台面 11/16~13/16, 横向铺满 0~16), 因此把粒子放在方块<b>内部</b>会被模型挡住。
- * 所以粒子放在<b>四条竖边的外侧一丝</b>(离方块面 0.03 格), y 从台座底部往上一点开始,
- * 再给一个<b>很小的纯向上速度</b> —— 观感就是从台面与灵魂沙的接缝里渗出来、贴着台座慢慢往上飘。
+ * 所以粒子放在<b>四条竖边的外侧一丝</b>(离方块面 0.03 格起, 另有随机抖动), y 从台座底部往上一点开始,
+ * 再给一个向上为主、水平带随机分量的初速 —— 观感就是从台面与灵魂沙的接缝里渗出来往上飘散。
  *
  * <p>速度为什么能精确控制: {@code ServerLevel#sendParticles} 在 {@code count == 0} 时,
  * 客户端({@code ClientPacketListener#handleParticleEvent} 的 {@code count==0} 分支, 已 javap 核过)
- * 会把三个偏移量<b>当成速度</b>再乘上 {@code speed}。因此
- * {@code sendParticles(type, x, y, z, 0, 0, 1, 0, 0.02)} 得到一颗<b>竖直向上、速度 0.02</b> 的粒子,
- * 而不是 {@code count > 0} 那种高斯随机方向的粒子。</p>
+ * 会把三个偏移量<b>当成速度</b>再乘上 {@code speed}。因此把 {@code speed} 取 1 并直接给出速度分量
+ * (见 {@link #spawnOne}), 得到的就是指定方向的粒子, 而不是 {@code count > 0} 那种高斯随机方向的粒子。</p>
  */
 public final class DepotSoulFlames {
 
-    /** 每多少个服务端刻冒一颗(20 tps 下 10 tick 约 0.5 秒一颗)。设计约定要求缓慢, 因此不宜调小。 */
-    private static final int PERIOD_TICKS = 10;
+    /**
+     * 每多少个服务端刻发一次粒子(20 tps 下 4 tick 约 0.2 秒一次)。
+     *
+     * <p>2026-10-02 由 10 调整为 4: 需求改为"更密、更快、更扩散", 原值是按"缓慢"设计的。</p>
+     */
+    private static final int PERIOD_TICKS = 4;
 
-    /** 纯向上的初速(格/刻)。0.02 配合粒子的 0.96 摩擦, 一生大约上升 0.35 格。 */
-    private static final double RISE_SPEED = 0.02;
+    /** 单次在四条边之间共发出几颗粒子(位置各自随机选边)。 */
+    private static final int PARTICLES_PER_EMISSION = 2;
+
+    /** 向上的初速(格/刻)。0.05 配合粒子的 0.96 摩擦, 上升高度约为原先 0.02 时的 2.5 倍。 */
+    private static final double RISE_SPEED = 0.05;
+
+    /** 水平初速的最大绝对值(格/刻), 用于制造扩散; 取负值到正值的均匀分布。 */
+    private static final double SPREAD_SPEED = 0.02;
 
     /** 粒子离方块面多远(放在外面一丝, 避免与整格底座模型重叠)。 */
     private static final double EDGE_GAP = 0.03;
+
+    /** 离面距离的随机抖动, 让粒子不落在同一条细线上。 */
+    private static final double EDGE_JITTER = 0.02;
 
     /** 世界到该世界里<b>已锁定</b>置物台坐标的映射。仅服务端主线程访问。 */
     private static final Map<ResourceKey<Level>, Set<BlockPos>> LOCKED_DEPOTS = new HashMap<>();
@@ -132,30 +147,41 @@ public final class DepotSoulFlames {
     // ------------------------------------------------------------------ 粒子
 
     private static void spawn(ServerLevel level, BlockPos pos) {
+        for (int i = 0; i < PARTICLES_PER_EMISSION; i++) {
+            spawnOne(level, pos);
+        }
+    }
+
+    /** 从四条竖边中随机选一条发出<b>一颗</b>粒子: 向上为主, 带水平抖动与离面抖动。 */
+    private static void spawnOne(ServerLevel level, BlockPos pos) {
         double t = 0.12 + level.random.nextDouble() * 0.76;   // 沿边位置(避开四个角)
+        double gap = EDGE_GAP + level.random.nextDouble() * EDGE_JITTER;
         double x;
         double z;
         switch (level.random.nextInt(4)) {
             case 0 -> {                                        // 北边
                 x = pos.getX() + t;
-                z = pos.getZ() - EDGE_GAP;
+                z = pos.getZ() - gap;
             }
             case 1 -> {                                        // 东边
-                x = pos.getX() + 1 + EDGE_GAP;
+                x = pos.getX() + 1 + gap;
                 z = pos.getZ() + t;
             }
             case 2 -> {                                        // 南边
                 x = pos.getX() + t;
-                z = pos.getZ() + 1 + EDGE_GAP;
+                z = pos.getZ() + 1 + gap;
             }
             default -> {                                       // 西边
-                x = pos.getX() - EDGE_GAP;
+                x = pos.getX() - gap;
                 z = pos.getZ() + t;
             }
         }
-        double y = pos.getY() + 0.02 + level.random.nextDouble() * 0.06;
-        // count=0 时偏移量当速度(见类注释), 得到一颗纯向上、缓慢上升的灵魂火焰
-        level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y, z, 0, 0.0, 1.0, 0.0, RISE_SPEED);
+        double y = pos.getY() + 0.02 + level.random.nextDouble() * 0.10;
+        // count=0 时那三个偏移量被当作初速(再乘以 speed, 见类注释), 故把 speed 取 1 并直接给出速度分量:
+        // 竖直方向固定 RISE_SPEED, 水平方向取正负 SPREAD_SPEED 之间的均匀随机值 —— 这就是"扩散"的来源。
+        double vx = (level.random.nextDouble() - 0.5) * 2.0 * SPREAD_SPEED;
+        double vz = (level.random.nextDouble() - 0.5) * 2.0 * SPREAD_SPEED;
+        level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y, z, 0, vx, RISE_SPEED, vz, 1.0);
     }
 
     // ------------------------------------------------------------------ 事件
