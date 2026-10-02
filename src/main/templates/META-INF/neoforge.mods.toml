@@ -2,26 +2,24 @@ modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
 
-# ⚠️ 本模板由 Groovy expand 处理, **正文里不要出现反斜杠**(会被当转义符导致构建失败), 路径一律用正斜杠。
+# 本模板由 Groovy expand 处理: 注释与字段值中不得出现反斜杠(会被当作转义符导致构建失败), 路径使用正斜杠。
 #
-# 2026-09-18: 两处占位地址已全部处理完毕 ——
-#   * issueTrackerURL **删除**: 该字段可选, 且我们目前没有 GitHub;实测主流 Create 附属
-#     (Create Aeronautics 806 万下载 / Create Big Cannons)都不填它。
-#   * displayURL 填成 Modrinth 项目页 —— slug 已实测可用(见下), 不需要账号就能先填对。
+# 可选字段的取舍:
+#   * issueTrackerURL 不填写 —— 该字段可选, 且反馈入口由仓库 Issues 页与平台页面承担;
+#   * displayURL 指向 Modrinth 项目页, 与平台侧的 Source / Issues 字段保持一致。
 
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
 authors="nonono"
-# 图标(在 jar 根; 源文件 src/main/resources/icon.png)。
-# logoBlur=false -> GL_NEAREST: 我们的图标是像素风/硬边, 用线性过滤会糊(官方默认是 true)。
+# 图标位于 jar 根, 源文件为 src/main/resources/icon.png。
+# logoBlur=false 对应 GL_NEAREST: 图标为像素风硬边, 线性过滤会使其模糊(官方默认值为 true)。
 logoFile="icon.png"
 logoBlur=false
-# 2026-09-18: 按用户要求移除游戏内"鸣谢"(credits)字段。
-# ⚠️ 不是省掉署名 —— 所有许可与第三方声明(含 Create 的 MIT 全文, 逐字收录)都集中在
-#    jar 内的**单个 LICENSE.md** 中;游戏内"许可证"那一行就是指向它的指针。
-#    另有 client/WrenchToolSelection.java 的类注释。
+# credits 字段不填写: 署名与许可集中承载, 不在此处重复。
+# 全部许可与第三方声明(含 Create 的 MIT 全文, 逐字收录)集中在 jar 内的单个 LICENSE.md;
+# 游戏内模组列表的"许可证"字段即指向该文件; 另有 client/WrenchToolSelection.java 的类注释保留版权行。
 displayURL="https://modrinth.com/mod/create-better-wrench"
 description='''
 A Better Wrench For Create.
@@ -43,8 +41,8 @@ A Better Wrench For Create.
     side="BOTH"
 
 # 依赖机械动力 Create(本 mod 是纯 Create addon, 必装)
-# ⚠️ ordering 用 NONE(不是 AFTER): 我们只在运行时调用 Create 的公开 API, 不需要强制加载顺序;
-#    用 AFTER 会让 NeoForge 强制把 Create 排在我们前面, 属于不必要的强约束(docs/operations/publishing.md §5.1)。
+# ordering 使用 NONE(而非 AFTER): 本模组只在运行时调用 Create 的公开 API, 不要求强制加载顺序;
+# 使用 AFTER 会让 NeoForge 强制将 Create 排在前方, 属不必要的强约束(依据见 docs/operations/publishing.md §5.1)。
 [[dependencies.${mod_id}]]
     modId="create"
     type="required"
