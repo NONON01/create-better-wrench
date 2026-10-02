@@ -1,5 +1,10 @@
 {
   "item.create_better_wrench.better_wrench": "万能扳手",
+  "item.create_better_wrench.better_wrench.tooltip.summary": "一个具有更多，更强大功能的工具",
+  "item.create_better_wrench.better_wrench.tooltip.control1": "当按下_Alt_时",
+  "item.create_better_wrench.better_wrench.tooltip.action1": "打开功能切换页面，使用_Alt+滚轮_来切换功能",
+  "item.create_better_wrench.better_wrench.tooltip.control2": "当按住_Ctrl_时",
+  "item.create_better_wrench.better_wrench.tooltip.action2": "用_Ctrl+滚轮_对功能进行更精细的控制",
   "itemGroup.create_better_wrench": "万能扳手",
 
   "mode.create_better_wrench.wrench": "扳手",

@@ -33,6 +33,9 @@ public final class BetterWrenchClient {
     public BetterWrenchClient(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(WrenchHud::onRegisterGuiLayers);
         modEventBus.addListener(WrenchModeSwitcher::onRegisterKeyMappings);
+        // 物品悬停提示: 注册进 Create 的物品提示注册表(Shift 概要 / Ctrl 控制方法)。
+        // 文案在语言文件: item.create_better_wrench.better_wrench.tooltip.*, 详见 WrenchTooltip 的类注释。
+        modEventBus.addListener(WrenchTooltip::onClientSetup);
         // 2026-09-25(设计约定): 配置页面不再用快捷键打开(原来的 B+C 组合键已删除), 改用指令 /cbw config。
         // 客户端指令走 GAME 总线的 RegisterClientCommandsEvent。
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
