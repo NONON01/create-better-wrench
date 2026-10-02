@@ -1,10 +1,10 @@
 {
   "item.create_better_wrench.better_wrench": "Universal Wrench",
   "item.create_better_wrench.better_wrench.tooltip.summary": "A tool with more, and more powerful, capabilities",
-  "item.create_better_wrench.better_wrench.tooltip.control1": "When _Alt_ is pressed",
-  "item.create_better_wrench.better_wrench.tooltip.action1": "Opens the mode switch page; use _Alt+Scroll_ to change the mode",
-  "item.create_better_wrench.better_wrench.tooltip.control2": "When _Ctrl_ is held",
-  "item.create_better_wrench.better_wrench.tooltip.action2": "Use _Ctrl+Scroll_ for finer control of the current mode",
+  "item.create_better_wrench.better_wrench.tooltip.control1": "When Alt is pressed",
+  "item.create_better_wrench.better_wrench.tooltip.action1": "Opens the _mode switch page_; use _Alt+Scroll_ to change the mode",
+  "item.create_better_wrench.better_wrench.tooltip.control2": "When Ctrl is held",
+  "item.create_better_wrench.better_wrench.tooltip.action2": "Use _Ctrl+Scroll_ for _finer control_ of the current mode",
   "itemGroup.create_better_wrench": "Universal Wrench",
 
   "mode.create_better_wrench.wrench": "Wrench",
