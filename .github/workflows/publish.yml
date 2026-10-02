@@ -1,4 +1,4 @@
-# 发布到 Modrinth: 由 GitHub Release 触发, 使用 Kira-NT/mc-publish。
+# 发布到 Modrinth 与 CurseForge: 由 GitHub Release 触发, 使用 Kira-NT/mc-publish。
 #
 # 触发方式:
 #   * 在 GitHub 上创建/发布 Release(包括预发布)时自动运行 —— 本项目的 Release 由
@@ -7,14 +7,20 @@
 #
 # 前置条件:
 #   * 仓库 Secret 名为 MODRINTH_TOKEN, 值为 Modrinth 个人访问令牌(账户设置 -> PAT, 至少勾选
-#     "Create versions")。令牌只存在于 GitHub 侧, 不进入仓库;
+#     "Create versions"); 令牌只存在于 GitHub 侧, 不进入仓库;
+#   * 仓库 Secret 名为 CURSEFORGE_TOKEN, 值为 CurseForge 作者后台的 API 令牌;
 #   * 版本号由标签去掉前缀 v 得到(v1.0.5-beta+mc1.21.1 到 1.0.5-beta+mc1.21.1);
 #   * 依赖在创建版本时一并提交: Modrinth 的 API 不支持事后修改版本的依赖。
 #
-# 说明: 本工作流只发布到 Modrinth, 不创建也不修改 GitHub Release(未提供 github-token)。
-# CurseForge 的项目建立后, 在下方取消对应三行的注释并配置 CURSEFORGE_TOKEN 即可同时分发。
+# 变更日志口径:
+#   * Modrinth 不提交版本 changelog(下方 changelog 为空字符串);
+#   * CurseForge 每次上传都必须有变更日志, 缺失会被退回。默认写一句「修复了一些已知问题」;
+#     遇到大版本(例如 1.1.0)时, 在创建 Release 时填写正文, 本工作流会自动改用正文作为
+#     CurseForge 的正式变更日志 —— 两个平台互不影响。
+#
+# 说明: 本工作流只发布到 Modrinth 与 CurseForge, 不创建也不修改 GitHub Release(未提供 github-token)。
 
-name: Publish to Modrinth
+name: Publish to Modrinth and CurseForge
 
 on:
   release:
@@ -55,7 +61,7 @@ jobs:
           gh release download "$TAG" --repo "${{ github.repository }}" --pattern '*.jar' --dir artifacts
           ls -l artifacts
 
-      - name: Publish to Modrinth
+      - name: Publish to Modrinth and CurseForge
         uses: Kira-NT/mc-publish@v3
         with:
           modrinth-id: gm5PPeYh
@@ -69,18 +75,27 @@ jobs:
           game-versions: 1.21.1
           environment: client | server
 
-          # 本项目既定口径: 不填版本 changelog(空字符串即不提交)
+          # 本项目既定口径: Modrinth 不填版本 changelog(空字符串即不提交)
           changelog: ""
 
           # Create 为必装前置; 与手动上传时选择的依赖保持一致
           modrinth-dependencies: |
             LNytGWDc@6.0.10+mc1.21.1(required)
 
-          # CurseForge 项目建立后取消注释, 并在仓库增加 CURSEFORGE_TOKEN 这一 Secret:
-          # curseforge-id: <项目 ID>
-          # curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          # CurseForge: 项目 id 为作者后台项目页的编号, 首个文件已按手动上传的口径核对
+          curseforge-id: 1722342
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
 
-          # 发布失败不阻断工作流, 但会在运行记录中告警(便于人工补发)
-          fail-mode: warn
+          # CurseForge 强制要求变更日志: 默认一句简报;
+          # Release 正文非空时(大版本才写)自动改用正文作为正式变更日志
+          curseforge-changelog: ${{ github.event.release.body != '' && github.event.release.body || '修复了一些已知问题' }}
+          curseforge-dependencies: |
+            328085(required)
+
+          # CurseForge 的 Java 字段, 与手动上传首个文件时选择的取值一致
+          java: Java 21
+
+          # 发布失败不静默: 运行记录直接变红, 便于人工用 workflow_dispatch 补发
+          fail-mode: fail
           retry-attempts: 3
           retry-delay: 10000
