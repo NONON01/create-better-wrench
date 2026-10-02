@@ -26,10 +26,12 @@ A Better Wrench For Create.
 '''
 
 # 依赖 NeoForge 与 Minecraft
+# neoforge 的版本要求由 neo_version_range 提供(见 gradle.properties): 底线与 Create 6.0.10 自身的
+# [21.1.219,) 对齐, 不使用比编译目标更高的要求。
 [[dependencies.${mod_id}]]
     modId="neoforge"
     type="required"
-    versionRange="[${neo_version},)"
+    versionRange="${neo_version_range}"
     ordering="NONE"
     side="BOTH"
 

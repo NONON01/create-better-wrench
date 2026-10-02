@@ -28,7 +28,7 @@ and both `en_us` and `zh_cn` are kept in sync.
 | | |
 | --- | --- |
 | Minecraft | **1.21.1** |
-| NeoForge | **21.1.249** or newer |
+| NeoForge | **21.1.219** or newer (the floor Create 6.0.10 itself requires; built against 21.1.249) |
 | Create | **6.0.10** up to (not including) 6.1.0 — **required** |
 
 ## Install / 安装
