@@ -357,8 +357,11 @@ public final class AssembleLogic {
             playPickup(level, pos);
             return true;
         }
-        // 序列已结束: 主产出按「停留后弹出」交付, 其余产出仍属于中间产物, 入半成品堆
-        depositExtrasToSemi(level, pos, results);
+        // 序列已结束: 主产出按停留档位交付(入背包), 其余产出同样是成品, 因此也直接进玩家背包
+        //   (2026-10-03 维护者确认: 成品一律进背包, 不看它是不是"批量里的第 2、3 件")。
+        for (int i = 1; i < results.size(); i++)
+            if (!results.get(i).isEmpty())
+                giveToPlayer(player, results.get(i));
         holdThenEject(level, pos, depot, out, player);
         playPickup(level, pos);
         return true;
