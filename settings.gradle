@@ -1,6 +1,6 @@
 pluginManagement {
     repositories {
-        // 国内镜像优先, 但 Forge 系列插件必须走官方源
+        // Forge 系列插件必须走官方源
         maven { url = 'https://maven.minecraftforge.net/' }
         maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
         maven { url = 'https://maven.aliyun.com/repository/public' }
@@ -9,8 +9,8 @@ pluginManagement {
     }
 }
 
-plugins {
-    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
-}
+// 说明: 不使用 org.gradle.toolchains.foojay-resolver-convention —— 该插件是 Java 21 字节码
+// (class file major version 65), 与本线(Gradle 8.1.1 + JDK 17)不兼容;
+// 本线也不需要自动下载工具链: CI 由 setup-java 提供 JDK 17, 本地由 JAVA_HOME 指向 JDK 17。
 
 rootProject.name = 'create_better_wrench_1_20_1'
