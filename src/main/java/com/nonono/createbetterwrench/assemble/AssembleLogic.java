@@ -338,13 +338,16 @@ public final class AssembleLogic {
             return true;
         }
         if (canContinueSequence(level, out)) {
-            // 中间产物进半成品堆, 并且不再立刻取回台面(2026-10-03 按设计约定修正):
-            //   早期实现在放入后又立即取回台面, 半成品堆因此始终为空。
-            //   现在中间产物留在堆里, 由下一次交互按"半成品堆优先"续料时取回台面。
+            if (results.size() <= 1) {
+                // 只有一件后续半成品: 直接留在台面继续推进, 不经过半成品堆(2026-10-03 维护者确认)。
+                //   半成品堆只在"一次产出多于一件"时才有意义 —— 用来容纳台面放不下的那些。
+                setDepot(depot, out);
+                playPickup(level, pos);
+                return true;
+            }
+            // 多件中间产物: 全部先入半成品堆, 再按"半成品堆优先"自动补 1 件到台面供下一步使用。
             DepotPiles.depositSemi(level, pos, out);
             depositExtrasToSemi(level, pos, results);
-            // 规格(2026-10-03 维护者确认): 先把这个步骤产出的<b>全部</b>中间产物归入半成品堆,
-            //   再按"半成品堆优先"自动补 1 件到台面, 让下一步可以直接继续。
             ItemStack topped = DepotPiles.takeFrom(level, pos, 1, DepotPiles.SEMI);
             if (!topped.isEmpty())
                 setDepot(depot, topped);
