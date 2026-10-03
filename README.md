@@ -29,7 +29,7 @@ and both `en_us` and `zh_cn` are kept in sync.
 | --- | --- |
 | Minecraft | **1.20.1** |
 | Forge | **47.1.3** or newer (tested on 47.4.23) |
-| Create | **6.0.10** up to (not including) 6.1.0 — **required** |
+| Create | **6.0.8** up to (not including) 6.1.0 — **required** |
 
 
 > **1.20.1 line note.** Minecraft 1.20.1 has no vanilla hammer (the mace was added in 1.21), so the
@@ -48,14 +48,15 @@ Get the wrench in game with `/give @s create_better_wrench:better_wrench`, from 
 ## Building from source / 从源码构建
 
 ```powershell
-# Windows (PowerShell)
-. .\scripts\setenv.ps1                                  # JDK 21 / Gradle 9.7.1 (workspace helper)
+# Windows (PowerShell) — build with JDK 17 on JAVA_HOME
+$env:JAVA_HOME = '<path to a JDK 17>'
 $env:GRADLE_USER_HOME = '<your gradle home>'
 .\gradlew build                                          # -> build/libs/create_better_wrench-<version>.jar
 ```
 
-Requires **JDK 21**. Dependencies resolve from `maven.createmod.net` (Create, Ponder) and
-`maven.ithundxr.dev` (Registrate).
+Requires **JDK 17** (Gradle 8.1.1 and ForgeGradle 6 do not support JDK 21). Dependencies resolve from
+`maven.minecraftforge.net` (Forge), `maven.createmod.net` (Create) and Maven Central; the three
+libraries bundled inside Create (Ponder, Flywheel, Registrate) are kept in `libs/` for compilation.
 
 ## License / 许可
 
@@ -81,7 +82,7 @@ verbatim MIT texts. It is also what the in-game mod menu links to via its `licen
   The Creators of Create): `client/WrenchToolSelection.java`, and the HUD background texture
   `AllGuiTextures.HUD_BACKGROUND` which is referenced at runtime from the player's own Create
   installation (no Create asset is redistributed in this jar).
-- The item model is a `neoforge:composite` whose geometry `parent` points at
+- The item model is a `forge:composite` whose geometry `parent` points at
   `create:item/wrench/item`; the geometry is resolved at runtime by Create, **not** copied.
 - All mode icons and the item texture are our own work.
 
@@ -90,6 +91,6 @@ verbatim MIT texts. It is also what the in-game mod menu links to via its `licen
 - This repository is the mod project itself; the wider development workspace (docs, tools,
   reference sources) lives outside it.
 - **Release metadata is complete**: `displayName` / `authors` / `logoFile` / `displayURL` /
-  `license` / `description` are all filled in `src/main/templates/META-INF/neoforge.mods.toml`,
+  `license` / `description` are all filled in `src/main/resources/META-INF/mods.toml`,
   and `src/main/resources/icon.png` ships in the JAR. The release checklist lives in the
-  workspace docs (`docs/guides/04-publishing.md`).
+  workspace docs (`docs/operations/publishing.md`).
