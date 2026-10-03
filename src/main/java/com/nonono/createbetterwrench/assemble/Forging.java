@@ -119,7 +119,7 @@ public final class Forging {
         else
             AssembleLogic.consumeAndRefill(level, pos, depot);
 
-        AssembleLogic.dropProduct(level, AssembleLogic.productDropPos(level, pos), product, true);
+        AssembleLogic.giveToPlayer(player, product);
         afterStrike(level, pos, player, held, hand);
         return true;
     }
@@ -165,7 +165,7 @@ public final class Forging {
             return false;
         }
 
-        int moved = ejectOutputs(level, pos, basin, expected);
+        int moved = ejectOutputs(level, pos, basin, expected, player);
         LOGGER.info("[CBW/锻造] 工作盆 {}: 压缩成功, 配方 {}, 预期产出 {}, 实际弹出 {} 件; 施加后盆内={}",
             pos, match.getClass().getSimpleName(), expected.size(), moved, describeInventory(basin));
         afterStrike(level, pos, player, held, hand);
@@ -211,14 +211,15 @@ public final class Forging {
      *
      * @return 实际弹出的件数(诊断日志用)
      */
-    private static int ejectOutputs(Level level, BlockPos pos, BasinBlockEntity basin, List<ItemStack> expected) {
+    private static int ejectOutputs(Level level, BlockPos pos, BasinBlockEntity basin, List<ItemStack> expected,
+                                    Player player) {
         Vec3 anchor = basinEjectPos(level, pos);
         int moved = 0;
         SmartInventory out = basin.getOutputInventory();
         for (int slot = 0; slot < out.getSlots(); slot++) {
             ItemStack stack = out.extractItem(slot, Integer.MAX_VALUE, false);
             if (!stack.isEmpty()) {
-                AssembleLogic.dropProduct(level, anchor, stack, true);
+                AssembleLogic.giveToPlayer(player, stack);
                 moved += stack.getCount();
             }
         }

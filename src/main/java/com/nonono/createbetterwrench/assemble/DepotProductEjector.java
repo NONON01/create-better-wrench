@@ -3,12 +3,14 @@ package com.nonono.createbetterwrench.assemble;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -50,7 +52,7 @@ public final class DepotProductEjector {
      * <p>{@code expected} 在构造时<b>取副本</b>并且此后只读, 用来在到点时确认台面上还是同一件物品
      * (比对物品与组件, 不比数量 —— 台面只应该有 1 个)。</p>
      */
-    private record Pending(ServerLevel level, BlockPos pos, ItemStack expected, long dueTick) {
+    private record Pending(ServerLevel level, BlockPos pos, ItemStack expected, long dueTick, UUID owner) {
         private Pending {
             // 取副本并此后只读: ItemStack 是可变的, 不能让入队方之后改动影响到队列里的判定
             expected = expected.copy();
@@ -76,9 +78,9 @@ public final class DepotProductEjector {
      * @param stayTicks 停留的服务端 tick 数(由玩家 Ctrl+滚轮选的档位决定, 见 {@code mode.AssembleStay})
      */
     public static void holdThenEject(ServerLevel level, BlockPos pos, DepotBlockEntity depot,
-                                     ItemStack product, int stayTicks) {
+                                     ItemStack product, int stayTicks, UUID owner) {
         AssembleLogic.setDepot(depot, product.copy());
-        PENDING.add(new Pending(level, pos.immutable(), product, level.getGameTime() + stayTicks));
+        PENDING.add(new Pending(level, pos.immutable(), product, level.getGameTime() + stayTicks, owner));
     }
 
     /**
@@ -119,7 +121,17 @@ public final class DepotProductEjector {
                 // 否则会把当下台面上的东西误弹出去。只比物品与组件, 不比数量。
                 if (!ItemStack.isSameItemSameComponents(pending.expected(), depot.getHeldItem()))
                     continue;
-                AssembleLogic.ejectHeldAndRefill(pending.level(), pending.pos(), depot);
+                // 2026-10-03(设计约定): 停留时间到 -> 成品<b>进入玩家背包</b>(半成品仍按原样留在台面推进)。
+                //   玩家已离线 / 跨维度时退回"弹成掉落物", 保证物品不会因为交付目标不存在而消失。
+                ServerPlayer owner = pending.owner() == null ? null
+                    : pending.level().getServer().getPlayerList().getPlayer(pending.owner());
+                if (owner != null) {
+                    ItemStack product = depot.getHeldItem().copy();
+                    owner.getInventory().placeItemBackInInventory(product);
+                    AssembleLogic.consumeAndRefill(pending.level(), pending.pos(), depot);
+                } else {
+                    AssembleLogic.ejectHeldAndRefill(pending.level(), pending.pos(), depot);
+                }
             }
         }
 
