@@ -1,0 +1,55 @@
+name: Update CurseForge copy
+
+# 一次性任务: 用仓库密钥里的 CurseForge API Key 更新项目描述。
+# 需先设置仓库密钥 CURSEFORGE_API_KEY(来源: console.curseforge.com 的 API Keys, 账号级、无权限勾选)。
+# 载荷取自仓库内的 ops/curseforge-copy.json。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify key and read current state
+        env:
+          CF_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o mod.json -w '%{http_code}'             -H "x-api-key: $CF_KEY" -H "Accept: application/json"             -H "User-Agent: NONON01/create-better-wrench/1.0"             https://api.curseforge.com/v1/mods/1722342)
+          echo "GET /v1/mods/1722342 -> HTTP $code"
+          python3 - <<'PY'
+          import json
+          d=json.load(open('mod.json'))['data']
+          print('name      :', d.get('name'))
+          print('summary   :', (d.get('summary') or '')[:80])
+          print('desc 长度 :', len(d.get('description') or ''))
+          PY
+
+      - name: Update description
+        env:
+          CF_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o resp.json -w '%{http_code}' -X POST             -H "x-api-key: $CF_KEY" -H "Accept: application/json" -H "Content-Type: application/json"             -H "User-Agent: NONON01/create-better-wrench/1.0"             --data @ops/curseforge-copy.json             https://api.curseforge.com/v1/mods/1722342)
+          echo "POST /v1/mods/1722342 -> HTTP $code"
+          head -c 500 resp.json; echo
+
+      - name: Read back
+        env:
+          CF_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+        run: |
+          set -euo pipefail
+          curl -sS -o mod2.json             -H "x-api-key: $CF_KEY" -H "Accept: application/json"             -H "User-Agent: NONON01/create-better-wrench/1.0"             https://api.curseforge.com/v1/mods/1722342
+          python3 - <<'PY'
+          import json
+          d=json.load(open('mod2.json'))['data']
+          body=d.get('description') or ''
+          print('desc 长度 :', len(body))
+          print('含 1.21.1 段:', '1.21.1 line' in body)
+          print('含 1.20.1 段:', '1.20.1 line' in body)
+          PY
