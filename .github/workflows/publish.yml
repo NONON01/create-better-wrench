@@ -1,4 +1,5 @@
-# 发布到 Modrinth 与 CurseForge: 由 GitHub Release 触发, 使用 Kira-NT/mc-publish。
+# 发布到 Modrinth 与 CurseForge(1.21.1 与 1.20.1 两条线): 由 GitHub Release 触发, 使用 Kira-NT/mc-publish。
+# 加载器、游戏版本、Java 与 Create 依赖由标签里的 Minecraft 版本自动判定。
 #
 # 触发方式:
 #   * 在 GitHub 上创建/发布 Release(包括预发布)时自动运行 —— 本项目的 Release 由
@@ -48,6 +49,21 @@ jobs:
           if [ -z "$TAG" ]; then TAG="$INPUT_TAG"; fi
           if [ -z "$TAG" ]; then echo "No tag provided" >&2; exit 1; fi
           VERSION="${TAG#v}"
+
+          # 两条线共用本工作流: 由标签里的 Minecraft 版本决定加载器、游戏版本、Java 与 Create 依赖。
+          # 1.21.1 线沿用原取值, 行为不变; 1.20.1 线使用 Forge 与 Java 17。
+          if [[ "$VERSION" == *"mc1.20.1"* ]]; then
+            echo "loaders=forge"                >> "$GITHUB_OUTPUT"
+            echo "game_versions=1.20.1"         >> "$GITHUB_OUTPUT"
+            echo "java=Java 17"                 >> "$GITHUB_OUTPUT"
+            echo "create_dep=LNytGWDc@mc1.20.1-6.0.8(required)" >> "$GITHUB_OUTPUT"
+          else
+            echo "loaders=neoforge"             >> "$GITHUB_OUTPUT"
+            echo "game_versions=1.21.1"         >> "$GITHUB_OUTPUT"
+            echo "java=Java 21"                 >> "$GITHUB_OUTPUT"
+            echo "create_dep=LNytGWDc@6.0.10+mc1.21.1(required)" >> "$GITHUB_OUTPUT"
+          fi
+
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Resolved tag=$TAG version=$VERSION"
@@ -71,8 +87,8 @@ jobs:
           name: Create Better Wrench ${{ steps.version.outputs.version }}
           version: ${{ steps.version.outputs.version }}
           version-type: beta
-          loaders: neoforge
-          game-versions: 1.21.1
+          loaders: ${{ steps.version.outputs.loaders }}
+          game-versions: ${{ steps.version.outputs.game_versions }}
           environment: client | server
 
           # 本项目既定口径: Modrinth 不填版本 changelog(空字符串即不提交)
@@ -80,7 +96,7 @@ jobs:
 
           # Create 为必装前置; 与手动上传时选择的依赖保持一致
           modrinth-dependencies: |
-            LNytGWDc@6.0.10+mc1.21.1(required)
+            ${{ steps.version.outputs.create_dep }}
 
           # CurseForge: 项目 id 为作者后台项目页的编号, 首个文件已按手动上传的口径核对
           curseforge-id: 1722342
@@ -93,7 +109,7 @@ jobs:
             328085(required)
 
           # CurseForge 的 Java 字段, 与手动上传首个文件时选择的取值一致
-          java: Java 21
+          java: ${{ steps.version.outputs.java }}
 
           # 发布失败不静默: 运行记录直接变红, 便于人工用 workflow_dispatch 补发
           fail-mode: fail
