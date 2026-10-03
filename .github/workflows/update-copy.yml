@@ -1,0 +1,35 @@
+name: Update platform copy
+
+# 一次性任务: 用仓库密钥里的 Modrinth 令牌更新项目描述(Summary 与正文)。
+# 由 workflow_dispatch 触发; 载荷取自仓库内的 ops/modrinth-copy.json。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PATCH Modrinth project
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o resp.json -w '%{http_code}' -X PATCH \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            -H "User-Agent: NONON01/create-better-wrench-copy" \
+            -H "Content-Type: application/json" \
+            --data @ops/modrinth-copy.json \
+            https://api.modrinth.com/v2/project/gm5PPeYh)
+          echo "HTTP $code"
+          head -c 600 resp.json; echo
+          test "$code" = "200" -o "$code" = "204"
+      - name: Read back
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          curl -sS -H "User-Agent: cbw" https://api.modrinth.com/v2/project/gm5PPeYh \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print('summary:', d.get('description')); print('body has 1.20.1 line:', '1.20.1 line (Forge)' in d.get('body',''))"
