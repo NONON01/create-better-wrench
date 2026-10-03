@@ -145,6 +145,8 @@ public final class Forging {
 
         Recipe<?> match = findCompactingRecipe(level, basin);
         if (match == null) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                "msg." + BetterWrenchMod.MODID + ".assemble.forge_no_recipe"), true);
             // 诊断用(仅服务端日志, 不给玩家任何提示 —— 本路径的设计约定是"没有配方就什么也不发生")
             LOGGER.info("[CBW/锻造] 工作盆 {}: 未找到匹配的压缩配方(filter={}, heat={}, 输入槽前几格={})",
                 pos, basin.getFilter() != null, basin.getHeatLevelOf(basin.getBlockState()),
@@ -237,7 +239,9 @@ public final class Forging {
 
     /** 手持物是不是锤类(标签 {@code c:tools/hammer})。 */
     static boolean isHammer(ItemStack held) {
-        return !held.isEmpty() && held.is(HAMMER_TOOLS);
+        // 原版重锤直接命中: 即使数据包标签因某种原因没生效, 重锤也一定能用于锻造(2026-10-03 加固)
+        return !held.isEmpty()
+            && (held.is(net.minecraft.world.item.Items.MACE) || held.is(HAMMER_TOOLS));
     }
 
     private static boolean onCooldown(Player player, ItemStack held) {

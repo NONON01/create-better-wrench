@@ -54,6 +54,8 @@
   "msg.create_better_wrench.assemble.unlocked": "Depot unlocked",
   "msg.create_better_wrench.assemble.locked_basin": "Basin locked",
   "msg.create_better_wrench.assemble.unlocked_basin": "Basin unlocked",
+  "msg.create_better_wrench.assemble.forge_no_recipe": "Forging: hammer recognised, but no matching recipe",
+  "msg.create_better_wrench.assemble.forge_not_hammer": "Forging: held item is not a hammer (Mace or c:tools/hammer)",
   "msg.create_better_wrench.assemble.fan_done": "Converted %s items",
   "msg.create_better_wrench.assemble.fan_none": "These items cannot be processed this way",
   "msg.create_better_wrench.combat_no_permission": "You don't have permission to enable Combat Mode (OP required)",
