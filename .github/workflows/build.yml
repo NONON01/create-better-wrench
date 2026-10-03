@@ -12,14 +12,14 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Setup JDK 21
+      # 1.20.1 线必须使用 JDK 17: Gradle 8.1.1 与 ForgeGradle 6 的要求(Gradle 8.1.1 不支持 JDK 21)。
+      - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '17'
           distribution: 'temurin'
 
-      # 说明: 此处不使用 gradle/actions/setup-gradle —— 它注入的 init 脚本需要高于 JDK 17 的字节码,
-      # 与本线(JDK 17 + Gradle 8.1.1)冲突。构建直接用仓库内的 wrapper。
+      # 不使用 gradle/actions/setup-gradle: 其注入的 init 脚本为 Java 21 字节码, 与本线不兼容。
 
       - name: Build with Gradle
         run: ./gradlew build
