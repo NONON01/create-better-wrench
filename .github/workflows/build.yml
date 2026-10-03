@@ -18,8 +18,8 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      # 说明: 此处不使用 gradle/actions/setup-gradle —— 它注入的 init 脚本需要高于 JDK 17 的字节码,
+      # 与本线(JDK 17 + Gradle 8.1.1)冲突。构建直接用仓库内的 wrapper。
 
       - name: Build with Gradle
         run: ./gradlew build
