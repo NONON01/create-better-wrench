@@ -48,7 +48,7 @@ public final class AssembleInteractionHandler {
             ItemStack inHand = event.getItemStack();
             boolean locked = AssembleLock.isLocked(basin);
 
-            // 手持锤类物品: 直接尝试压缩, **不要求先锁定** —— 锁定与否只决定"是否阻止 Create 的原生右键取出",
+            // 手持锤类物品: 直接尝试压缩, 「不要求先锁定」 —— 锁定与否只决定"是否阻止 Create 的原生右键取出",
             //   不影响能否锻造(2026-10-03: 原先要求已锁定, 于是锁定一旦没成功就完全没有反应)。
             if (Forging.tryOnBasin(level, pos, basin, basinPlayer, inHand, event.getHand())) {
                 event.setCancellationResult(InteractionResult.SUCCESS);
