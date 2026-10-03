@@ -6,7 +6,6 @@
   "item.create_better_wrench.better_wrench.tooltip.control2": "When Ctrl is held",
   "item.create_better_wrench.better_wrench.tooltip.action2": "Use _Ctrl+Scroll_ for _finer control_ of the current mode",
   "itemGroup.create_better_wrench": "Universal Wrench",
-
   "mode.create_better_wrench.wrench": "Wrench",
   "mode.create_better_wrench.connect": "Connect",
   "mode.create_better_wrench.deconstruct": "Deconstruct",
@@ -17,7 +16,6 @@
   "mode.create_better_wrench.deconstruct.desc": "[RMB] Select an area; remove everything a wrench can remove\n[Ctrl+Scroll] Switch the filter {All/Create only/Redstone only}",
   "mode.create_better_wrench.assemble.desc": "[RMB] Lock a depot to process whatever sits on it\nWith several items, the extras wait nearby as unpickable drops\n[Ctrl+Scroll] Adjust how long the product stays",
   "mode.create_better_wrench.coming_soon.desc": "1.0.5-beta+mc1.21.1",
-
   "corner.create_better_wrench.gearbox": "Gearbox",
   "corner.create_better_wrench.large_cog": "Large Cogwheel",
   "scope.create_better_wrench.deconstruct.all": "All",
@@ -27,7 +25,6 @@
   "stay.create_better_wrench.short": "Short",
   "stay.create_better_wrench.medium": "Medium",
   "stay.create_better_wrench.long": "Long",
-
   "hint.create_better_wrench.deconstruct": "Deconstruct: %s",
   "hint.create_better_wrench.corner": "Corner: %s",
   "hint.create_better_wrench.connect.corner_limit": "Corner limit reached (max %s)",
@@ -36,7 +33,6 @@
   "hint.create_better_wrench.combat.off": "Normal Mode",
   "hint.create_better_wrench.toolbar.scroll": "[SCROLL] Cycle",
   "hint.create_better_wrench.toolbar.focus": "Hold [%s] and scroll",
-
   "msg.create_better_wrench.adventure_mode": "Currently in Adventure mode",
   "msg.create_better_wrench.connect.success": "Connected: drivetrain placed",
   "msg.create_better_wrench.connect.unloaded": "Connect failed: chunk not loaded",
@@ -58,11 +54,11 @@
   "msg.create_better_wrench.assemble.unlocked": "Depot unlocked",
   "msg.create_better_wrench.assemble.fan_done": "Converted %s items",
   "msg.create_better_wrench.assemble.fan_none": "These items cannot be processed this way",
+  "msg.create_better_wrench.assemble.forge_done": "Forged %s",
+  "msg.create_better_wrench.assemble.forge_none": "This item cannot be forged into a plate",
   "msg.create_better_wrench.combat_no_permission": "You don't have permission to enable Combat Mode (OP required)",
-
   "key.create_better_wrench.tools": "Focus Wrench Mode Bar",
   "key.categories.create_better_wrench": "Universal Wrench",
-
   "gui.create_better_wrench.config.title": "Universal Wrench · Config",
   "gui.create_better_wrench.config.search": "Search options...",
   "gui.create_better_wrench.config.reset": "Reset to defaults",
@@ -80,7 +76,6 @@
   "gui.create_better_wrench.config.desc.connect.max_leg_length": "Maximum straight length between two nodes; add a corner to go farther.",
   "gui.create_better_wrench.config.opt.connect.max_total_blocks": "Connect: max total blocks",
   "gui.create_better_wrench.config.desc.connect.max_total_blocks": "Maximum blocks placed by one connection (shafts/gearboxes/large cogwheels); also a server-side safety cap.",
-
   "create_better_wrench.ponder.wrench_connect.header": "Linking Stress using the Universal Wrench",
   "create_better_wrench.ponder.wrench_connect.text_1": "Right-clicking a block that can join a stress network will set the start",
   "create_better_wrench.ponder.wrench_connect.text_2": "Right-clicking along the way will add a corner",
@@ -98,7 +93,7 @@
   "create_better_wrench.ponder.wrench_process.header": "Processing Items using the Universal Wrench",
   "create_better_wrench.ponder.wrench_process.text_1": "Right-clicking a Depot will lock it",
   "create_better_wrench.ponder.wrench_process.text_2": "While locked, items on top can be processed",
-  "create_better_wrench.ponder.wrench_process.text_3": "Processing covers Assembly, Filling, Washing, Blasting, Smoking and Haunting",
+  "create_better_wrench.ponder.wrench_process.text_3": "Processing supports assembly, filling, washing, blasting, smoking, haunting and forging",
   "create_better_wrench.ponder.wrench_process_assembly.header": "Assembly",
   "create_better_wrench.ponder.wrench_process_assembly.text_1": "When a usable assembly material is on the Depot (a Golden Sheet, for example)",
   "create_better_wrench.ponder.wrench_process_assembly.text_2": "Adding the matching materials will assemble it",
@@ -152,6 +147,8 @@
   "gui.create_better_wrench.config.desc.process.smoking": "",
   "gui.create_better_wrench.config.opt.process.haunting": "- Haunting",
   "gui.create_better_wrench.config.desc.process.haunting": "",
+  "gui.create_better_wrench.config.opt.process.forging": "· Forging",
+  "gui.create_better_wrench.config.desc.process.forging": "",
   "gui.create_better_wrench.config.opt.combat.enabled": "Enable combat mode",
   "gui.create_better_wrench.config.desc.combat.enabled": "",
   "gui.create_better_wrench.config.opt.combat.permission_level": "Permission needed for combat mode",
@@ -165,6 +162,7 @@
   "process.create_better_wrench.blasting": "Blasting",
   "process.create_better_wrench.smoking": "Smoking",
   "process.create_better_wrench.haunting": "Haunting",
+  "process.create_better_wrench.forging": "Forging",
   "command.create_better_wrench.version": "Create Better Wrench - version %s",
   "command.create_better_wrench.combat.granted": "You are now allowed to use combat mode",
   "command.create_better_wrench.combat.revoked": "Your combat mode authorization was removed",
