@@ -2,6 +2,7 @@ package com.nonono.createbetterwrench.assemble;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
+import com.simibubi.create.content.processing.basin.BasinBlockEntity;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
@@ -9,6 +10,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -36,7 +38,20 @@ public final class AssembleInteractionHandler {
         if (level.isClientSide)
             return;
         BlockPos pos = event.getPos();
-        if (!(level.getBlockEntity(pos) instanceof DepotBlockEntity depot))
+        BlockEntity be = level.getBlockEntity(pos);
+
+        // ⓪ 已锁定的工作盆(2026-10-03 新增): 手持锤类物品右键 = 执行一次压缩(冲压机 + 工作盆那一类配方)。
+        //    与置物台不同, 工作盆没有"台面物品""料堆"这些概念, 因此走独立的一条判定, 成功与否都吃掉这次交互
+        //    (锁定期间不允许再往盆里放/取物品)。没有配方时什么也不发生。
+        if (be instanceof BasinBlockEntity basin && AssembleLock.isLocked(basin)) {
+            Player basinPlayer = event.getEntity();
+            Forging.tryOnBasin(level, pos, basin, basinPlayer, event.getItemStack(), event.getHand());
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            event.setCanceled(true);
+            return;
+        }
+
+        if (!(be instanceof DepotBlockEntity depot))
             return;
         if (!AssembleLock.isLocked(depot))
             return;
