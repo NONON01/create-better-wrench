@@ -48,7 +48,7 @@ public final class AssembleInteractionHandler {
         BlockPos pos = event.getPos();
         BlockEntity be = level.getBlockEntity(pos);
 
-        // 工作盆支持已整体移除(2026-10-03): 其"把掉落物收进盆内"的机制与我们的判定冲突过多, 不再支持。
+        // 工作盆支持已整体移除(2026-10-03): 它的物品归集方式与置物台不同, 两者判定冲突过多, 不再支持。
         //    (锁定期间不允许再往盆里放/取物品)。没有配方时什么也不发生。
 if (!(be instanceof DepotBlockEntity depot))
             return;
