@@ -329,14 +329,19 @@ public final class AssembleLogic {
             return false;
         if (!current.is(METAL_INGOTS))
             return false;
+        // 子功能开关: 「锻板」被关闭时发送提示并消费该次交互(不消耗任何材料)。
+        //    放在配方查找之前: 功能被关掉时应当报"子功能未启用", 而不是报"无法锻板"。
+        if (blockedSubKind(player, ProcessKind.FORGING))
+            return true;
 
         Optional<RecipeHolder<PressingRecipe>> found =
             AllRecipeTypes.PRESSING.find(new SingleRecipeInput(current.copyWithCount(1)), level);
-        if (found.isEmpty())
-            return false;
-        // 子功能开关: 「锻板」被关闭时发送提示并消费该次交互(不消耗任何材料)
-        if (blockedSubKind(player, ProcessKind.FORGING))
+        if (found.isEmpty()) {
+            // 是金属锭但没有压板配方: 明确给出提示, 避免右键毫无反应
+            //    (其它路径不会处理金属锭, 因此这里消费掉这次交互是安全的)
+            showForgeNone(player);
             return true;
+        }
 
         // 单件产出: 压板配方按权重掷结果, 这里只取第一件非空产出
         ItemStack plate = ItemStack.EMPTY;
@@ -346,8 +351,7 @@ public final class AssembleLogic {
                 break;
             }
         if (plate.isEmpty()) {
-            player.displayClientMessage(
-                Component.translatable("msg." + BetterWrenchMod.MODID + ".assemble.forge_none"), true);
+            showForgeNone(player);
             return true; // 手势已被本模组消费: 台面保持原样
         }
 
@@ -364,6 +368,12 @@ public final class AssembleLogic {
         player.displayClientMessage(
             Component.translatable("msg." + BetterWrenchMod.MODID + ".assemble.forge_done", plate.getHoverName()), true);
         return true;
+    }
+
+    /** 「锻板」无法完成时的统一提示(actionbar): 无压板配方, 或配方掷不出产出。 */
+    private static void showForgeNone(Player player) {
+        player.displayClientMessage(
+            Component.translatable("msg." + BetterWrenchMod.MODID + ".assemble.forge_none"), true);
     }
 
     /**
