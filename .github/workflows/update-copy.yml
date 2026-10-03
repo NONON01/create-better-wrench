@@ -31,5 +31,16 @@ jobs:
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
         run: |
-          curl -sS -H "User-Agent: cbw" https://api.modrinth.com/v2/project/gm5PPeYh \
-            | python3 -c "import json,sys; d=json.load(sys.stdin); print('summary:', d.get('description')); print('body has 1.20.1 line:', '1.20.1 line (Forge)' in d.get('body',''))"
+          set -euo pipefail
+          curl -sS -H "Authorization: $MODRINTH_TOKEN" -H "User-Agent: NONON01/create-better-wrench/1.0 (contact: github)" \
+            https://api.modrinth.com/v2/project/gm5PPeYh -o project.json -w 'HTTP %{http_code}\n'
+          python3 - <<'PY'
+          import json
+          d=json.load(open('project.json'))
+          print('summary     :', d.get('description'))
+          body=d.get('body','')
+          print('body 行数    :', len(body.splitlines()))
+          print('含 1.21.1 段 :', '1.21.1 line (NeoForge)' in body)
+          print('含 1.20.1 段 :', '1.20.1 line (Forge)' in body)
+          print('含锻造说明   :', 'c:tools/hammer' in body)
+          PY
