@@ -44,22 +44,26 @@ public final class AssembleInteractionHandler {
         //    与置物台不同, 工作盆没有"台面物品""料堆"这些概念, 因此走独立的一条判定, 成功与否都吃掉这次交互
         //    (锁定期间不允许再往盆里放/取物品)。没有配方时什么也不发生。
         if (be instanceof BasinBlockEntity basin) {
-            boolean locked = AssembleLock.isLocked(basin);
+            Player basinPlayer = event.getEntity();
             ItemStack inHand = event.getItemStack();
-            BetterWrenchMod.LOGGER.info("[CBW/加工] 右键工作盆 {}: 已锁定={}, 手持={}, 模式物品={}",
-                pos, locked, inHand.getHoverName().getString(),
-                inHand.is(BetterWrenchMod.BETTER_WRENCH) ? "本模组扳手" : "-");
-            if (!locked) {
-                // 未锁定的工作盆: 不消费这次交互, 交给 Create 自己的行为(例如取出盆内物品)。
-                // 出现这条日志说明"没锁上就去锻造了" —— 正常流程应当先用扳手(加工模式)锁定。
+            boolean locked = AssembleLock.isLocked(basin);
+
+            // 手持锤类物品: 直接尝试压缩, **不要求先锁定** —— 锁定与否只决定"是否阻止 Create 的原生右键取出",
+            //   不影响能否锻造(2026-10-03: 原先要求已锁定, 于是锁定一旦没成功就完全没有反应)。
+            if (Forging.tryOnBasin(level, pos, basin, basinPlayer, inHand, event.getHand())) {
+                event.setCancellationResult(InteractionResult.SUCCESS);
+                event.setCanceled(true);
                 return;
             }
-        }
-        if (be instanceof BasinBlockEntity basin && AssembleLock.isLocked(basin)) {
-            Player basinPlayer = event.getEntity();
-            Forging.tryOnBasin(level, pos, basin, basinPlayer, event.getItemStack(), event.getHand());
-            event.setCancellationResult(InteractionResult.SUCCESS);
-            event.setCanceled(true);
+
+            BetterWrenchMod.LOGGER.info("[CBW/加工] 右键工作盆 {}: 已锁定={}, 手持={}, 未执行任何配方",
+                pos, locked, inHand.getHoverName().getString());
+
+            // 已锁定: 阻止 Create 把盆内物品直接取出来(未锁定则交回 Create 的原生行为)
+            if (locked) {
+                event.setCancellationResult(InteractionResult.SUCCESS);
+                event.setCanceled(true);
+            }
             return;
         }
 
