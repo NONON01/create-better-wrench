@@ -54,7 +54,7 @@
   "msg.create_better_wrench.assemble.unlocked": "Depot unlocked",
   "msg.create_better_wrench.assemble.locked_basin": "Basin locked",
   "msg.create_better_wrench.assemble.unlocked_basin": "Basin unlocked",
-  "msg.create_better_wrench.assemble.forge_no_recipe": "Forging: hammer recognised, but no matching recipe",
+  "msg.create_better_wrench.assemble.forge_no_recipe": "Forging: no compacting recipe matched (basin: %s)",
   "msg.create_better_wrench.assemble.forge_not_hammer": "Forging: held item is not a hammer (Mace or c:tools/hammer)",
   "msg.create_better_wrench.assemble.fan_done": "Converted %s items",
   "msg.create_better_wrench.assemble.fan_none": "These items cannot be processed this way",
