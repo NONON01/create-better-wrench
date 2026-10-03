@@ -95,6 +95,8 @@ import org.joml.Vector3f;
  */
 public final class AssembleLogic {
 
+    private static final org.slf4j.Logger LOGGER = BetterWrenchMod.LOGGER;
+
     /**
      * 注液批量产出的落点相对置物台中心的水平偏移(东南侧)。
      * 产出落点与原料堆(西北角)分处两侧, 避免产出与原料混在同一区域。
@@ -295,6 +297,14 @@ public final class AssembleLogic {
             //   现在中间产物留在堆里, 由下一次交互按"半成品堆优先"续料时取回台面。
             DepotPiles.depositSemi(level, pos, out);
             depositExtrasToSemi(level, pos, results);
+            // 规格(2026-10-03 维护者确认): 先把这个步骤产出的<b>全部</b>中间产物归入半成品堆,
+            //   再按"半成品堆优先"自动补 1 件到台面, 让下一步可以直接继续。
+            ItemStack topped = DepotPiles.takeFrom(level, pos, 1, DepotPiles.SEMI);
+            if (!topped.isEmpty())
+                setDepot(depot, topped);
+            LOGGER.info("[CBW/加工] 序列步产出 {} 件 -> 半成品堆, 自动补台面 1 件={}, 半成品堆剩余={}",
+                results.size(), topped.isEmpty() ? "无" : topped.getHoverName().getString(),
+                DepotPiles.hasSemi(level, pos));
             playPickup(level, pos);
             return true;
         }
