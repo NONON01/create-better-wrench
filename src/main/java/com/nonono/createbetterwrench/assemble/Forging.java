@@ -67,8 +67,6 @@ public final class Forging {
         return com.nonono.createbetterwrench.config.WrenchConfig.forgingCooldownTicks();
     }
 
-    private static final org.slf4j.Logger LOGGER = BetterWrenchMod.LOGGER;
-
     private Forging() {
     }
 
