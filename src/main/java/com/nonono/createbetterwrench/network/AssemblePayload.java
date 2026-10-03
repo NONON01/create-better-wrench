@@ -6,6 +6,7 @@ import com.nonono.createbetterwrench.assemble.AssembleLock;
 import com.nonono.createbetterwrench.assemble.AssembleLogic;
 import com.nonono.createbetterwrench.permission.WrenchPermissions;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
+import com.simibubi.create.content.processing.basin.BasinBlockEntity;
 
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
@@ -15,14 +16,16 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
- * 客户端到服务端: 在「装配」模式下右击置物台, 请求<b>切换锁定状态</b>(锁定/解锁)。
+ * 客户端到服务端: 在「加工」模式下右击置物台或工作盆, 请求<b>切换锁定状态</b>(锁定/解锁)。
  *
- * <p>载荷: {@code pos} = 被右击的置物台坐标。服务端依次校验功能开关、建造权限、主手持扳手、
+ * <p>载荷: {@code pos} = 被右击的机器坐标。服务端依次校验功能开关、建造权限、主手持扳手、
  * 交互距离与区块加载, 任一不通过即返回(功能开关被关闭与冒险模式下无建造权限会各带一条提示, 其余静默);
- * 通过后才写锁定状态, 并按新状态决定是返还台面物品还是自动续料。详见 {@link #handle}。</p>
+ * 通过后才写锁定状态 —— 置物台会按新状态决定"返还台面物品"还是"自动续料", 工作盆只切换锁定
+ * (盆内物品与流体留在原处)。详见 {@link #handle}。</p>
  */
 public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
 
@@ -71,23 +74,34 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
             if (sp.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)
                 > MAX_INTERACTION_DISTANCE_SQR)
                 return;
-            // ④ 区块已加载 + 目标确实是置物台
+            // ④ 区块已加载 + 目标确实是可锁定的机器(置物台或工作盆)
             if (!sp.level().isLoaded(pos))
                 return;
-            if (!(sp.level().getBlockEntity(pos) instanceof DepotBlockEntity depot))
+            BlockEntity be = sp.level().getBlockEntity(pos);
+            if (be instanceof DepotBlockEntity depot) {
+                boolean now = !AssembleLock.isLocked(depot);
+                AssembleLock.setLocked(depot, now);
+                if (!now) {
+                    // 解锁: 把台面上的物品 + 两个料堆(含被弹出的成品)全部返还到玩家背包
+                    // (设计约定, 2026-09-17; 装不下的会由原版逻辑掉在玩家脚下, 不会丢)
+                    AssembleLogic.returnHeldAndPiles((ServerLevel) sp.level(), pos, depot, sp);
+                } else {
+                    // 刚锁定: 台面若空而原料堆还有货, 自动续一个上去(「自动续料」)
+                    AssembleLogic.refillIfEmpty(sp.level(), pos, depot);
+                }
+                sp.displayClientMessage(Component.translatable("msg." + BetterWrenchMod.MODID
+                    + (now ? ".assemble.locked" : ".assemble.unlocked")), true);
                 return;
-            boolean now = !AssembleLock.isLocked(depot);
-            AssembleLock.setLocked(depot, now);
-            if (!now) {
-                // 解锁: 把台面上的物品 + 两个料堆(含被弹出的成品)全部返还到玩家背包
-                // (设计约定, 2026-09-17; 装不下的会由原版逻辑掉在玩家脚下, 不会丢)
-                AssembleLogic.returnHeldAndPiles((ServerLevel) sp.level(), pos, depot, sp);
-            } else {
-                // 刚锁定: 台面若空而原料堆还有货, 自动续一个上去(「自动续料」)
-                AssembleLogic.refillIfEmpty(sp.level(), pos, depot);
             }
-            sp.displayClientMessage(Component.translatable("msg." + BetterWrenchMod.MODID
-                + (now ? ".assemble.locked" : ".assemble.unlocked")), true);
+            if (be instanceof BasinBlockEntity basin) {
+                // 工作盆(2026-10-03 新增): 用于「锻造」里的压缩配方(冲压机 + 工作盆那一类)。
+                // 与置物台不同, 解锁时「不动盆内的物品与流体」 —— 它们本来就属于这台机器,
+                // 由漏斗/机械臂等正常方式取出, 而不是像置物台那样"返还给玩家"。
+                boolean now = !AssembleLock.isLocked(basin);
+                AssembleLock.setLocked(basin, now);
+                sp.displayClientMessage(Component.translatable("msg." + BetterWrenchMod.MODID
+                    + (now ? ".assemble.locked" : ".assemble.unlocked")), true);
+            }
         });
     }
 }

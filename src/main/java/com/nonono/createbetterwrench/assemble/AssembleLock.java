@@ -42,7 +42,9 @@ public final class AssembleLock {
             return;
         be.setData(LOCKED.get(), locked);
         be.setChanged();
-        // 锁定的置物台在下方是灵魂底座时要冒灵魂火焰粒子, 因此上锁/解锁时同步登记表(见 DepotSoulFlames)
-        DepotSoulFlames.setTracked(be.getLevel(), be.getBlockPos(), locked);
+        // 锁定的置物台在下方是灵魂底座时要冒灵魂火焰粒子, 因此上锁/解锁时同步登记表(见 DepotSoulFlames)。
+        // 只有置物台需要登记: 工作盆没有"台面下方灵魂底座"这套玩法(2026-10-03 起工作盆也可锁定)。
+        if (be instanceof com.simibubi.create.content.logistics.depot.DepotBlockEntity)
+            DepotSoulFlames.setTracked(be.getLevel(), be.getBlockPos(), locked);
     }
 }

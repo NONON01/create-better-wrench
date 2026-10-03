@@ -4,10 +4,12 @@ import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.mode.WrenchMode;
 import com.nonono.createbetterwrench.network.AssemblePayload;
 import com.simibubi.create.content.logistics.depot.DepotBlock;
+import com.simibubi.create.content.processing.basin.BasinBlock;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.api.distmarker.Dist;
@@ -77,10 +79,11 @@ public final class AssembleSelectionHandler {
                 return;
         }
 
-        // [加工] 且目标是置物台 -> 请求切换锁定
+        // [加工] 且目标是置物台或工作盆 -> 请求切换锁定(工作盆用于"锻造"里的压缩配方)
         if (WrenchModeSwitcher.current == WrenchMode.ASSEMBLE) {
             BlockPos pos = ((BlockHitResult) hit).getBlockPos();
-            if (mc.level.getBlockState(pos).getBlock() instanceof DepotBlock) {
+            Block target = mc.level.getBlockState(pos).getBlock();
+            if (target instanceof DepotBlock || target instanceof BasinBlock) {
                 // 功能被配置关掉: 只提示功能未启用, 不发包(服务端也会再拦一次)
                 if (!ClientFeatureGate.blockIfDisabled(WrenchMode.ASSEMBLE)) {
                     ClientPacketListener conn = mc.getConnection();
