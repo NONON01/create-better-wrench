@@ -299,6 +299,37 @@ public final class DepotScenes {
         scene.idle(70);
     }
 
+    // ------------------------------------------------------------------ 进行锻造
+
+    /** 锻造: 台面上的铁锭 + 重锤右击 -> 铁板(与置物台冲压路径一致)。 */
+    public static void forging(SceneBuilder builder, SceneBuildingUtil util) {
+        CreateSceneBuilder scene = start(builder, util, "wrench_process_forging", "Forging", DEPOT);
+
+        hold(scene, util, DEPOT, new ItemStack(Items.IRON_INGOT));
+        scene.idle(10);
+        scene.overlay().showText(70)
+            .text("When a pressable item is on the Depot (an Iron Ingot, for example)")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(DEPOT));
+        scene.idle(70);
+
+        scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
+            .withItem(new ItemStack(Items.MACE))
+            .rightClick();
+        scene.idle(25);
+        scene.overlay().showText(70)
+            .text("The Iron Ingot is pressed into an Iron Sheet")
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(DEPOT));
+        scene.idle(30);
+
+        puff(scene, util, DEPOT, ParticleTypes.CRIT, 1, 60);
+        scene.effects().indicateSuccess(DEPOT);
+        hold(scene, util, DEPOT, AllItems.IRON_SHEET.asStack());
+        scene.idle(70);
+    }
+
     // ------------------------------------------------------------------ 进行烤制
 
     /** 烤制: 台面上的物品 + 打火石(文案中提及消耗耐久); 生牛肉产出熟牛肉。 */
