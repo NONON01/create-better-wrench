@@ -291,8 +291,8 @@ public final class AssembleLogic {
         }
         if (canContinueSequence(level, out)) {
             // 中间产物进半成品堆, 并且**不再立刻取回台面**(2026-10-03 按设计约定修正):
-            //   早期实现放进去后马上又取回台面, 于是半成品堆永远是空的 —— 玩家看到"只有一个在台面、
-            //   没有半成品堆"。现在中间产物留在堆里, 由下一次交互按"半成品堆优先"续料时取回台面。
+            //   早期实现在放入后又立即取回台面, 半成品堆因此始终为空。
+            //   现在中间产物留在堆里, 由下一次交互按"半成品堆优先"续料时取回台面。
             DepotPiles.depositSemi(level, pos, out);
             depositExtrasToSemi(level, pos, results);
             playPickup(level, pos);
