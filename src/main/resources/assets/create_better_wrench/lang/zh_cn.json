@@ -6,7 +6,6 @@
   "item.create_better_wrench.better_wrench.tooltip.control2": "当按住Ctrl时",
   "item.create_better_wrench.better_wrench.tooltip.action2": "用_Ctrl+滚轮_对功能进行_更精细的控制_",
   "itemGroup.create_better_wrench": "万能扳手",
-
   "mode.create_better_wrench.wrench": "扳手",
   "mode.create_better_wrench.connect": "连接",
   "mode.create_better_wrench.deconstruct": "拆除",
@@ -17,7 +16,6 @@
   "mode.create_better_wrench.deconstruct.desc": "[右键]选择区域，拆除其中可以被扳手拆除的东西\n[Ctrl+滚轮]切换过滤器{全部/仅机械动力/仅红石}",
   "mode.create_better_wrench.assemble.desc": "[右键]锁定置物台，对置物台上的东西实现加工\n若有多个物品，它们会以不可拾取的掉落物样式在旁边等待\n[Ctrl+滚轮]调节成品停留时间",
   "mode.create_better_wrench.coming_soon.desc": "1.0.5-beta+mc1.21.1",
-
   "corner.create_better_wrench.gearbox": "齿轮箱",
   "corner.create_better_wrench.large_cog": "大齿轮",
   "scope.create_better_wrench.deconstruct.all": "全部",
@@ -27,7 +25,6 @@
   "stay.create_better_wrench.short": "短",
   "stay.create_better_wrench.medium": "中",
   "stay.create_better_wrench.long": "长",
-
   "hint.create_better_wrench.deconstruct": "拆除模式:%s",
   "hint.create_better_wrench.corner": "拐角:%s",
   "hint.create_better_wrench.connect.corner_limit": "拐点已达上限(最多 %s 个)",
@@ -36,7 +33,6 @@
   "hint.create_better_wrench.combat.off": "正常模式",
   "hint.create_better_wrench.toolbar.scroll": "[SCROLL] 循环",
   "hint.create_better_wrench.toolbar.focus": "按住 [%s] 鼠标滚轮选择",
-
   "msg.create_better_wrench.adventure_mode": "当前是冒险模式",
   "msg.create_better_wrench.connect.success": "连接成功:已铺设传动结构",
   "msg.create_better_wrench.connect.unloaded": "连接失败:区块未加载",
@@ -58,11 +54,11 @@
   "msg.create_better_wrench.assemble.unlocked": "置物台已解锁",
   "msg.create_better_wrench.assemble.fan_done": "已批量转换 %s 个物品",
   "msg.create_better_wrench.assemble.fan_none": "这些物品无法用这种方式加工",
+  "msg.create_better_wrench.assemble.forge_done": "已锻出 %s",
+  "msg.create_better_wrench.assemble.forge_none": "这个物品无法锻板",
   "msg.create_better_wrench.combat_no_permission": "你没有权限打开战斗模式(需要OP权限)",
-
   "key.create_better_wrench.tools": "呼出扳手模式工具条",
   "key.categories.create_better_wrench": "万能扳手",
-
   "gui.create_better_wrench.config.title": "万能扳手 · 配置",
   "gui.create_better_wrench.config.search": "搜索选项…",
   "gui.create_better_wrench.config.reset": "重置为默认",
@@ -80,7 +76,6 @@
   "gui.create_better_wrench.config.desc.connect.max_leg_length": "单段两个节点之间的直线长度上限; 想连更远就多加拐点。",
   "gui.create_better_wrench.config.opt.connect.max_total_blocks": "连接: 单次方块总数上限",
   "gui.create_better_wrench.config.desc.connect.max_total_blocks": "一次连接最多铺设多少方块(轴/齿轮箱/大齿轮), 同时也是服务端安全上限。",
-
   "create_better_wrench.ponder.wrench_connect.header": "使用万能扳手连接应力",
   "create_better_wrench.ponder.wrench_connect.text_1": "右击一个可以接入应力网络的方块作为起点",
   "create_better_wrench.ponder.wrench_connect.text_2": "在途中右击以添加拐点",
@@ -98,7 +93,7 @@
   "create_better_wrench.ponder.wrench_process.header": "使用万能扳手进行加工",
   "create_better_wrench.ponder.wrench_process.text_1": "右击置物台以锁定",
   "create_better_wrench.ponder.wrench_process.text_2": "处于锁定模式时，可以在上面对物品加工",
-  "create_better_wrench.ponder.wrench_process.text_3": "加工支持装配，注液，洗涤，冶炼，烤制，缠魂",
+  "create_better_wrench.ponder.wrench_process.text_3": "加工支持装配，注液，洗涤，冶炼，烤制，缠魂，锻板",
   "create_better_wrench.ponder.wrench_process_assembly.header": "进行装配",
   "create_better_wrench.ponder.wrench_process_assembly.text_1": "当台面上有可用的装配原料时（如金板）",
   "create_better_wrench.ponder.wrench_process_assembly.text_2": "使用相应的材料进行装配",
@@ -152,6 +147,8 @@
   "gui.create_better_wrench.config.desc.process.smoking": "",
   "gui.create_better_wrench.config.opt.process.haunting": "· 缠魂",
   "gui.create_better_wrench.config.desc.process.haunting": "",
+  "gui.create_better_wrench.config.opt.process.forging": "· 锻板",
+  "gui.create_better_wrench.config.desc.process.forging": "",
   "gui.create_better_wrench.config.opt.combat.enabled": "启用战斗模式",
   "gui.create_better_wrench.config.desc.combat.enabled": "",
   "gui.create_better_wrench.config.opt.combat.permission_level": "战斗模式需要的权限",
@@ -165,6 +162,7 @@
   "process.create_better_wrench.blasting": "冶炼",
   "process.create_better_wrench.smoking": "烤制",
   "process.create_better_wrench.haunting": "缠魂",
+  "process.create_better_wrench.forging": "锻板",
   "command.create_better_wrench.version": "万能扳手 · 版本 %s",
   "command.create_better_wrench.combat.granted": "已授权你使用战斗模式",
   "command.create_better_wrench.combat.revoked": "已取消你的战斗模式授权",

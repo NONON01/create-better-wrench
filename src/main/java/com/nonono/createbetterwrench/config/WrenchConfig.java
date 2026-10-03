@@ -96,6 +96,7 @@ public final class WrenchConfig {
     private static final ModConfigSpec.BooleanValue PROCESS_BLASTING;
     private static final ModConfigSpec.BooleanValue PROCESS_SMOKING;
     private static final ModConfigSpec.BooleanValue PROCESS_HAUNTING;
+    private static final ModConfigSpec.BooleanValue PROCESS_FORGING;
     // ---- 战斗
     private static final ModConfigSpec.BooleanValue COMBAT_ENABLED;
     private static final ModConfigSpec.IntValue COMBAT_PERMISSION_LEVEL;
@@ -203,8 +204,8 @@ public final class WrenchConfig {
         // ------------------------------------------------------------ 加工 / Process
         b.comment(
                 "[加工] Process",
-                "总开关, 以及六种加工方式各自的开关(装配/注液/洗涤/冶炼/烤制/缠魂)。",
-                "Master switch plus one switch per processing kind (assembly/filling/washing/blasting/smoking/haunting).")
+                "总开关, 以及七种加工方式各自的开关(装配/注液/洗涤/冶炼/烤制/缠魂/锻板)。",
+                "Master switch plus one switch per processing kind (assembly/filling/washing/blasting/smoking/haunting/forging).")
             .push("process");
 
         PROCESS_ENABLED = b
@@ -221,6 +222,7 @@ public final class WrenchConfig {
         PROCESS_BLASTING = subSwitch(b, "blasting", "冶炼(岩浆桶)");
         PROCESS_SMOKING = subSwitch(b, "smoking", "烤制(打火石)");
         PROCESS_HAUNTING = subSwitch(b, "haunting", "缠魂(打火石 + 台下灵魂沙/灵魂土)");
+        PROCESS_FORGING = subSwitch(b, "forging", "锻板(手持重锤 + 台上的金属锭)");
 
         b.pop();
 
@@ -254,7 +256,7 @@ public final class WrenchConfig {
         SPEC = b.build();
     }
 
-    /** 六个加工子开关的公共定义(注释格式一致)。 */
+    /** 七个加工子开关的公共定义(注释格式一致)。 */
     private static ModConfigSpec.BooleanValue subSwitch(ModConfigSpec.Builder b, String id, String zhName) {
         return b
             .comment(
@@ -407,6 +409,7 @@ public final class WrenchConfig {
                 case BLASTING -> PROCESS_BLASTING.get();
                 case SMOKING -> PROCESS_SMOKING.get();
                 case HAUNTING -> PROCESS_HAUNTING.get();
+                case FORGING -> PROCESS_FORGING.get();
             };
         }
         FeatureToggles.Snapshot s = remote();
@@ -419,6 +422,7 @@ public final class WrenchConfig {
             case BLASTING -> s.processBlasting();
             case SMOKING -> s.processSmoking();
             case HAUNTING -> s.processHaunting();
+            case FORGING -> s.processForging();
         };
     }
 
@@ -454,6 +458,7 @@ public final class WrenchConfig {
             processKindEnabled(ProcessKind.ASSEMBLY), processKindEnabled(ProcessKind.FILLING),
             processKindEnabled(ProcessKind.SPLASH), processKindEnabled(ProcessKind.BLASTING),
             processKindEnabled(ProcessKind.SMOKING), processKindEnabled(ProcessKind.HAUNTING),
+            processKindEnabled(ProcessKind.FORGING),
             combatEnabled(), combatPermissionLevel(), combatGranted);
     }
 
@@ -590,6 +595,7 @@ public final class WrenchConfig {
             new Row("process", Kind.TOGGLE, "process.blasting", PROCESS_BLASTING),
             new Row("process", Kind.TOGGLE, "process.smoking", PROCESS_SMOKING),
             new Row("process", Kind.TOGGLE, "process.haunting", PROCESS_HAUNTING),
+            new Row("process", Kind.TOGGLE, "process.forging", PROCESS_FORGING),
 
             new Row("combat", Kind.TOGGLE, "combat.enabled", COMBAT_ENABLED),
             new Row("combat", Kind.LEVEL, "combat.permission_level", COMBAT_PERMISSION_LEVEL));
@@ -686,10 +692,11 @@ public final class WrenchConfig {
         PROCESS_BLASTING.set(on);
         PROCESS_SMOKING.set(on);
         PROCESS_HAUNTING.set(on);
+        PROCESS_FORGING.set(on);
     }
 
     /**
-     * 规则兜底(设计约定, 2026-09-25): 拆除的两个"允许"都关闭时总开关关; 加工的六个子功能都关闭时总开关关。
+     * 规则兜底(设计约定, 2026-09-25): 拆除的两个"允许"都关闭时总开关关; 加工的七个子功能都关闭时总开关关。
      * 这样即使有人直接编辑 TOML, 也不会出现"总开关开着但什么都不能做"的自相矛盾状态。
      */
     public static void normalize() {
@@ -698,7 +705,8 @@ public final class WrenchConfig {
         if (!DECONSTRUCT_ALLOW_CREATE.get() && !DECONSTRUCT_ALLOW_REDSTONE.get())
             DECONSTRUCT_ENABLED.set(false);
         boolean anyKind = PROCESS_ASSEMBLY.get() || PROCESS_FILLING.get() || PROCESS_SPLASH.get()
-            || PROCESS_BLASTING.get() || PROCESS_SMOKING.get() || PROCESS_HAUNTING.get();
+            || PROCESS_BLASTING.get() || PROCESS_SMOKING.get() || PROCESS_HAUNTING.get()
+            || PROCESS_FORGING.get();
         if (!anyKind)
             PROCESS_ENABLED.set(false);
     }

@@ -13,6 +13,7 @@ import com.simibubi.create.content.kinetics.deployer.DeployerApplicationRecipe;
 import com.simibubi.create.content.kinetics.deployer.ItemApplicationRecipe;
 import com.simibubi.create.content.kinetics.fan.processing.AllFanProcessingTypes;
 import com.simibubi.create.content.kinetics.fan.processing.FanProcessingType;
+import com.simibubi.create.content.kinetics.press.PressingRecipe;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 import com.simibubi.create.content.processing.sequenced.SequencedAssemblyRecipe;
 import com.simibubi.create.foundation.recipe.RecipeApplier;
@@ -21,23 +22,28 @@ import net.createmod.catnip.data.Pair;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -50,13 +56,16 @@ import org.joml.Vector3f;
 
 /**
  * 「工作」(内部 id 仍为 {@code assemble})模式的服务端核心: 在<b>已锁定</b>的置物台上,
- * 用手代替机器, 依次尝试五种机制(全部走 Create/原版自己的配方体系, 不硬编码具体配方):
+ * 用手代替机器, 依次尝试六种机制(全部走 Create/原版自己的配方体系, 不硬编码具体配方):
  *
  * <ol>
  *   <li><b>序列装配</b> —— {@code create:sequenced_assembly}, 等价于发射器(Deployer)推进装配。</li>
  *   <li><b>机械手式施加</b> —— {@code create:deploying} 与 {@code create:item_application}。
  *       查找顺序与优先级完全照搬 {@code DeployerBlockEntity#getRecipe}。</li>
  *   <li><b>原木去皮</b> —— 原版 {@link AxeItem} 机制(Create 只在 JEI 里展示这条隐式配方)。</li>
+ *   <li><b>锻板</b>(本次新增) —— 手持<b>原版重锤</b>({@code minecraft:mace})右击: 把台上的金属锭按 Create 的
+ *       压板配方({@code create:pressing})锻成金属板。与其它路径不同, 它<b>一次只做一件</b>, 并且每次锻击后
+ *       给锤子加 5 tick 冷却。见 {@link #tryForging}。</li>
  *   <li><b>注液</b> —— {@code create:filling}, 等价于注液器(Spout)。</li>
  *   <li><b>批量鼓风处理</b>(2026-09-20 新增) —— 模仿 Create 鼓风机: 水桶走洗涤({@code create:splashing})、
  *       岩浆桶走冶炼(熔炉/高炉)、打火石走烟熏; 若置物台<b>下方</b>是灵魂沙 / 灵魂土 / 灵魂火则走缠魂
@@ -92,6 +101,18 @@ public final class AssembleLogic {
      */
     private static final double PRODUCT_DROP_OFFSET = DepotPiles.CORNER_OFFSET;
 
+    /**
+     * 「锻板」的输入限定为金属锭(标签 {@code c:ingots})。
+     *
+     * <p>为什么要这个额外条件: Create 的压板配方({@code create:pressing})本身不只覆盖金属锭,
+     * 而本路径的定位是"把金属锭锻成金属板", 因此显式限定输入, 避免把别的压板配方一并纳入本路径。</p>
+     */
+    private static final TagKey<Item> METAL_INGOTS =
+        TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "ingots"));
+
+    /** 一次锻击后给锤子加的冷却(tick) —— 与"一次右击只出一件"的单件节奏配套, 防止连点刷板。 */
+    private static final int FORGE_COOLDOWN_TICKS = 5;
+
     private AssembleLogic() {
     }
 
@@ -120,6 +141,8 @@ public final class AssembleLogic {
         if (tryApplyingRecipe(level, pos, depot, player, held, hand, current))
             return true;
         if (tryStrippingLog(level, pos, depot, player, held, hand, current))
+            return true;
+        if (tryForging(level, pos, depot, player, held, hand, current))
             return true;
         if (trySpoutFilling(level, pos, depot, player, held, hand, current))
             return true;
@@ -151,7 +174,7 @@ public final class AssembleLogic {
         return true;
     }
 
-    /** 把 Create 的鼓风类型映射到本模组定义的六个子功能之一; 映射不到时返回 null, 该类型只受总开关约束。 */
+    /** 把 Create 的鼓风类型映射到本模组定义的七个子功能之一; 映射不到时返回 null, 该类型只受总开关约束。 */
     private static ProcessKind kindOf(FanProcessingType type) {
         if (type == AllFanProcessingTypes.SPLASHING)
             return ProcessKind.SPLASH;
@@ -236,7 +259,7 @@ public final class AssembleLogic {
         List<ItemStack> results = RecipeApplier.applyRecipeOn(level, working, recipe, true);
         if (results.isEmpty() || results.get(0).isEmpty())
             return false;
-        // 子功能开关: 机械手式施加归在「装配」下(本模组定义的六个子功能里没有单独一类)
+        // 子功能开关: 机械手式施加归在「装配」下(本模组定义的七个子功能里没有单独一类)
         if (blockedSubKind(player, ProcessKind.ASSEMBLY))
             return true;
 
@@ -276,7 +299,88 @@ public final class AssembleLogic {
         return true;
     }
 
-    // ---------------------------------------------------------------- 4. 注液
+    // ---------------------------------------------------------------- 4. 锻板
+
+    /**
+     * 「锻板」: 手持<b>原版重锤</b>({@link Items#MACE})右击已锁定的置物台, 把台上的<b>金属锭</b>
+     * 锻成<b>金属板</b>。
+     *
+     * <h2>与其它路径的三点不同</h2>
+     * <ol>
+     *   <li><b>单件</b>: 一次右击只消耗台上 <b>1 个</b>金属锭、只产出<b>1 件</b>成品 —— 不做批量并入,
+     *       台面上那一摞的其余部分原样留在台上(与鼓风处理的整摞转换刻意相反);</li>
+     *   <li><b>配方</b>: 用 Create 自己的压板配方({@code create:pressing}, 与动力压机同一份数据),
+     *       因此原版与其它模组新增的"锭到板"配方都自动生效, 无需在本模组里维护映射表;</li>
+     *   <li><b>冷却</b>: 每次成功锻击后给锤子加 {@value #FORGE_COOLDOWN_TICKS} tick 的物品冷却,
+     *       防止连点刷板(冷却期间再右击不会锻板, 也不会消耗材料)。</li>
+     * </ol>
+     *
+     * <p>产出落在置物台<b>东南侧</b>的产出锚点({@link #productDropPos}), 与其它路径的产出同处一侧,
+     * 不与西北角的原料堆混在一起。</p>
+     */
+    private static boolean tryForging(Level level, BlockPos pos, DepotBlockEntity depot,
+                                      Player player, ItemStack held, InteractionHand hand,
+                                      ItemStack current) {
+        // 「锻板」的锤子就是原版 1.21 加入的重锤(物品 id minecraft:mace), 不新增物品与贴图
+        if (!held.is(Items.MACE))
+            return false;
+        // 冷却期间直接跳过: 只认"锤子"这一件物品的冷却(与一次一击的节奏配套)
+        if (player.getCooldowns().isOnCooldown(held.getItem()))
+            return false;
+        if (!current.is(METAL_INGOTS))
+            return false;
+
+        Optional<RecipeHolder<PressingRecipe>> found =
+            AllRecipeTypes.PRESSING.find(new SingleRecipeInput(current.copyWithCount(1)), level);
+        if (found.isEmpty())
+            return false;
+        // 子功能开关: 「锻板」被关闭时发送提示并消费该次交互(不消耗任何材料)
+        if (blockedSubKind(player, ProcessKind.FORGING))
+            return true;
+
+        // 单件产出: 压板配方按权重掷结果, 这里只取第一件非空产出
+        ItemStack plate = ItemStack.EMPTY;
+        for (ItemStack stack : found.get().value().rollResults(level.random))
+            if (!stack.isEmpty()) {
+                plate = stack.copy();
+                break;
+            }
+        if (plate.isEmpty()) {
+            player.displayClientMessage(
+                Component.translatable("msg." + BetterWrenchMod.MODID + ".assemble.forge_none"), true);
+            return true; // 手势已被本模组消费: 台面保持原样
+        }
+
+        // 台面只少 1 个; 恰好取完时按既定约定立刻从原料堆续下一个(台面不空)
+        if (current.getCount() > 1)
+            setDepot(depot, current.copyWithCount(current.getCount() - 1));
+        else
+            consumeAndRefill(level, pos, depot);
+
+        consumeHeld(player, held, hand, false);   // 重锤按普通耐久消耗扣 1 点
+        player.getCooldowns().addCooldown(held.getItem(), FORGE_COOLDOWN_TICKS);
+        dropProduct(level, productDropPos(pos), plate, true);
+        playForgeFeedback(level, pos);
+        player.displayClientMessage(
+            Component.translatable("msg." + BetterWrenchMod.MODID + ".assemble.forge_done", plate.getHoverName()), true);
+        return true;
+    }
+
+    /**
+     * 锻板成功时的一次性反馈: 铁砧音(音量压低, 变成"敲打"而非"铁砧砸落") + 台面上方的火花粒子。
+     *
+     * <p>与鼓风处理一样, 粒子用服务端 {@code sendParticles} 而不是 {@code level.addParticle},
+     * 这样附近所有玩家都看得见, 且不需要新增网络包。</p>
+     */
+    private static void playForgeFeedback(Level level, BlockPos pos) {
+        level.playSound(null, pos, SoundEvents.ANVIL_LAND, SoundSource.BLOCKS, 0.5f,
+            level.random.nextFloat() * 0.2f + 1.1f);
+        if (level instanceof ServerLevel serverLevel)
+            serverLevel.sendParticles(ParticleTypes.CRIT, pos.getX() + 0.5, pos.getY() + 1.05,
+                pos.getZ() + 0.5, 6, 0.2, 0.05, 0.2, 0.1);
+    }
+
+    // ---------------------------------------------------------------- 5. 注液
 
     /**
      * 等价于注液器, 但<b>按流体实量批量注</b>:
@@ -370,7 +474,7 @@ public final class AssembleLogic {
         return true;
     }
 
-    // ---------------------------------------------------------------- 5. 鼓风处理(批量)
+    // ---------------------------------------------------------------- 6. 鼓风处理(批量)
 
     /**
      * 第 5 条路径: 用水桶 / 岩浆桶 / 打火石模拟 Create 鼓风机的一次性处理,

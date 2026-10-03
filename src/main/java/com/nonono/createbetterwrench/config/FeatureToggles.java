@@ -39,6 +39,7 @@ public final class FeatureToggles {
         boolean processBlasting,
         boolean processSmoking,
         boolean processHaunting,
+        boolean processForging,
         boolean combatEnabled,
         int combatPermissionLevel,
         boolean combatGranted
@@ -57,7 +58,7 @@ public final class FeatureToggles {
                 WrenchConfig.DEFAULT_DECONSTRUCT_MAX_EDGE,
                 WrenchConfig.DEFAULT_DECONSTRUCT_BLOCKS_PER_TICK,
                 true,
-                true, true, true, true, true, true,
+                true, true, true, true, true, true, true,
                 true,
                 WrenchConfig.DEFAULT_COMBAT_PERMISSION_LEVEL,
                 false);
