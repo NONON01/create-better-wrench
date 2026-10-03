@@ -29,6 +29,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -164,6 +165,12 @@ public final class Forging {
         if (match instanceof BasinRecipe basinRecipe)
             expected = basinRecipe.rollResults(level.random);
 
+        // 兜底: 配方必须有原料, 否则空工作盆也能"成功"(2026-10-03 实测的"锤空气")
+        if (match.getIngredients().isEmpty()) {
+            LOGGER.info("[CBW/锻造] 工作盆 {}: 匹配到的配方 {} 没有任何原料, 拒绝执行", pos,
+                match.getClass().getSimpleName());
+            return false;
+        }
         if (!BasinRecipe.apply(basin, match)) {
             LOGGER.info("[CBW/锻造] 工作盆 {}: BasinRecipe.apply 返回 false(配方 {})", pos,
                 match.getClass().getSimpleName());
@@ -214,8 +221,19 @@ public final class Forging {
         List<RecipeHolder<CraftingRecipe>> crafting =
             level.getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING);
         for (RecipeHolder<CraftingRecipe> holder : crafting) {
+            CraftingRecipe recipe = holder.value();
+            // 只接受<b>无序合成</b>且<b>非特殊</b>的配方: 特殊配方(烟花、地图等)取不到结果, 转换后是"空配方",
+            //   而空配方会与空工作盆匹配 —— 那正是"锤空气也能成功"的原因(2026-10-03 实测)。
+            if (!(recipe instanceof ShapelessRecipe) || recipe.isSpecial())
+                continue;
             RecipeHolder<BasinRecipe> converted = BasinRecipe.convertShapeless(holder);
-            if (converted != null && BasinRecipe.match(basin, converted.value()))
+            if (converted == null)
+                continue;
+            // 再挡一层: 没有原料或没有产出的转换结果一律不用
+            if (converted.value().getIngredients().isEmpty()
+                || converted.value().getRollableResults().isEmpty())
+                continue;
+            if (BasinRecipe.match(basin, converted.value()))
                 return converted.value();
         }
 
