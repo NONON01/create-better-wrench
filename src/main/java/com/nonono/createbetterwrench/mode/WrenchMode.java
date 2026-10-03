@@ -49,7 +49,22 @@ public enum WrenchMode {
 
     /** 该模式的描述(用于选择器 tooltip); 文案在语言文件: mode.<modid>.<id>.desc。 */
     public Component description() {
-        return emphasizeBrackets(Component.translatable("mode." + BetterWrenchMod.MODID + "." + id + ".desc"));
+        String key = "mode." + BetterWrenchMod.MODID + "." + id + ".desc";
+        // 「模组描述」模式里显示的是版本号: 用占位符 + 运行时读取, 不再把版本写死在语言文件里
+        //   (2026-10-03 修正: 之前那里一直停在 1.0.5-beta)。版本与 /cbw version 同源。
+        if (this == COMING_SOON)
+            return emphasizeBrackets(Component.translatable(key, modVersion()));
+        return emphasizeBrackets(Component.translatable(key));
+    }
+
+    /** 本模组的版本号(与 gradle.properties 写入模组容器的值同源)。 */
+    private static String modVersion() {
+        return net.neoforged.fml.ModList.get()
+            .getModContainerById(BetterWrenchMod.MODID)
+            .map(container -> container.getModInfo()
+                .getVersion()
+                .toString())
+            .orElse("?");
     }
 
     /**
