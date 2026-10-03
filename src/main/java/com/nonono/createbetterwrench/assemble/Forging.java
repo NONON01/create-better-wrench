@@ -72,7 +72,7 @@ public final class Forging {
         TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "tools/hammer"));
 
     /** 一次锻击后给锤子加的冷却(tick) —— 与"一次右击只做一件/一批"的节奏配套, 防止连点。 */
-    private static final int COOLDOWN_TICKS = 5;
+    static final int COOLDOWN_TICKS = 5;
 
     private Forging() {
     }
@@ -107,7 +107,7 @@ public final class Forging {
         else
             AssembleLogic.consumeAndRefill(level, pos, depot);
 
-        AssembleLogic.dropProduct(level, AssembleLogic.productDropPos(pos), product, true);
+        AssembleLogic.dropProduct(level, AssembleLogic.productDropPos(level, pos), product, true);
         afterStrike(level, pos, player, held, hand);
         return true;
     }
@@ -158,7 +158,7 @@ public final class Forging {
             if (!stack.isEmpty())
                 drained.add(stack);
         }
-        Vec3 anchor = AssembleLogic.productDropPos(pos);
+        Vec3 anchor = AssembleLogic.productDropPos(level, pos);
         for (ItemStack stack : drained)
             AssembleLogic.dropProduct(level, anchor, stack, true);
     }
@@ -166,7 +166,7 @@ public final class Forging {
     // ---------------------------------------------------------------- 公用
 
     /** 手持物是不是锤类(标签 {@code c:tools/hammer})。 */
-    private static boolean isHammer(ItemStack held) {
+    static boolean isHammer(ItemStack held) {
         return !held.isEmpty() && held.is(HAMMER_TOOLS);
     }
 
