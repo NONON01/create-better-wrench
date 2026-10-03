@@ -40,7 +40,8 @@ jobs:
           print('summary     :', d.get('description'))
           body=d.get('body','')
           print('body 行数    :', len(body.splitlines()))
-          print('含 1.21.1 段 :', '1.21.1 line (NeoForge)' in body)
-          print('含 1.20.1 段 :', '1.20.1 line (Forge)' in body)
+          print('含 1.21.1 依赖:', '1.21.1 (NeoForge)' in body)
+          print('含 1.20.1 依赖:', '1.20.1 (Forge)' in body)
+          print('正文开头    :', body[:90].replace(chr(10), ' / '))
           print('含锻造说明   :', 'c:tools/hammer' in body)
           PY
