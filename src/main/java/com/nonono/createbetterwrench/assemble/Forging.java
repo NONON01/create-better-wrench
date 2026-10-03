@@ -27,7 +27,10 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.level.Level;
@@ -143,7 +146,7 @@ public final class Forging {
             return false;
         }
 
-        Recipe<?> match = findCompactingRecipe(level, basin);
+        Recipe<?> match = findBasinRecipe(level, basin);
         if (match == null) {
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
                 "msg." + BetterWrenchMod.MODID + ".assemble.forge_no_recipe", describeInventory(basin)), true);
@@ -191,16 +194,33 @@ public final class Forging {
         return sb.length() == 0 ? "(空)" : sb.toString();
     }
 
-    /** 在 {@code create:compacting} 里找第一条与工作盆内容物匹配的配方; 没有则返回 {@code null}。 */
-    private static Recipe<?> findCompactingRecipe(Level level, BasinBlockEntity basin) {
-        List<RecipeHolder<CompactingRecipe>> all =
+    /**
+     * 在工作盆里找第一条可用的配方: 先查 {@code create:compacting}, 再查<b>原版合成配方</b>。
+     *
+     * <p>Create 的冲压机在工作盆上<b>同样接受原版合成配方</b>(典型例子: 9 个铁锭 -> 铁块), 走
+     * {@link BasinRecipe#convertShapeless} 把它转成工作盆配方。早期实现只查 {@code create:compacting},
+     * 于是"9 锭 -> 块"这类配方被漏掉(2026-10-03 由维护者指出并核实)。</p>
+     *
+     * <p>刻意<b>不</b>查 {@code create:mixing}: 那是搅拌器的工作盆能力, 属于计划中的「混合」子功能
+     * (木棍/烈焰棒), 与手持重锤的冲压语义不同。</p>
+     */
+    private static Recipe<?> findBasinRecipe(Level level, BasinBlockEntity basin) {
+        List<RecipeHolder<CompactingRecipe>> compacting =
             level.getRecipeManager().getAllRecipesFor(AllRecipeTypes.COMPACTING.getType());
-        for (RecipeHolder<CompactingRecipe> holder : all)
+        for (RecipeHolder<CompactingRecipe> holder : compacting)
             if (BasinRecipe.match(basin, holder.value()))
                 return holder.value();
-        // 未匹配时只输出一行汇总(候选配方数 + 盆内内容), 便于对照定位, 不逐条刷屏
-        LOGGER.info("[CBW/锻造] 工作盆 {}: {} 条压缩配方均未匹配, 盆内={}", basin.getBlockPos(), all.size(),
-            describeInventory(basin));
+
+        List<RecipeHolder<CraftingRecipe>> crafting =
+            level.getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING);
+        for (RecipeHolder<CraftingRecipe> holder : crafting) {
+            RecipeHolder<BasinRecipe> converted = BasinRecipe.convertShapeless(holder);
+            if (converted != null && BasinRecipe.match(basin, converted.value()))
+                return converted.value();
+        }
+
+        LOGGER.info("[CBW/锻造] 工作盆 {}: 压缩 {} 条 + 合成 {} 条均未匹配, 盆内={}",
+            basin.getBlockPos(), compacting.size(), crafting.size(), describeInventory(basin));
         return null;
     }
 
