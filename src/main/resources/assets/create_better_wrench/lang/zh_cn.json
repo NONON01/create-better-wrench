@@ -147,6 +147,8 @@
   "gui.create_better_wrench.config.desc.process.haunting": "",
   "gui.create_better_wrench.config.opt.process.forging": "· 锻造",
   "gui.create_better_wrench.config.desc.process.forging": "",
+  "gui.create_better_wrench.config.opt.process.forging_cooldown": "· 锻造冷却",
+  "gui.create_better_wrench.config.desc.process.forging_cooldown": "",
   "gui.create_better_wrench.config.opt.combat.enabled": "启用战斗模式",
   "gui.create_better_wrench.config.desc.combat.enabled": "",
   "gui.create_better_wrench.config.opt.combat.permission_level": "战斗模式需要的权限",
