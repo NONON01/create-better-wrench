@@ -74,6 +74,9 @@ public final class Forging {
 
     /** 一次锻击后给锤子加的冷却(tick) —— 与"一次右击只做一件/一批"的节奏配套, 防止连点。 */
     /** 出厂默认冷却(tick); 运行期以配置项 {@code process.forging_cooldown} 为准。 */
+    /** 工作盆产出弹出时，离方块中心的水平距离（格）。取 1.25 以离开工作盆的收集体积。 */
+    private static final double BASIN_EJECT_DISTANCE = 1.25;
+
     static final int DEFAULT_COOLDOWN_TICKS = com.nonono.createbetterwrench.config.WrenchConfig.DEFAULT_FORGING_COOLDOWN;
 
     /** 当前配置的锻造冷却(tick); 0 表示不加冷却。 */
@@ -163,8 +166,8 @@ public final class Forging {
         }
 
         int moved = ejectOutputs(level, pos, basin, expected);
-        LOGGER.info("[CBW/锻造] 工作盆 {}: 压缩成功, 配方 {}, 预期产出 {}, 实际弹出 {} 件", pos,
-            match.getClass().getSimpleName(), expected.size(), moved);
+        LOGGER.info("[CBW/锻造] 工作盆 {}: 压缩成功, 配方 {}, 预期产出 {}, 实际弹出 {} 件; 施加后盆内={}",
+            pos, match.getClass().getSimpleName(), expected.size(), moved, describeInventory(basin));
         afterStrike(level, pos, player, held, hand);
         return true;
     }
@@ -196,18 +199,21 @@ public final class Forging {
     }
 
     /**
-     * 弹出这一次的产出。
+     * 弹出这一次的产出 —— <b>只从输出库存取</b>, 并且落点必须<b>离工作盆一格以外</b>。
      *
-     * <p>先在<b>输出库存</b>里找(Create 的 BasinRecipe.apply 会把产出放进那里); 若那里什么都没有,
-     * 再按<b>预期产出的物品</b>去<b>输入库存</b>里找同名同组件的栈 —— 这样可以兜住"产出被放回输入侧"
-     * 的实现差异, 而不会误拿走别的输入材料。</p>
+     * <p>为什么要"一格以外": 工作盆会把自己方块体积内的掉落物<b>吸进盆里</b>。若产出弹在方块中心附近
+     * (例如沿用置物台那套 0.27 的角偏移), 产出刚落地就会被吸回盆里, 下一次锤击把它当原料消耗掉 ——
+     * 表现就是"往工作盆里丢东西会被吞"(2026-10-03 实测问题)。因此这里沿玩家背后方向偏移 1.25 格,
+     * 落在相邻方块上方, 盆再也吸不到。</p>
+     *
+     * <p>注意: 早期版本还有一条"输出库存为空就按预期产出到输入库存里找"的兜底, 它会误取玩家刚丢进盆的
+     * 同类物品, 已删除 —— 宁可产出留在盆里让玩家自取, 也不冒吞物品的风险。</p>
      *
      * @return 实际弹出的件数(诊断日志用)
      */
     private static int ejectOutputs(Level level, BlockPos pos, BasinBlockEntity basin, List<ItemStack> expected) {
-        Vec3 anchor = AssembleLogic.productDropPos(level, pos);
+        Vec3 anchor = basinEjectPos(level, pos);
         int moved = 0;
-
         SmartInventory out = basin.getOutputInventory();
         for (int slot = 0; slot < out.getSlots(); slot++) {
             ItemStack stack = out.extractItem(slot, Integer.MAX_VALUE, false);
@@ -216,26 +222,14 @@ public final class Forging {
                 moved += stack.getCount();
             }
         }
-        if (moved > 0 || expected.isEmpty())
-            return moved;
-
-        SmartInventory in = basin.getInputInventory();
-        for (ItemStack want : expected) {
-            if (want.isEmpty())
-                continue;
-            for (int slot = 0; slot < in.getSlots(); slot++) {
-                ItemStack have = in.getStackInSlot(slot);
-                if (have.isEmpty() || !ItemStack.isSameItemSameComponents(have, want))
-                    continue;
-                ItemStack taken = in.extractItem(slot, want.getCount(), false);
-                if (!taken.isEmpty()) {
-                    AssembleLogic.dropProduct(level, anchor, taken, true);
-                    moved += taken.getCount();
-                }
-                break;
-            }
-        }
         return moved;
+    }
+
+    /** 工作盆产出的落点: 玩家背后方向 1.25 格、方块上方 1.0 —— 保证在工作盆的收集体积之外。 */
+    private static Vec3 basinEjectPos(Level level, BlockPos pos) {
+        net.minecraft.core.Direction facing = DepotPiles.facingAt(level, pos);
+        return new Vec3(pos.getX() + 0.5 - facing.getStepX() * BASIN_EJECT_DISTANCE, pos.getY() + 1.0,
+            pos.getZ() + 0.5 - facing.getStepZ() * BASIN_EJECT_DISTANCE);
     }
 
     // ---------------------------------------------------------------- 公用
