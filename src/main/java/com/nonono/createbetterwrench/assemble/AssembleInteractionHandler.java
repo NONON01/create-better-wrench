@@ -36,9 +36,9 @@ public final class AssembleInteractionHandler {
     /**
      * 右键方块。
      *
-     * <p><b>必须 {@code priority = HIGHEST} + {@code receiveCanceled = true}</b>(2026-10-03 修复):
-     * Create 的工作盆交互会在更高优先级处理并取消该事件, 而订阅默认不接收已取消事件,
-     * 因此工作盆的右键在本处理器中不会被调用 —— 现象为重锤右键仍由 Create 取走盆内物品。</p>
+     * <p>注解参数 {@code priority = HIGHEST} 与 {@code receiveCanceled = true} 是必需的(2026-10-03 修复):
+     * Create 的工作盆交互在更高优先级处理并取消该事件, 而订阅默认不接收已取消事件, 因此工作盆的右键
+     * 在本处理器中不会被调用, 现象为重锤右键仍由 Create 取走盆内物品。</p>
      */
     @SubscribeEvent(priority = EventPriority.HIGHEST, receiveCanceled = true)
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
