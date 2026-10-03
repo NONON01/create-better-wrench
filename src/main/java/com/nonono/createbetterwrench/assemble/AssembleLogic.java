@@ -290,7 +290,7 @@ public final class AssembleLogic {
             return true;
         }
         if (canContinueSequence(level, out)) {
-            // 中间产物进半成品堆, 并且**不再立刻取回台面**(2026-10-03 按设计约定修正):
+            // 中间产物进半成品堆, 并且不再立刻取回台面(2026-10-03 按设计约定修正):
             //   早期实现在放入后又立即取回台面, 半成品堆因此始终为空。
             //   现在中间产物留在堆里, 由下一次交互按"半成品堆优先"续料时取回台面。
             DepotPiles.depositSemi(level, pos, out);
