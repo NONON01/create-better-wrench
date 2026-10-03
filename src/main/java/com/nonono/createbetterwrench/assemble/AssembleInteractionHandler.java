@@ -64,11 +64,14 @@ public final class AssembleInteractionHandler {
                 return;
             }
 
-            BetterWrenchMod.LOGGER.info("[CBW/加工] 右键工作盆 {}: 已锁定={}, 手持={}, 未执行任何配方",
-                pos, locked, inHand.getHoverName().getString());
-            // 临时诊断(定位工作盆问题期间保留): 让玩家直接看到本模组确实收到了这次右键
-            basinPlayer.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                "msg." + BetterWrenchMod.MODID + ".assemble.forge_not_hammer"), true);
+            // 只有手持物确实不是锤类时才提示"不是锤类" —— 之前这里无条件提示, 把"没匹配到配方"
+            //   的那条消息盖掉了, 导致误判(2026-10-03)。冷却中与未匹配都另有自己的日志/提示。
+            boolean hammer = Forging.isHammer(inHand);
+            BetterWrenchMod.LOGGER.info("[CBW/加工] 右键工作盆 {}: 已锁定={}, 手持={}, 是锤类={}",
+                pos, locked, inHand.getHoverName().getString(), hammer);
+            if (!hammer)
+                basinPlayer.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "msg." + BetterWrenchMod.MODID + ".assemble.forge_not_hammer"), true);
 
             // 已锁定: 阻止 Create 把盆内物品直接取出来(未锁定则交回 Create 的原生行为)
             if (locked) {

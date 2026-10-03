@@ -54,7 +54,7 @@
   "msg.create_better_wrench.assemble.unlocked": "置物台已解锁",
   "msg.create_better_wrench.assemble.locked_basin": "工作盆已锁定",
   "msg.create_better_wrench.assemble.unlocked_basin": "工作盆已解锁",
-  "msg.create_better_wrench.assemble.forge_no_recipe": "锻造：已识别锤子，但没有匹配的配方",
+  "msg.create_better_wrench.assemble.forge_no_recipe": "锻造：未匹配到压缩配方（盆内：%s）",
   "msg.create_better_wrench.assemble.forge_not_hammer": "锻造：手持物品不是锤类（重锤或 c:tools/hammer 标签）",
   "msg.create_better_wrench.assemble.fan_done": "已批量转换 %s 个物品",
   "msg.create_better_wrench.assemble.fan_none": "这些物品无法用这种方式加工",
