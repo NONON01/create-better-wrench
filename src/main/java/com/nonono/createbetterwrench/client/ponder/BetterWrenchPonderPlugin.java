@@ -63,7 +63,8 @@ public class BetterWrenchPonderPlugin implements PonderPlugin {
             .addStoryBoard("wrench/process_splash", DepotScenes::splash, BetterWrenchPonderTags.WRENCH)
             .addStoryBoard("wrench/process_blasting", DepotScenes::blasting, BetterWrenchPonderTags.WRENCH)
             .addStoryBoard("wrench/process_smoking", DepotScenes::smoking, BetterWrenchPonderTags.WRENCH)
-            .addStoryBoard("wrench/process_haunting", DepotScenes::haunting, BetterWrenchPonderTags.WRENCH);
+            .addStoryBoard("wrench/process_haunting", DepotScenes::haunting, BetterWrenchPonderTags.WRENCH)
+            .addStoryBoard("wrench/process_forging", DepotScenes::forging, BetterWrenchPonderTags.WRENCH);
     }
 
     @Override
