@@ -8,6 +8,7 @@ import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.mode.ProcessKind;
 import com.simibubi.create.AllRecipeTypes;
 import com.simibubi.create.content.fluids.spout.FillingBySpout;
+import com.simibubi.create.content.fluids.transfer.FillingRecipe;
 import com.simibubi.create.content.fluids.transfer.GenericItemEmptying;
 import com.simibubi.create.content.kinetics.deployer.DeployerApplicationRecipe;
 import com.simibubi.create.content.kinetics.deployer.ItemApplicationRecipe;
@@ -50,6 +51,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.wrapper.RecipeWrapper;
 import org.joml.Vector3f;
@@ -100,6 +102,12 @@ public final class AssembleLogic {
      * 因为这两处<b>必须同值</b>(一西一东的对角对称), 分开写会导致只改一处而漏改另一处。</p>
      */
     private static final double PRODUCT_DROP_OFFSET = DepotPiles.CORNER_OFFSET;
+
+    /** 产出落点: 摆在玩家<b>背后</b>一侧(与两个料堆相对), 基准朝向同样取锁定时的朝向。 */
+    private static double[] productOffset(Level level, BlockPos pos) {
+        net.minecraft.core.Direction facing = DepotPiles.facingAt(level, pos);
+        return new double[] { -facing.getStepX() * PRODUCT_DROP_OFFSET, -facing.getStepZ() * PRODUCT_DROP_OFFSET };
+    }
 
     private AssembleLogic() {
     }
@@ -180,51 +188,150 @@ public final class AssembleLogic {
     private static boolean trySequencedAssembly(Level level, BlockPos pos, DepotBlockEntity depot,
                                                 Player player, ItemStack held, InteractionHand hand,
                                                 ItemStack current) {
-        Optional<RecipeHolder<DeployerApplicationRecipe>> found = SequencedAssemblyRecipe.getRecipe(
+        // 序列的每一步都是"独立配方 + 序列上下文", 因此三种步骤类型都要用序列感知的查找问一遍。
+        // 顺序: deploying -> 注液 -> 冲压; 只有手持物满足该步要求时才由本方法消费这次交互。
+        Optional<RecipeHolder<DeployerApplicationRecipe>> deploying = SequencedAssemblyRecipe.getRecipe(
             level, current, AllRecipeTypes.DEPLOYING.getType(), DeployerApplicationRecipe.class);
-        if (found.isEmpty())
+        if (deploying.isPresent() && deploying.get().value().getRequiredHeldItem().test(held)) {
+            DeployerApplicationRecipe recipe = deploying.get().value();
+            if (blockedSubKind(player, ProcessKind.ASSEMBLY))
+                return true;
+            ItemStack working = current.copyWithCount(1);
+            splitExtras(level, pos, depot);
+            List<ItemStack> results = RecipeApplier.applyRecipeOn(level, working, recipe, true);
+            consumeHeld(player, held, hand, recipe.shouldKeepHeldItem());
+            return finishSequenceStep(level, pos, depot, player, results);
+        }
+
+        Optional<RecipeHolder<FillingRecipe>> filling = SequencedAssemblyRecipe.getRecipe(
+            level, current, AllRecipeTypes.FILLING.getType(), FillingRecipe.class);
+        if (filling.isPresent()
+            && tryApplySequenceFilling(level, pos, depot, player, held, hand, current, filling.get().value()))
+            return true;
+
+        Optional<RecipeHolder<PressingRecipe>> pressing = SequencedAssemblyRecipe.getRecipe(
+            level, current, AllRecipeTypes.PRESSING.getType(), PressingRecipe.class);
+        if (pressing.isPresent()
+            && tryApplySequencePressing(level, pos, depot, player, held, hand, current, pressing.get().value()))
+            return true;
+
+        return false;
+    }
+
+    /**
+     * 序列装配的<b>注液步</b>({@code create:filling} 步骤): 手持流体容器提供该步所需流体。
+     *
+     * <p>先做一次模拟: 容器能排出的流体必须与配方要求同种且量够, 否则<b>不消耗任何东西</b>直接返回;
+     * 通过后才真正排空容器(剩余物如空桶还给玩家)并施加该步配方。</p>
+     */
+    private static boolean tryApplySequenceFilling(Level level, BlockPos pos, DepotBlockEntity depot,
+                                                   Player player, ItemStack held, InteractionHand hand,
+                                                   ItemStack current, FillingRecipe recipe) {
+        if (!GenericItemEmptying.canItemBeEmptied(level, held))
             return false;
-        DeployerApplicationRecipe recipe = found.get().value();
-        if (!recipe.getRequiredHeldItem().test(held))
+        FluidStack available = GenericItemEmptying.emptyItem(level, held.copy(), true).getFirst();
+        SizedFluidIngredient required = recipe.getRequiredFluid();
+        if (available.isEmpty() || !required.ingredient().test(available)
+            || available.getAmount() < required.amount())
             return false;
-        // 子功能开关: 「装配」被关闭时发送 {@code msg.create_better_wrench.subfeature_disabled} 并消费该次交互(不消耗任何材料)
         if (blockedSubKind(player, ProcessKind.ASSEMBLY))
             return true;
 
         ItemStack working = current.copyWithCount(1);
-        splitExtras(level, pos, depot); // 多余的先挪到原料堆, 台面只留正在加工的那一个
-
+        splitExtras(level, pos, depot);
         List<ItemStack> results = RecipeApplier.applyRecipeOn(level, working, recipe, true);
-        consumeHeld(player, held, hand, recipe.shouldKeepHeldItem());
-        dropExtras(level, pos, results);
 
+        // 真正排空容器; 剩余物(空桶/空瓶等)交还玩家
+        Pair<FluidStack, ItemStack> drained = GenericItemEmptying.emptyItem(level, held.copy(), false);
+        if (!player.isCreative()) {
+            ItemStack remainder = drained.getSecond();
+            held.shrink(1);
+            if (held.isEmpty())
+                player.setItemInHand(hand, remainder);
+            else if (!remainder.isEmpty() && !player.getInventory().add(remainder))
+                player.drop(remainder, false);
+        }
+        return finishSequenceStep(level, pos, depot, player, results);
+    }
+
+    /**
+     * 序列装配的<b>冲压步</b>({@code create:pressing} 步骤): 手持锤类物品即可, 与锻造共用同一份判据与冷却。
+     */
+    private static boolean tryApplySequencePressing(Level level, BlockPos pos, DepotBlockEntity depot,
+                                                    Player player, ItemStack held, InteractionHand hand,
+                                                    ItemStack current, PressingRecipe recipe) {
+        if (!Forging.isHammer(held) || player.getCooldowns().isOnCooldown(held.getItem()))
+            return false;
+        if (blockedSubKind(player, ProcessKind.ASSEMBLY))
+            return true;
+
+        ItemStack working = current.copyWithCount(1);
+        splitExtras(level, pos, depot);
+        List<ItemStack> results = RecipeApplier.applyRecipeOn(level, working, recipe, true);
+        consumeHeld(player, held, hand, false);
+        player.getCooldowns().addCooldown(held.getItem(), Forging.COOLDOWN_TICKS);
+        return finishSequenceStep(level, pos, depot, player, results);
+    }
+
+    /**
+     * 序列某一步施加完成后的<b>共用收尾</b>: 多余的产出弹出, 主产出判断"还能不能继续" ——
+     * 能继续就留在台面等下一步, 否则按「停留后弹出」交付成品。
+     *
+     * <p>这一步与<b>步骤类型无关</b>, 因此 deploying / 注液 / 冲压三种步骤共用, 避免各写一份而出现差异。</p>
+     */
+    private static boolean finishSequenceStep(Level level, BlockPos pos, DepotBlockEntity depot,
+                                              Player player, List<ItemStack> results) {
         ItemStack out = results.isEmpty() ? ItemStack.EMPTY : results.get(0).copy();
         if (out.isEmpty()) {
             consumeAndRefill(level, pos, depot);
             return true;
         }
-
-        // 还能继续推进则说明它仍是中间产物: 留在台面上继续下一步
-        boolean canContinue = SequencedAssemblyRecipe
-            .getRecipe(level, out, AllRecipeTypes.DEPLOYING.getType(), DeployerApplicationRecipe.class)
-            .isPresent();
-        if (canContinue) {
-            setDepot(depot, out);
+        if (canContinueSequence(level, out)) {
+            // 中间产物进半成品堆(2026-10-03): 随后 consumeAndRefill 会按"半成品堆优先"把它取回台面,
+            // 于是流程与旧行为一致(台面继续推进), 但物品确实经过了半成品堆。
+            DepotPiles.depositSemi(level, pos, out);
+            depositExtrasToSemi(level, pos, results);
+            consumeAndRefill(level, pos, depot);
             playPickup(level, pos);
             return true;
         }
-
-        // 序列结束: 成品先在台面上停留若干 tick, 然后弹出(设计约定; 停留时长见 DepotStayState)。
-        //
-        // 这里刻意不再区分成品与废料: 旧代码拿 SequencedAssemblyRecipe.resultPool.getFirst()
-        // 当作唯一的目标成品去比对 out, 但结果池实际是按权重随机抽取的
-        // (SequencedAssemblyRecipe.rollResult, 132-144 行) —— 不存在唯一成品, 该判断本身不成立,
-        // 于是成品会被误判成废料弹出。统一弹出后行为反而是确定的。
+        // 序列已结束: 主产出按「停留后弹出」交付, 其余产出仍属于中间产物, 入半成品堆
+        depositExtrasToSemi(level, pos, results);
         holdThenEject(level, pos, depot, out, player);
         playPickup(level, pos);
         return true;
     }
 
+    /**
+     * 序列装配与注液步骤的<b>额外产出</b>(第 2 件起)送进半成品堆。
+     *
+     * <p>它们与主产物不同: 主产物决定序列能否继续, 额外产出只是这一步的副产物, 属于半成品堆的范畴
+     * (设计约定, 2026-10-03), 因此不再像以前那样直接弹到地上。</p>
+     */
+    private static void depositExtrasToSemi(Level level, BlockPos pos, List<ItemStack> results) {
+        for (int i = 1; i < results.size(); i++)
+            if (!results.get(i).isEmpty())
+                DepotPiles.depositSemi(level, pos, results.get(i));
+    }
+
+    /**
+     * 该中间产物后面还有没有下一步 —— <b>三种步骤类型都要问一遍</b>。
+     *
+     * <p>2026-10-03 修复: 旧实现只问 {@code DEPLOYING}, 于是 Create 自带的
+     * {@code track}(deploying, deploying, pressing)与 {@code sturdy_sheet}(filling, pressing, pressing)
+     * 会在非 deploying 的那一步被误判成"序列已结束", 直接把中间产物当成品弹出。</p>
+     */
+    private static boolean canContinueSequence(Level level, ItemStack out) {
+        return SequencedAssemblyRecipe
+            .getRecipe(level, out, AllRecipeTypes.DEPLOYING.getType(), DeployerApplicationRecipe.class)
+            .isPresent()
+            || SequencedAssemblyRecipe
+                .getRecipe(level, out, AllRecipeTypes.FILLING.getType(), FillingRecipe.class)
+                .isPresent()
+            || SequencedAssemblyRecipe
+                .getRecipe(level, out, AllRecipeTypes.PRESSING.getType(), PressingRecipe.class)
+                .isPresent();
+    }
     // ---------------------------------------------------------------- 2. 机械手式施加
 
     private static boolean tryApplyingRecipe(Level level, BlockPos pos, DepotBlockEntity depot,
@@ -348,7 +455,7 @@ public final class AssembleLogic {
             if (filled.isEmpty())
                 break;
             // 产出是普通掉落物(已无成品堆): 落在置物台东南侧的产出收集点, 无初速
-            dropProduct(level, productDropPos(pos), filled.copy(), false);
+            dropProduct(level, productDropPos(level, pos), filled.copy(), false);
             // 审计 B-6: 显式扣减这一轮的输入, 不再靠 combined.getCount() - made 的算术对消
             combined.shrink(1);
             made++;
@@ -713,9 +820,9 @@ public final class AssembleLogic {
      * 产出收集点: 置物台<b>东南侧</b>正上方(原「成品堆」所在的角落), 与西北角的原料堆分开,
      * 这样批量注液的产出不会和原料堆混在一处。
      */
-    static Vec3 productDropPos(BlockPos pos) {
-        return new Vec3(pos.getX() + 0.5 + PRODUCT_DROP_OFFSET, pos.getY() + 1.0,
-            pos.getZ() + 0.5 + PRODUCT_DROP_OFFSET);
+    static Vec3 productDropPos(Level level, BlockPos pos) {
+        double[] off = productOffset(level, pos);
+        return new Vec3(pos.getX() + 0.5 + off[0], pos.getY() + 1.0, pos.getZ() + 0.5 + off[1]);
     }
 
     /**

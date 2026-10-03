@@ -81,6 +81,8 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
             if (be instanceof DepotBlockEntity depot) {
                 boolean now = !AssembleLock.isLocked(depot);
                 AssembleLock.setLocked(depot, now);
+                if (now)
+                    AssembleLock.setFacing(depot, sp.getDirection());   // 两个料堆的基准朝向
                 if (!now) {
                     // 解锁: 把台面上的物品 + 两个料堆(含被弹出的成品)全部返还到玩家背包
                     // (设计约定, 2026-09-17; 装不下的会由原版逻辑掉在玩家脚下, 不会丢)
@@ -99,6 +101,8 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
                 // 由漏斗/机械臂等正常方式取出, 而不是像置物台那样"返还给玩家"。
                 boolean now = !AssembleLock.isLocked(basin);
                 AssembleLock.setLocked(basin, now);
+                if (now)
+                    AssembleLock.setFacing(basin, sp.getDirection());
                 sp.displayClientMessage(Component.translatable("msg." + BetterWrenchMod.MODID
                     + (now ? ".assemble.locked" : ".assemble.unlocked")), true);
             }
