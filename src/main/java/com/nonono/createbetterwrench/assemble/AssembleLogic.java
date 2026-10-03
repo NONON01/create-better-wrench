@@ -641,7 +641,7 @@ public final class AssembleLogic {
             // 多种产品: 全部直接弹(主产出也不再单独留台面)
             for (ItemStack stack : out)
                 if (!stack.isEmpty())
-                    dropProduct(level, ejectFrom, stack.copy(), true);
+                    giveToPlayer(player, stack.copy());
             // 台面清空 + 立刻续料(顺序不能反: 台面被下一份原料占住, 弹出的产出落地才不会被吸回)
             consumeAndRefill(level, pos, depot);
         } else {
@@ -791,7 +791,7 @@ public final class AssembleLogic {
         if (!(level instanceof ServerLevel serverLevel))
             return;
         DepotProductEjector.holdThenEject(serverLevel, pos, depot, product,
-            DepotStayState.get(player.getUUID()));
+            DepotStayState.get(player.getUUID()), player.getUUID());
     }
 
     /**
@@ -865,6 +865,18 @@ public final class AssembleLogic {
         // ② 原料堆
         for (ItemStack stack : DepotPiles.drainAll(level, pos))
             give(player, stack);
+    }
+
+    /**
+     * 把成品<b>直接放进玩家背包</b>(2026-10-03 设计约定: 成品进背包, 半成品留在台面)。
+     *
+     * <p>装不下的部分由原版 {@code placeItemBackInInventory} 掉在玩家脚下, 因此不会丢失。
+     * 多产出的路径无法让多件成品同时停在台面上, 因此它们不经过停留档位, 直接入包。</p>
+     */
+    static void giveToPlayer(Player player, ItemStack stack) {
+        if (player == null || stack.isEmpty())
+            return;
+        player.getInventory().placeItemBackInInventory(stack.copy());
     }
 
     /** 塞进背包; 装不下的由 placeItemBackInInventory 掉在玩家脚下。 */
