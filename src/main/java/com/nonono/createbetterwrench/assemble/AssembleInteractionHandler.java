@@ -6,6 +6,7 @@ import com.simibubi.create.content.processing.basin.BasinBlockEntity;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -52,6 +53,9 @@ public final class AssembleInteractionHandler {
         //    与置物台不同, 工作盆没有"台面物品""料堆"这些概念, 因此走独立的一条判定, 成功与否都吃掉这次交互
         //    (锁定期间不允许再往盆里放/取物品)。没有配方时什么也不发生。
         if (be instanceof BasinBlockEntity basin) {
+            // 右键事件对主手与副手各触发一次: 只处理主手, 否则双手都拿锤类时同一击会执行两遍配方。
+            if (event.getHand() != InteractionHand.MAIN_HAND)
+                return;
             Player basinPlayer = event.getEntity();
             ItemStack inHand = event.getItemStack();
             boolean locked = AssembleLock.isLocked(basin);
