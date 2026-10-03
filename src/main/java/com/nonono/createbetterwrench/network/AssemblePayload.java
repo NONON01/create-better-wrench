@@ -6,7 +6,6 @@ import com.nonono.createbetterwrench.assemble.AssembleLock;
 import com.nonono.createbetterwrench.assemble.AssembleLogic;
 import com.nonono.createbetterwrench.permission.WrenchPermissions;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
-import com.simibubi.create.content.processing.basin.BasinBlockEntity;
 
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
@@ -20,11 +19,11 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
- * 客户端到服务端: 在「加工」模式下右击置物台或工作盆, 请求<b>切换锁定状态</b>(锁定/解锁)。
+ * 客户端到服务端: 在「加工」模式下右击置物台, 请求<b>切换锁定状态</b>(锁定/解锁)。
  *
  * <p>载荷: {@code pos} = 被右击的机器坐标。服务端依次校验功能开关、建造权限、主手持扳手、
  * 交互距离与区块加载, 任一不通过即返回(功能开关被关闭与冒险模式下无建造权限会各带一条提示, 其余静默);
- * 通过后才写锁定状态 —— 置物台会按新状态决定"返还台面物品"还是"自动续料", 工作盆只切换锁定
+ * 通过后才写锁定状态 —— 置物台按新状态决定"返还台面物品"还是"自动续料"
  * (盆内物品与流体留在原处)。详见 {@link #handle}。</p>
  */
 public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
@@ -74,7 +73,7 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
             if (sp.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)
                 > MAX_INTERACTION_DISTANCE_SQR)
                 return;
-            // ④ 区块已加载 + 目标确实是可锁定的机器(置物台或工作盆)
+            // ④ 区块已加载 + 目标确实是可锁定的机器(仅置物台)
             if (!sp.level().isLoaded(pos))
                 return;
             BlockEntity be = sp.level().getBlockEntity(pos);
@@ -96,18 +95,6 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
                 BetterWrenchMod.LOGGER.info("[CBW/加工] 置物台 {} 锁定状态 -> {}", pos, now);
                 return;
             }
-            if (be instanceof BasinBlockEntity basin) {
-                // 工作盆(2026-10-03 新增): 用于「锻造」里的压缩配方(冲压机 + 工作盆那一类)。
-                // 与置物台不同, 解锁时「不动盆内的物品与流体」 —— 它们本来就属于这台机器,
-                // 由漏斗/机械臂等正常方式取出, 而不是像置物台那样"返还给玩家"。
-                boolean now = !AssembleLock.isLocked(basin);
-                AssembleLock.setLocked(basin, now);
-                if (now)
-                    AssembleLock.setFacing(basin, sp.getDirection());
-                sp.displayClientMessage(Component.translatable("msg." + BetterWrenchMod.MODID
-                    + (now ? ".assemble.locked_basin" : ".assemble.unlocked_basin")), true);
-                BetterWrenchMod.LOGGER.info("[CBW/加工] 工作盆 {} 锁定状态 -> {}", pos, now);
-            }
-        });
+});
     }
 }

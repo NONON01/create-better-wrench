@@ -7,12 +7,10 @@ import java.util.Optional;
 import com.nonono.createbetterwrench.mode.ProcessKind;
 import com.simibubi.create.AllRecipeTypes;
 import com.nonono.createbetterwrench.BetterWrenchMod;
-import com.simibubi.create.content.kinetics.mixer.CompactingRecipe;
 import com.simibubi.create.content.kinetics.press.PressingRecipe;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 import com.simibubi.create.content.processing.basin.BasinBlockEntity;
 import com.simibubi.create.content.processing.basin.BasinRecipe;
-import com.simibubi.create.foundation.item.SmartInventory;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -27,12 +25,9 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -40,34 +35,19 @@ import net.minecraft.world.phys.Vec3;
 /**
  * 「加工」模式里的<b>锻造</b>路径 —— 用手里的锤子代替动力冲压机, 直接执行机械动力的冲压配方。
  *
- * <h2>两个落点, 对应冲压机的两种工作方式</h2>
+ * <h2>唯一的落点: 已锁定的置物台</h2>
  * <table border="1">
  *   <caption>与 Create 的对应关系</caption>
  *   <tr><th>落点</th><th>配方类型</th><th>Create 中文名</th><th>输入</th></tr>
  *   <tr><td>已锁定的<b>置物台</b></td><td>{@code create:pressing}</td><td>冲压</td><td>单个物品</td></tr>
- *   <tr><td>已锁定的<b>工作盆</b></td><td>{@code create:compacting}</td><td>压缩</td><td>多个物品</td></tr>
  * </table>
  *
- * <p>两种落点都直接使用 Create 自己的配方数据(<b>不硬编码任何配方</b>), 因此原版与其它模组新增的
- * 冲压 / 压缩配方自动生效。第一类的判据取自 {@code AllRecipeTypes.PRESSING}(与动力冲压机处理单个物品时
- * 同一份数据), 第二类取自 {@code AllRecipeTypes.COMPACTING}(与动力冲压机配合工作盆时同一份数据),
- * 施加也交给 {@link BasinRecipe#match} 与 {@link BasinRecipe#apply}, 不自己实现配方的扣料与产出结算。</p>
- *
- * <h2>三条设计约定</h2>
- * <ol>
- *   <li><b>锤类物品触发</b>: 手持物在 {@code c:tools/hammer} 标签里即可, 本模组在数据包里把原版重锤
- *       ({@code minecraft:mace})加入该标签, 其它模组的锤子加入同一标签也能用。不新增物品与贴图;</li>
- *   <li><b>产物直接弹出</b>: 冲压产出以普通掉落物落在锚点旁, 不做"停留后弹出", 也不发任何 actionbar 提示;</li>
- *   <li><b>没有配方就什么也不发生</b>: 不消耗材料、不扣耐久、不提示(与其它路径"给出提示"的风格不同,
- *       这是本路径明确的设计约定)。</li>
- * </ol>
- *
- * <h2>已知简化</h2>
- * <p>未检查工作盆的<b>热量</b>: Create 自带的压缩配方全部 {@code heatRequirement = none}, 因此现阶段不
- * 影响既有配方; 若后续要支持需要加热的模组配方, 可在本类里补一次热量判据
- * ({@code BasinBlockEntity#getHeatLevelOf} 为静态方法, 可直接读取工作盆下方的方块状态)。</p>
+ * <p><b>工作盆支持已整体移除</b>(2026-10-03): 工作盆的物品归集方式与置物台不同, 两者的判定冲突过多,
+ * 因此锻造只保留置物台这一条落点。</p>
  */
+
 public final class Forging {
+
 
     /**
      * 「锻造」认的锤类标签。本模组在 {@code data/c/tags/item/tools/hammer.json} 里把原版重锤加入其中,
@@ -76,11 +56,10 @@ public final class Forging {
     private static final TagKey<Item> HAMMER_TOOLS =
         TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "tools/hammer"));
 
-    /** 一次锻击后给锤子加的冷却(tick) —— 与"一次右击只做一件/一批"的节奏配套, 防止连点。 */
-    /** 出厂默认冷却(tick); 运行期以配置项 {@code process.forging_cooldown} 为准。 */
-    /** 工作盆产出弹出时，离方块中心的水平距离（格）。取 1.25 以离开工作盆的收集体积。 */
-    private static final double BASIN_EJECT_DISTANCE = 1.25;
-
+    /**
+     * 一次锻击后给锤子加的冷却(tick) —— 与"一次右击只做一件"的节奏配套, 防止连点。
+     * 出厂默认值; 运行期以配置项 {@code process.forging_cooldown} 为准。
+     */
     static final int DEFAULT_COOLDOWN_TICKS = com.nonono.createbetterwrench.config.WrenchConfig.DEFAULT_FORGING_COOLDOWN;
 
     /** 当前配置的锻造冷却(tick); 0 表示不加冷却。 */
@@ -126,155 +105,6 @@ public final class Forging {
         AssembleLogic.giveToPlayer(player, product);
         afterStrike(level, pos, player, held, hand);
         return true;
-    }
-
-    // ---------------------------------------------------------------- 工作盆: 压缩(create:compacting)
-
-    /**
-     * 对已锁定的工作盆执行一次压缩: 盆内物品 + {@code create:compacting} 配方。
-     *
-     * <p>判据与施加完全交给 {@link BasinRecipe#match} 与 {@link BasinRecipe#apply}, 因此流体输入、
-     * 容器返还等结算与动力冲压机完全一致。施加完成后把工作盆<b>输出槽里的物品</b>全部弹出(本路径的
-     * 约定是"产物直接弹出"), 流体产出仍留在工作盆的输出储罐里。</p>
-     */
-    public static boolean tryOnBasin(Level level, BlockPos pos, BasinBlockEntity basin, Player player,
-                                     ItemStack held, InteractionHand hand) {
-        if (!isHammer(held)) {
-            return false;
-        }
-        if (onCooldown(player, held)) {
-            LOGGER.info("[CBW/锻造] 工作盆 {}: 锤子冷却中, 跳过", pos);
-            return false;
-        }
-
-        Recipe<?> match = findBasinRecipe(level, basin);
-        if (match == null) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                "msg." + BetterWrenchMod.MODID + ".assemble.forge_no_recipe", describeInventory(basin)), true);
-            // 诊断用(仅服务端日志, 不给玩家任何提示 —— 本路径的设计约定是"没有配方就什么也不发生")
-            LOGGER.info("[CBW/锻造] 工作盆 {}: 未找到匹配的压缩配方(filter={}, heat={}, 输入槽前几格={})",
-                pos, basin.getFilter() != null, basin.getHeatLevelOf(basin.getBlockState()),
-                describeInventory(basin));
-            return false;
-        }
-        if (AssembleLogic.blockedSubKind(player, ProcessKind.FORGING))
-            return true;
-
-        // 先算这一次应当产出什么(用于apply之后的稳健弹出与日志), 再交给 Create 的 BasinRecipe.apply 结算
-        List<ItemStack> expected = List.of();
-        if (match instanceof BasinRecipe basinRecipe)
-            expected = basinRecipe.rollResults(level.random);
-
-        // 兜底: 配方必须有原料, 否则空工作盆也能"成功"(2026-10-03 实测的"锤空气")
-        if (match.getIngredients().isEmpty()) {
-            LOGGER.info("[CBW/锻造] 工作盆 {}: 匹配到的配方 {} 没有任何原料, 拒绝执行", pos,
-                match.getClass().getSimpleName());
-            return false;
-        }
-        if (!BasinRecipe.apply(basin, match)) {
-            LOGGER.info("[CBW/锻造] 工作盆 {}: BasinRecipe.apply 返回 false(配方 {})", pos,
-                match.getClass().getSimpleName());
-            return false;
-        }
-
-        // 2026-10-03(设计约定): 工作盆路径不做任何弹出, 产物留在盆内, 由玩家解锁后右键自取。
-        //   该约定同时避免了产出被工作盆重新收取的情况。
-        LOGGER.info("[CBW/锻造] 工作盆 {}: 压缩成功, 配方 {}, 预期产出 {}; 产物留存盆内, 盆内={}",
-            pos, match.getClass().getSimpleName(), expected.size(), describeInventory(basin));
-        afterStrike(level, pos, player, held, hand);
-        return true;
-    }
-
-    /** 输入槽内容摘要(只用于诊断日志, 取前 4 个非空槽)。 */
-    private static String describeInventory(BasinBlockEntity basin) {
-        SmartInventory in = basin.getInputInventory();
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0, shown = 0; i < in.getSlots() && shown < 4; i++) {
-            ItemStack s = in.getStackInSlot(i);
-            if (s.isEmpty())
-                continue;
-            if (sb.length() > 0)
-                sb.append(", ");
-            sb.append(s.getHoverName().getString()).append(" x").append(s.getCount());
-            shown++;
-        }
-        return sb.length() == 0 ? "(空)" : sb.toString();
-    }
-
-    /**
-     * 在工作盆里找第一条可用的配方: 先查 {@code create:compacting}, 再查<b>原版合成配方</b>。
-     *
-     * <p>Create 的冲压机在工作盆上<b>同样接受原版合成配方</b>(典型例子: 9 个铁锭 -> 铁块), 走
-     * {@link BasinRecipe#convertShapeless} 把它转成工作盆配方。早期实现只查 {@code create:compacting},
-     * 于是"9 锭 -> 块"这类配方被漏掉(2026-10-03 由维护者指出并核实)。</p>
-     *
-     * <p>刻意<b>不</b>查 {@code create:mixing}: 那是搅拌器的工作盆能力, 属于计划中的「混合」子功能
-     * (木棍/烈焰棒), 与手持重锤的冲压语义不同。</p>
-     */
-    private static Recipe<?> findBasinRecipe(Level level, BasinBlockEntity basin) {
-        List<RecipeHolder<CompactingRecipe>> compacting =
-            level.getRecipeManager().getAllRecipesFor(AllRecipeTypes.COMPACTING.getType());
-        for (RecipeHolder<CompactingRecipe> holder : compacting)
-            if (BasinRecipe.match(basin, holder.value()))
-                return holder.value();
-
-        List<RecipeHolder<CraftingRecipe>> crafting =
-            level.getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING);
-        for (RecipeHolder<CraftingRecipe> holder : crafting) {
-            CraftingRecipe recipe = holder.value();
-            // 只接受<b>无序合成</b>且<b>非特殊</b>的配方: 特殊配方(烟花、地图等)取不到结果, 转换后是"空配方",
-            //   而空配方会与空工作盆匹配 —— 那正是"锤空气也能成功"的原因(2026-10-03 实测)。
-            if (!(recipe instanceof ShapelessRecipe) || recipe.isSpecial())
-                continue;
-            RecipeHolder<BasinRecipe> converted = BasinRecipe.convertShapeless(holder);
-            if (converted == null)
-                continue;
-            // 再挡一层: 没有原料或没有产出的转换结果一律不用
-            if (converted.value().getIngredients().isEmpty()
-                || converted.value().getRollableResults().isEmpty())
-                continue;
-            if (BasinRecipe.match(basin, converted.value()))
-                return converted.value();
-        }
-
-        LOGGER.info("[CBW/锻造] 工作盆 {}: 压缩 {} 条 + 合成 {} 条均未匹配, 盆内={}",
-            basin.getBlockPos(), compacting.size(), crafting.size(), describeInventory(basin));
-        return null;
-    }
-
-    /**
-     * 弹出这一次的产出: 只从输出库存取, 且落点必须在工作盆方块之外。
-     *
-     * <p>落点须离开方块的原因: 工作盆会把自身方块体积内的掉落物收进盆内。若产出落在方块中心附近
-     * (例如沿用置物台的 0.27 角偏移), 产出会被立即收回盆内, 并在下一次锤击时作为原料消耗,
-     * 表现为"放入工作盆的物品消失"(2026-10-03 实测)。因此这里沿玩家背后方向偏移 1.25 格,
-     * 使产出落在相邻方块上方, 工作盆无法再收取。</p>
-     *
-     * <p>说明: 早期版本另有一条"输出库存为空时按预期产出到输入库存查找"的兜底, 它会误取玩家新放入的
-     * 同类物品, 已删除 —— 产出留在盆内由玩家自取, 也不承担物品损失的风险。</p>
-     *
-     * @return 实际弹出的件数(诊断日志用)
-     */
-    private static int ejectOutputs(Level level, BlockPos pos, BasinBlockEntity basin, List<ItemStack> expected,
-                                    Player player) {
-        Vec3 anchor = basinEjectPos(level, pos);
-        int moved = 0;
-        SmartInventory out = basin.getOutputInventory();
-        for (int slot = 0; slot < out.getSlots(); slot++) {
-            ItemStack stack = out.extractItem(slot, Integer.MAX_VALUE, false);
-            if (!stack.isEmpty()) {
-                AssembleLogic.giveToPlayer(player, stack);
-                moved += stack.getCount();
-            }
-        }
-        return moved;
-    }
-
-    /** 工作盆产出的落点: 玩家背后方向 1.25 格、方块上方 1.0 —— 保证在工作盆的收集体积之外。 */
-    private static Vec3 basinEjectPos(Level level, BlockPos pos) {
-        net.minecraft.core.Direction facing = DepotPiles.facingAt(level, pos);
-        return new Vec3(pos.getX() + 0.5 - facing.getStepX() * BASIN_EJECT_DISTANCE, pos.getY() + 1.0,
-            pos.getZ() + 0.5 - facing.getStepZ() * BASIN_EJECT_DISTANCE);
     }
 
     // ---------------------------------------------------------------- 公用

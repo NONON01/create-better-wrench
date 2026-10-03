@@ -2,7 +2,6 @@ package com.nonono.createbetterwrench.assemble;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
-import com.simibubi.create.content.processing.basin.BasinBlockEntity;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
@@ -38,8 +37,8 @@ public final class AssembleInteractionHandler {
      * 右键方块。
      *
      * <p>注解参数 {@code priority = HIGHEST} 与 {@code receiveCanceled = true} 是必需的(2026-10-03 修复):
-     * Create 的工作盆交互在更高优先级处理并取消该事件, 而订阅默认不接收已取消事件, 因此工作盆的右键
-     * 在本处理器中不会被调用, 现象为重锤右键仍由 Create 取走盆内物品。</p>
+     * Create 的机器交互可能在更高优先级处理并取消该事件, 而订阅默认不接收已取消事件,
+     * 因此这里同时声明 {@code receiveCanceled = true}, 保证置物台的右键一定会被本处理器看到。</p>
      */
     @SubscribeEvent(priority = EventPriority.HIGHEST, receiveCanceled = true)
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
@@ -49,43 +48,9 @@ public final class AssembleInteractionHandler {
         BlockPos pos = event.getPos();
         BlockEntity be = level.getBlockEntity(pos);
 
-        // ⓪ 已锁定的工作盆(2026-10-03 新增): 手持锤类物品右键 = 执行一次压缩(冲压机 + 工作盆那一类配方)。
-        //    与置物台不同, 工作盆没有"台面物品""料堆"这些概念, 因此走独立的一条判定, 成功与否都吃掉这次交互
+        // 工作盆支持已整体移除(2026-10-03): 其"把掉落物收进盆内"的机制与我们的判定冲突过多, 不再支持。
         //    (锁定期间不允许再往盆里放/取物品)。没有配方时什么也不发生。
-        if (be instanceof BasinBlockEntity basin) {
-            // 右键事件对主手与副手各触发一次: 只处理主手, 否则双手都拿锤类时同一击会执行两遍配方。
-            if (event.getHand() != InteractionHand.MAIN_HAND)
-                return;
-            Player basinPlayer = event.getEntity();
-            ItemStack inHand = event.getItemStack();
-            boolean locked = AssembleLock.isLocked(basin);
-
-            // 手持锤类物品: 直接尝试压缩, 「不要求先锁定」 —— 锁定与否只决定"是否阻止 Create 的原生右键取出",
-            //   不影响能否锻造(2026-10-03: 原先要求已锁定, 于是锁定一旦没成功就完全没有反应)。
-            if (Forging.tryOnBasin(level, pos, basin, basinPlayer, inHand, event.getHand())) {
-                event.setCancellationResult(InteractionResult.SUCCESS);
-                event.setCanceled(true);
-                return;
-            }
-
-            // 只有手持物确实不是锤类时才提示"不是锤类" —— 之前这里无条件提示, 把"没匹配到配方"
-            //   的那条消息盖掉了, 导致误判(2026-10-03)。冷却中与未匹配都另有自己的日志/提示。
-            boolean hammer = Forging.isHammer(inHand);
-            BetterWrenchMod.LOGGER.info("[CBW/加工] 右键工作盆 {}: 已锁定={}, 手持={}, 是锤类={}",
-                pos, locked, inHand.getHoverName().getString(), hammer);
-            if (!hammer)
-                basinPlayer.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                    "msg." + BetterWrenchMod.MODID + ".assemble.forge_not_hammer"), true);
-
-            // 已锁定: 阻止 Create 把盆内物品直接取出来(未锁定则交回 Create 的原生行为)
-            if (locked) {
-                event.setCancellationResult(InteractionResult.SUCCESS);
-                event.setCanceled(true);
-            }
-            return;
-        }
-
-        if (!(be instanceof DepotBlockEntity depot))
+if (!(be instanceof DepotBlockEntity depot))
             return;
         if (!AssembleLock.isLocked(depot))
             return;

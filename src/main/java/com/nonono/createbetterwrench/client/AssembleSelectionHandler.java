@@ -4,7 +4,6 @@ import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.mode.WrenchMode;
 import com.nonono.createbetterwrench.network.AssemblePayload;
 import com.simibubi.create.content.logistics.depot.DepotBlock;
-import com.simibubi.create.content.processing.basin.BasinBlock;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -83,7 +82,7 @@ public final class AssembleSelectionHandler {
         if (WrenchModeSwitcher.current == WrenchMode.ASSEMBLE) {
             BlockPos pos = ((BlockHitResult) hit).getBlockPos();
             Block target = mc.level.getBlockState(pos).getBlock();
-            if (target instanceof DepotBlock || target instanceof BasinBlock) {
+            if (target instanceof DepotBlock) {
                 // 功能被配置关掉: 只提示功能未启用, 不发包(服务端也会再拦一次)
                 if (!ClientFeatureGate.blockIfDisabled(WrenchMode.ASSEMBLE)) {
                     ClientPacketListener conn = mc.getConnection();
