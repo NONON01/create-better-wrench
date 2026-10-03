@@ -290,13 +290,11 @@ public final class AssembleLogic {
             return true;
         }
         if (canContinueSequence(level, out)) {
-            // 中间产物进半成品堆(2026-10-03): 随后 consumeAndRefill 会按"半成品堆优先"把它取回台面,
-            // 于是流程与旧行为一致(台面继续推进), 但物品确实经过了半成品堆。
+            // 中间产物进半成品堆, 并且**不再立刻取回台面**(2026-10-03 按设计约定修正):
+            //   早期实现放进去后马上又取回台面, 于是半成品堆永远是空的 —— 玩家看到"只有一个在台面、
+            //   没有半成品堆"。现在中间产物留在堆里, 由下一次交互按"半成品堆优先"续料时取回台面。
             DepotPiles.depositSemi(level, pos, out);
             depositExtrasToSemi(level, pos, results);
-            // 只从半成品堆把"刚放进去的主产物"取回台面: 用 take 的优先级会随机取到额外产出,
-            // 于是台面被副产物占住、下一步不再匹配(2026-10-03 修复)。
-            setDepot(depot, DepotPiles.takeFrom(level, pos, 1, DepotPiles.SEMI));
             playPickup(level, pos);
             return true;
         }
