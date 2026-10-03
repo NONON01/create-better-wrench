@@ -97,9 +97,9 @@ public final class DepotScenes {
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
             .withItem(BetterWrenchMod.BETTER_WRENCH.get().getDefaultInstance())
             .rightClick();
+        scene.effects().indicateSuccess(DEPOT);
         scene.idle(20);
         scene.overlay().showOutline(SELECT, "cbw_depot_lock", util.select().position(DEPOT), 60);
-        scene.effects().indicateSuccess(DEPOT);
         scene.overlay().showText(70)
             .text("Right-clicking a Depot will lock it")
             .pointAt(util.vector().topOf(DEPOT))
@@ -112,6 +112,9 @@ public final class DepotScenes {
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
             .withItem(new ItemStack(Items.LAVA_BUCKET))
             .rightClick();
+        puff(scene, util, DEPOT, ParticleTypes.LARGE_SMOKE, 1, 60);
+        scene.effects().indicateSuccess(DEPOT);
+        hold(scene, util, DEPOT, new ItemStack(Items.IRON_INGOT));
         scene.idle(25);
         scene.overlay().showText(70)
             .text("While locked, items on top can be processed")
@@ -120,9 +123,6 @@ public final class DepotScenes {
             .attachKeyFrame();
         scene.idle(30);
 
-        puff(scene, util, DEPOT, ParticleTypes.LARGE_SMOKE, 1, 60);
-        scene.effects().indicateSuccess(DEPOT);
-        hold(scene, util, DEPOT, new ItemStack(Items.IRON_INGOT));
         scene.idle(70);
 
         scene.overlay().showText(80)
@@ -217,6 +217,10 @@ public final class DepotScenes {
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
             .withItem(new ItemStack(Items.LAVA_BUCKET))
             .rightClick();
+        puff(scene, util, DEPOT, ParticleTypes.FLAME, 1, 60);
+        puff(scene, util, DEPOT, ParticleTypes.LAVA, 1, 60);
+        scene.effects().indicateSuccess(DEPOT);
+        hold(scene, util, DEPOT, AllItems.BLAZE_CAKE.asStack(3));
         scene.idle(25);
         scene.overlay().showText(80)
             .text("Right-clicking it with the matching fluid bucket will fill it")
@@ -224,10 +228,6 @@ public final class DepotScenes {
             .pointAt(util.vector().topOf(DEPOT));
         scene.idle(30);
 
-        puff(scene, util, DEPOT, ParticleTypes.FLAME, 1, 60);
-        puff(scene, util, DEPOT, ParticleTypes.LAVA, 1, 60);
-        scene.effects().indicateSuccess(DEPOT);
-        hold(scene, util, DEPOT, AllItems.BLAZE_CAKE.asStack(3));
         scene.idle(70);
 
         scene.overlay().showText(80)
@@ -255,6 +255,8 @@ public final class DepotScenes {
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
             .withItem(new ItemStack(Items.WATER_BUCKET))
             .rightClick();
+        scene.effects().indicateSuccess(DEPOT);
+        hold(scene, util, DEPOT, new ItemStack(Items.FLINT));
         scene.idle(25);
         scene.overlay().showText(70)
             .text("Right-clicking it with a Water Bucket will wash it")
@@ -263,8 +265,6 @@ public final class DepotScenes {
         scene.idle(30);
 
         wash(scene, util, DEPOT);
-        scene.effects().indicateSuccess(DEPOT);
-        hold(scene, util, DEPOT, new ItemStack(Items.FLINT));
         scene.idle(70);
     }
 
@@ -286,6 +286,9 @@ public final class DepotScenes {
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
             .withItem(new ItemStack(Items.LAVA_BUCKET))
             .rightClick();
+        puff(scene, util, DEPOT, ParticleTypes.LARGE_SMOKE, 1, 60);
+        scene.effects().indicateSuccess(DEPOT);
+        hold(scene, util, DEPOT, new ItemStack(Items.IRON_INGOT));
         scene.idle(25);
         scene.overlay().showText(70)
             .text("Right-clicking it with a Lava Bucket will blast it")
@@ -293,9 +296,6 @@ public final class DepotScenes {
             .pointAt(util.vector().topOf(DEPOT));
         scene.idle(30);
 
-        puff(scene, util, DEPOT, ParticleTypes.LARGE_SMOKE, 1, 60);
-        scene.effects().indicateSuccess(DEPOT);
-        hold(scene, util, DEPOT, new ItemStack(Items.IRON_INGOT));
         scene.idle(70);
     }
 
@@ -317,11 +317,11 @@ public final class DepotScenes {
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
             .withItem(new ItemStack(Items.MACE))
             .rightClick();
-        // 图标与转换同刻发生(2026-10-03 维护者要求): 重锤右击的图标出现的同时, 台面的铁锭就变成铁板,
-        //   之后才给出文字说明 —— 不再先等 25 tick 再变。
         puff(scene, util, DEPOT, ParticleTypes.CRIT, 1, 60);
         scene.effects().indicateSuccess(DEPOT);
         hold(scene, util, DEPOT, AllItems.IRON_SHEET.asStack());
+        // 图标与转换同刻发生(2026-10-03 维护者要求): 重锤右击的图标出现的同时, 台面的铁锭就变成铁板,
+        //   之后才给出文字说明 —— 不再先等 25 tick 再变。
         scene.idle(25);
         scene.overlay().showText(70)
             .text("The Iron Ingot is pressed into an Iron Sheet")
@@ -348,6 +348,9 @@ public final class DepotScenes {
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
             .withItem(new ItemStack(Items.FLINT_AND_STEEL))
             .rightClick();
+        puff(scene, util, DEPOT, ParticleTypes.POOF, 1, 60);
+        scene.effects().indicateSuccess(DEPOT);
+        hold(scene, util, DEPOT, new ItemStack(Items.COOKED_BEEF));
         scene.idle(25);
         scene.overlay().showText(70)
             .text("Right-clicking it with Flint and Steel will smoke it (using durability)")
@@ -355,9 +358,6 @@ public final class DepotScenes {
             .pointAt(util.vector().topOf(DEPOT));
         scene.idle(30);
 
-        puff(scene, util, DEPOT, ParticleTypes.POOF, 1, 60);
-        scene.effects().indicateSuccess(DEPOT);
-        hold(scene, util, DEPOT, new ItemStack(Items.COOKED_BEEF));
         scene.idle(70);
     }
 
@@ -405,6 +405,10 @@ public final class DepotScenes {
         scene.overlay().showControls(util.vector().topOf(HAUNT_DEPOT), Pointing.DOWN, 40)
             .withItem(new ItemStack(Items.FLINT_AND_STEEL))
             .rightClick();
+        puff(scene, util, HAUNT_DEPOT, ParticleTypes.SOUL_FIRE_FLAME, 1, 60);
+        puff(scene, util, HAUNT_DEPOT, ParticleTypes.SMOKE, 1, 60);
+        scene.effects().indicateSuccess(HAUNT_DEPOT);
+        hold(scene, util, HAUNT_DEPOT, new ItemStack(Items.SOUL_SAND));
         scene.idle(50);
 
         scene.overlay().showText(70)
@@ -414,10 +418,6 @@ public final class DepotScenes {
             .attachKeyFrame();
         scene.idle(15);
 
-        puff(scene, util, HAUNT_DEPOT, ParticleTypes.SOUL_FIRE_FLAME, 1, 60);
-        puff(scene, util, HAUNT_DEPOT, ParticleTypes.SMOKE, 1, 60);
-        scene.effects().indicateSuccess(HAUNT_DEPOT);
-        hold(scene, util, HAUNT_DEPOT, new ItemStack(Items.SOUL_SAND));
         scene.idle(60);
     }
 
