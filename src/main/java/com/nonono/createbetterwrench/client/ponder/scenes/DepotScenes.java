@@ -317,16 +317,16 @@ public final class DepotScenes {
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
             .withItem(new ItemStack(Items.MACE))
             .rightClick();
+        // 图标与转换同刻发生(2026-10-03 维护者要求): 重锤右击的图标出现的同时, 台面的铁锭就变成铁板,
+        //   之后才给出文字说明 —— 不再先等 25 tick 再变。
+        puff(scene, util, DEPOT, ParticleTypes.CRIT, 1, 60);
+        scene.effects().indicateSuccess(DEPOT);
+        hold(scene, util, DEPOT, AllItems.IRON_SHEET.asStack());
         scene.idle(25);
         scene.overlay().showText(70)
             .text("The Iron Ingot is pressed into an Iron Sheet")
             .placeNearTarget()
             .pointAt(util.vector().topOf(DEPOT));
-        scene.idle(30);
-
-        puff(scene, util, DEPOT, ParticleTypes.CRIT, 1, 60);
-        scene.effects().indicateSuccess(DEPOT);
-        hold(scene, util, DEPOT, AllItems.IRON_SHEET.asStack());
         scene.idle(70);
     }
 
