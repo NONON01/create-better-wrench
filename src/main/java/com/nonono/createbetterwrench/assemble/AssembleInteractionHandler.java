@@ -11,6 +11,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -32,7 +33,14 @@ public final class AssembleInteractionHandler {
     private AssembleInteractionHandler() {
     }
 
-    @SubscribeEvent
+    /**
+     * 右键方块。
+     *
+     * <p><b>必须 {@code priority = HIGHEST} + {@code receiveCanceled = true}</b>(2026-10-03 修复):
+     * Create 自己的工作盆/置物台交互会在更高优先级处理并<b>取消</b>该事件, 而订阅默认<b>不接收已取消事件</b>,
+     * 于是工作盆的右键在我们的处理器里完全看不到 —— 表现出来就是"拿重锤右键, Create 照样把盆内物品取走"。</p>
+     */
+    @SubscribeEvent(priority = EventPriority.HIGHEST, receiveCanceled = true)
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         Level level = event.getLevel();
         if (level.isClientSide)
