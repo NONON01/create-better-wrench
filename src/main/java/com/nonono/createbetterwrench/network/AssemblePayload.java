@@ -93,6 +93,7 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
                 }
                 sp.displayClientMessage(Component.translatable("msg." + BetterWrenchMod.MODID
                     + (now ? ".assemble.locked" : ".assemble.unlocked")), true);
+                BetterWrenchMod.LOGGER.info("[CBW/加工] 置物台 {} 锁定状态 -> {}", pos, now);
                 return;
             }
             if (be instanceof BasinBlockEntity basin) {
@@ -104,7 +105,8 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
                 if (now)
                     AssembleLock.setFacing(basin, sp.getDirection());
                 sp.displayClientMessage(Component.translatable("msg." + BetterWrenchMod.MODID
-                    + (now ? ".assemble.locked" : ".assemble.unlocked")), true);
+                    + (now ? ".assemble.locked_basin" : ".assemble.unlocked_basin")), true);
+                BetterWrenchMod.LOGGER.info("[CBW/加工] 工作盆 {} 锁定状态 -> {}", pos, now);
             }
         });
     }

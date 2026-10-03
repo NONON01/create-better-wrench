@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import com.nonono.createbetterwrench.mode.ProcessKind;
 import com.simibubi.create.AllRecipeTypes;
+import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.simibubi.create.content.kinetics.mixer.CompactingRecipe;
 import com.simibubi.create.content.kinetics.press.PressingRecipe;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
@@ -80,6 +81,8 @@ public final class Forging {
         return com.nonono.createbetterwrench.config.WrenchConfig.forgingCooldownTicks();
     }
 
+    private static final org.slf4j.Logger LOGGER = BetterWrenchMod.LOGGER;
+
     private Forging() {
     }
 
@@ -129,20 +132,57 @@ public final class Forging {
      */
     public static boolean tryOnBasin(Level level, BlockPos pos, BasinBlockEntity basin, Player player,
                                      ItemStack held, InteractionHand hand) {
-        if (!isHammer(held) || onCooldown(player, held))
+        if (!isHammer(held)) {
             return false;
+        }
+        if (onCooldown(player, held)) {
+            LOGGER.info("[CBW/锻造] 工作盆 {}: 锤子冷却中, 跳过", pos);
+            return false;
+        }
 
         Recipe<?> match = findCompactingRecipe(level, basin);
-        if (match == null)
+        if (match == null) {
+            // 诊断用(仅服务端日志, 不给玩家任何提示 —— 本路径的设计约定是"没有配方就什么也不发生")
+            LOGGER.info("[CBW/锻造] 工作盆 {}: 未找到匹配的压缩配方(filter={}, heat={}, 输入槽前几格={})",
+                pos, basin.getFilter() != null, basin.getHeatLevelOf(basin.getBlockState()),
+                describeInventory(basin));
             return false;
+        }
         if (AssembleLogic.blockedSubKind(player, ProcessKind.FORGING))
             return true;
-        if (!BasinRecipe.apply(basin, match))
-            return false;
 
-        ejectOutputs(level, pos, basin);
+        // 先算这一次应当产出什么(用于apply之后的稳健弹出与日志), 再交给 Create 的 BasinRecipe.apply 结算
+        List<ItemStack> expected = List.of();
+        if (match instanceof BasinRecipe basinRecipe)
+            expected = basinRecipe.rollResults(level.random);
+
+        if (!BasinRecipe.apply(basin, match)) {
+            LOGGER.info("[CBW/锻造] 工作盆 {}: BasinRecipe.apply 返回 false(配方 {})", pos,
+                match.getClass().getSimpleName());
+            return false;
+        }
+
+        int moved = ejectOutputs(level, pos, basin, expected);
+        LOGGER.info("[CBW/锻造] 工作盆 {}: 压缩成功, 配方 {}, 预期产出 {}, 实际弹出 {} 件", pos,
+            match.getClass().getSimpleName(), expected.size(), moved);
         afterStrike(level, pos, player, held, hand);
         return true;
+    }
+
+    /** 输入槽内容摘要(只用于诊断日志, 取前 4 个非空槽)。 */
+    private static String describeInventory(BasinBlockEntity basin) {
+        SmartInventory in = basin.getInputInventory();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0, shown = 0; i < in.getSlots() && shown < 4; i++) {
+            ItemStack s = in.getStackInSlot(i);
+            if (s.isEmpty())
+                continue;
+            if (sb.length() > 0)
+                sb.append(", ");
+            sb.append(s.getHoverName().getString()).append(" x").append(s.getCount());
+            shown++;
+        }
+        return sb.length() == 0 ? "(空)" : sb.toString();
     }
 
     /** 在 {@code create:compacting} 里找第一条与工作盆内容物匹配的配方; 没有则返回 {@code null}。 */
@@ -155,18 +195,47 @@ public final class Forging {
         return null;
     }
 
-    /** 把工作盆输出槽里的物品全部弹出(留在盆里的话, 工作盆会尝试向下输出或被漏斗取走, 与本路径的约定不符)。 */
-    private static void ejectOutputs(Level level, BlockPos pos, BasinBlockEntity basin) {
+    /**
+     * 弹出这一次的产出。
+     *
+     * <p>先在<b>输出库存</b>里找(Create 的 BasinRecipe.apply 会把产出放进那里); 若那里什么都没有,
+     * 再按<b>预期产出的物品</b>去<b>输入库存</b>里找同名同组件的栈 —— 这样可以兜住"产出被放回输入侧"
+     * 的实现差异, 而不会误拿走别的输入材料。</p>
+     *
+     * @return 实际弹出的件数(诊断日志用)
+     */
+    private static int ejectOutputs(Level level, BlockPos pos, BasinBlockEntity basin, List<ItemStack> expected) {
+        Vec3 anchor = AssembleLogic.productDropPos(level, pos);
+        int moved = 0;
+
         SmartInventory out = basin.getOutputInventory();
-        List<ItemStack> drained = new ArrayList<>();
         for (int slot = 0; slot < out.getSlots(); slot++) {
             ItemStack stack = out.extractItem(slot, Integer.MAX_VALUE, false);
-            if (!stack.isEmpty())
-                drained.add(stack);
+            if (!stack.isEmpty()) {
+                AssembleLogic.dropProduct(level, anchor, stack, true);
+                moved += stack.getCount();
+            }
         }
-        Vec3 anchor = AssembleLogic.productDropPos(level, pos);
-        for (ItemStack stack : drained)
-            AssembleLogic.dropProduct(level, anchor, stack, true);
+        if (moved > 0 || expected.isEmpty())
+            return moved;
+
+        SmartInventory in = basin.getInputInventory();
+        for (ItemStack want : expected) {
+            if (want.isEmpty())
+                continue;
+            for (int slot = 0; slot < in.getSlots(); slot++) {
+                ItemStack have = in.getStackInSlot(slot);
+                if (have.isEmpty() || !ItemStack.isSameItemSameComponents(have, want))
+                    continue;
+                ItemStack taken = in.extractItem(slot, want.getCount(), false);
+                if (!taken.isEmpty()) {
+                    AssembleLogic.dropProduct(level, anchor, taken, true);
+                    moved += taken.getCount();
+                }
+                break;
+            }
+        }
+        return moved;
     }
 
     // ---------------------------------------------------------------- 公用

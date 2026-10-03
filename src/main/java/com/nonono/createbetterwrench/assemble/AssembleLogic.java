@@ -293,7 +293,9 @@ public final class AssembleLogic {
             // 于是流程与旧行为一致(台面继续推进), 但物品确实经过了半成品堆。
             DepotPiles.depositSemi(level, pos, out);
             depositExtrasToSemi(level, pos, results);
-            consumeAndRefill(level, pos, depot);
+            // 只从半成品堆把"刚放进去的主产物"取回台面: 用 take 的优先级会随机取到额外产出,
+            // 于是台面被副产物占住、下一步不再匹配(2026-10-03 修复)。
+            setDepot(depot, DepotPiles.takeFrom(level, pos, 1, DepotPiles.SEMI));
             playPickup(level, pos);
             return true;
         }
