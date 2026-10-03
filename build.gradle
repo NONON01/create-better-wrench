@@ -61,13 +61,11 @@ dependencies {
     // 发布产物仍然只声明 compileOnly(用户自己装 Create)。
     runtimeOnly fg.deobf("com.simibubi.create:create-${minecraft_version}:${create_version}:all")
 
-    // Ponder / Flywheel / Registrate 在 1.20.1 上随 Create 以 jar-in-jar 形式打包, 公开 maven 上
-    // 没有 1.20.1 的独立坐标(实测: ponder-forge 等只有 1.21.1 及以后)。因此从 Create 的 all 产物中
-    // 解出这些嵌套 jar(tools/lib, 由 tools 下的脚本生成), 以文件依赖接入编译期。
-    // 运行期由 Forge 的 jar-in-jar 机制提供同一批库, 版本一致。
-    // 嵌套库改为在构建期从 Create 的 all 产物里解出(见下方 extractCreateNestedLibs 任务),
-    // 使仓库自包含: CI 与任何新克隆都不需要预先准备本地文件。
-    compileOnly files(tasks.named('extractCreateNestedLibs'))
+    // Ponder / Flywheel / Registrate: 1.20.1 的 Create 以 jar-in-jar 打包它们, 公开 maven 上没有
+    // 独立坐标(实测 ponder-forge 等只有 1.21.1 及以后), 因此把这三个 jar 放在仓库的 libs/ 下作为
+    // 编译期依赖。仅编译用, 不随产物分发; 运行期由 Create 的 jar-in-jar 提供同一批库。
+    // 三者均为 MIT 系许可, 来源与许可说明见 libs/README.md。
+    compileOnly fileTree('libs') { include '*.jar' }
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -107,23 +105,4 @@ tasks.named('processResources', ProcessResources).configure {
     filesMatching(['META-INF/mods.toml']) {
         expand replaceProperties
     }
-}
-
-// Create 的 all 产物内嵌 Ponder / Flywheel / Registrate(公开 maven 上没有 1.20.1 的独立坐标),
-// 编译期需要这些类, 因此把它们从产物里解到 build/ 下再作为文件依赖使用。
-configurations {
-    createAll
-}
-
-dependencies {
-    createAll "com.simibubi.create:create-${minecraft_version}:${create_version}:all"
-}
-
-tasks.register('extractCreateNestedLibs', Copy) {
-    from({ zipTree(configurations.createAll.singleFile) }) {
-        include 'META-INF/jars/*.jar'
-        eachFile { it.relativePath = new org.gradle.api.file.RelativePath(true, it.name) }
-    }
-    into layout.buildDirectory.dir('create-nested-libs')
-    includeEmptyDirs = false
 }
