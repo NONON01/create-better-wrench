@@ -1,5 +1,6 @@
 package com.nonono.createbetterwrench.assemble;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -453,13 +454,34 @@ public final class AssembleLogic {
         if (toFill <= 0)
             return false;
 
-        int made = 0;
-        for (int i = 0; i < toFill && !combined.isEmpty(); i++) {
-            ItemStack filled = FillingBySpout.fillItem(level, perItem, combined.copyWithCount(1), available.copy());
-            if (filled.isEmpty())
+        // 注液配方: 用于取到<b>全部</b>产出。
+        //   FillingBySpout#fillItem 只返回主产出(单个 ItemStack), 多于一件的产出会被丢掉 ——
+        //   这正是"注液的多产出没了"的原因(2026-10-03)。改为用 RecipeApplier 施加并收集全部产出。
+        // 注意: Create 的 AllRecipeTypes.FILLING 泛型是基类型, 直接取会被推断成 RecipeHolder<Recipe<...>>,
+        //   因此这里遍历并按 instanceof 收窄到 FillingRecipe。
+        FillingRecipe fillingRecipe = null;
+        for (RecipeHolder<?> holder : level.getRecipeManager().getAllRecipesFor(AllRecipeTypes.FILLING.getType())) {
+            if (holder.value() instanceof FillingRecipe candidate
+                && !candidate.getIngredients().isEmpty()
+                && candidate.getIngredients().get(0).test(probe)) {
+                fillingRecipe = candidate;
                 break;
-            // 产出是普通掉落物(已无成品堆): 落在置物台东南侧的产出收集点, 无初速
-            dropProduct(level, productDropPos(level, pos), filled.copy(), false);
+            }
+        }
+
+        int made = 0;
+        List<ItemStack> products = new ArrayList<>();
+        for (int i = 0; i < toFill && !combined.isEmpty(); i++) {
+            List<ItemStack> results;
+            if (fillingRecipe != null)
+                results = RecipeApplier.applyRecipeOn(level, combined.copyWithCount(1), fillingRecipe, true);
+            else
+                results = List.of(FillingBySpout.fillItem(level, perItem, combined.copyWithCount(1), available.copy()));
+            if (results.isEmpty() || results.get(0).isEmpty())
+                break;
+            for (ItemStack result : results)
+                if (!result.isEmpty())
+                    products.add(result.copy());
             // 审计 B-6: 显式扣减这一轮的输入, 不再靠 combined.getCount() - made 的算术对消
             combined.shrink(1);
             made++;
@@ -472,6 +494,10 @@ public final class AssembleLogic {
                 DepotPiles.deposit(level, pos, combined.copyWithCount(extraMerged));
             return false;
         }
+
+        // 产出: 批量注液一次可能做出多件, 台面只有一个位置放不下, 因此直接进玩家背包(不经过停留档位)
+        for (ItemStack product : products)
+            giveToPlayer(player, product);
 
         // 真正抽掉玩家手里那份流体, 并把空容器还给他
         if (!player.isCreative()) {
