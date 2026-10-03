@@ -244,7 +244,8 @@ public final class AssembleLogic {
         int units = available.getAmount() / perItem;      // 这一份流体够注几件
         if (units <= 0)
             return false;
-        if (blockedSubKind(player, ProcessKind.ASSEMBLY))
+        // 注液步按「注液」子开关判定(2026-10-03 修复: 原先查的是「装配」, 于是关掉注液不生效)
+        if (blockedSubKind(player, ProcessKind.FILLING))
             return true;
 
         // 输入 = 台面现有的 + 从原料堆续上来的, 最多凑到 units 件
@@ -311,7 +312,8 @@ public final class AssembleLogic {
                                                     ItemStack current, PressingRecipe recipe) {
         if (!Forging.isHammer(held) || player.getCooldowns().isOnCooldown(held.getItem()))
             return false;
-        if (blockedSubKind(player, ProcessKind.ASSEMBLY))
+        // 冲压步按「锻造」子开关判定(2026-10-03 修复: 原先查的是「装配」, 于是关掉锻造不生效)
+        if (blockedSubKind(player, ProcessKind.FORGING))
             return true;
 
         ItemStack working = current.copyWithCount(1);
@@ -351,9 +353,6 @@ public final class AssembleLogic {
             ItemStack topped = DepotPiles.takeFrom(level, pos, 1, DepotPiles.SEMI);
             if (!topped.isEmpty())
                 setDepot(depot, topped);
-            LOGGER.info("[CBW/加工] 序列步产出 {} 件 -> 半成品堆, 自动补台面 1 件={}, 半成品堆剩余={}",
-                results.size(), topped.isEmpty() ? "无" : topped.getHoverName().getString(),
-                DepotPiles.hasSemi(level, pos));
             playPickup(level, pos);
             return true;
         }

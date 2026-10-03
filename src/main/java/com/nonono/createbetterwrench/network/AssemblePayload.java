@@ -92,7 +92,6 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
                 }
                 sp.displayClientMessage(Component.translatable("msg." + BetterWrenchMod.MODID
                     + (now ? ".assemble.locked" : ".assemble.unlocked")), true);
-                BetterWrenchMod.LOGGER.info("[CBW/加工] 置物台 {} 锁定状态 -> {}", pos, now);
                 return;
             }
 });
