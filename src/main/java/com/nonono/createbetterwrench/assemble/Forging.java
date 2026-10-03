@@ -167,7 +167,7 @@ public final class Forging {
             return false;
         }
 
-        // 2026-10-03(设计约定): 工作盆路径**不做任何弹出** —— 产物留在盆内, 由玩家解锁后右键自取。
+        // 2026-10-03(设计约定): 工作盆路径不做任何弹出, 产物留在盆内, 由玩家解锁后右键自取。
         //   该约定同时避免了产出被工作盆重新收取的情况。
         LOGGER.info("[CBW/锻造] 工作盆 {}: 压缩成功, 配方 {}, 预期产出 {}; 产物留存盆内, 盆内={}",
             pos, match.getClass().getSimpleName(), expected.size(), describeInventory(basin));
