@@ -195,15 +195,12 @@ public final class Forging {
     private static Recipe<?> findCompactingRecipe(Level level, BasinBlockEntity basin) {
         List<RecipeHolder<CompactingRecipe>> all =
             level.getRecipeManager().getAllRecipesFor(AllRecipeTypes.COMPACTING.getType());
-        for (RecipeHolder<CompactingRecipe> holder : all) {
+        for (RecipeHolder<CompactingRecipe> holder : all)
             if (BasinRecipe.match(basin, holder.value()))
                 return holder.value();
-            // 逐条记录候选配方与它的原料, 便于对照盆内物品定位"为什么没匹配"(定位完成后可删)
-            LOGGER.info("[CBW/锻造] 候选未匹配: {} 原料={}", holder.id(),
-                holder.value().getIngredients().stream()
-                    .map(i -> i.getItems().length > 0 ? i.getItems()[0].getItem().toString() : "(空)")
-                    .toList());
-        }
+        // 未匹配时只输出一行汇总(候选配方数 + 盆内内容), 便于对照定位, 不逐条刷屏
+        LOGGER.info("[CBW/锻造] 工作盆 {}: {} 条压缩配方均未匹配, 盆内={}", basin.getBlockPos(), all.size(),
+            describeInventory(basin));
         return null;
     }
 
