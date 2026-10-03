@@ -72,7 +72,13 @@ public final class Forging {
         TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "tools/hammer"));
 
     /** 一次锻击后给锤子加的冷却(tick) —— 与"一次右击只做一件/一批"的节奏配套, 防止连点。 */
-    static final int COOLDOWN_TICKS = 5;
+    /** 出厂默认冷却(tick); 运行期以配置项 {@code process.forging_cooldown} 为准。 */
+    static final int DEFAULT_COOLDOWN_TICKS = com.nonono.createbetterwrench.config.WrenchConfig.DEFAULT_FORGING_COOLDOWN;
+
+    /** 当前配置的锻造冷却(tick); 0 表示不加冷却。 */
+    static int cooldownTicks() {
+        return com.nonono.createbetterwrench.config.WrenchConfig.forgingCooldownTicks();
+    }
 
     private Forging() {
     }
@@ -177,7 +183,9 @@ public final class Forging {
     /** 一次成功锻击的代价与反馈: 锤子扣 1 点耐久 + 5 tick 冷却 + 铁砧音与火花粒子。 */
     private static void afterStrike(Level level, BlockPos pos, Player player, ItemStack held, InteractionHand hand) {
         AssembleLogic.consumeHeld(player, held, hand, false);
-        player.getCooldowns().addCooldown(held.getItem(), COOLDOWN_TICKS);
+        int cooldown = cooldownTicks();
+        if (cooldown > 0)
+            player.getCooldowns().addCooldown(held.getItem(), cooldown);
         level.playSound(null, pos, SoundEvents.ANVIL_LAND, SoundSource.BLOCKS, 0.5f,
             level.random.nextFloat() * 0.2f + 1.1f);
         if (level instanceof ServerLevel serverLevel)

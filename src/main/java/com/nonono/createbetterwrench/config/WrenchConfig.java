@@ -68,6 +68,9 @@ public final class WrenchConfig {
     /** 加工: 功能总开关。 */
     public static final boolean DEFAULT_PROCESS_ENABLED = true;
     /** 加工: 六个子功能的默认值(都开)。 */
+    /** 锻造冷却的出厂默认(tick)。 */
+    public static final int DEFAULT_FORGING_COOLDOWN = 5;
+
     public static final boolean DEFAULT_PROCESS_SUB = true;
 
     /** 战斗: 是否启用战斗模式(战斗加成总开关)。 */
@@ -97,6 +100,7 @@ public final class WrenchConfig {
     private static final ModConfigSpec.BooleanValue PROCESS_SMOKING;
     private static final ModConfigSpec.BooleanValue PROCESS_HAUNTING;
     private static final ModConfigSpec.BooleanValue PROCESS_FORGING;
+    private static final ModConfigSpec.IntValue PROCESS_FORGING_COOLDOWN;
     // ---- 战斗
     private static final ModConfigSpec.BooleanValue COMBAT_ENABLED;
     private static final ModConfigSpec.IntValue COMBAT_PERMISSION_LEVEL;
@@ -222,7 +226,17 @@ public final class WrenchConfig {
         PROCESS_BLASTING = subSwitch(b, "blasting", "冶炼(岩浆桶)");
         PROCESS_SMOKING = subSwitch(b, "smoking", "烤制(打火石)");
         PROCESS_HAUNTING = subSwitch(b, "haunting", "缠魂(打火石 + 台下灵魂沙/灵魂土)");
-        PROCESS_FORGING = subSwitch(b, "forging", "锻板(手持重锤 + 台上的金属锭)");
+        PROCESS_FORGING = subSwitch(b, "forging", "锻造(手持锤类物品, 执行 Create 的冲压/压缩配方)");
+
+        // 2026-10-03: 物品使用冷却可分别配置 —— 本项只作用于「锻造」; 后续新增工具(如剑的切割/锯切)
+        //   各自再添一项, 互相独立。
+        PROCESS_FORGING_COOLDOWN = b
+            .comment(
+                "锻造一次成功后给锤子加的物品冷却(tick), 默认 5; 填 0 表示不加冷却。",
+                "只作用于「锻造」路径: 置物台冲压、工作盆压缩, 以及序列装配里的冲压步。",
+                "Item cooldown in ticks applied to the hammer after one successful forge (default 5; 0 disables it).",
+                "Affects only the forging paths: depot pressing, basin compacting and pressing steps of sequenced assembly.")
+            .defineInRange("forging_cooldown", DEFAULT_FORGING_COOLDOWN, 0, 200);
 
         b.pop();
 
@@ -426,6 +440,13 @@ public final class WrenchConfig {
         };
     }
 
+    /** 锻造: 一次成功锻击后给锤子加的物品冷却(tick); 0 表示不加冷却。 */
+    public static int forgingCooldownTicks() {
+        if (SPEC.isLoaded())
+            return PROCESS_FORGING_COOLDOWN.get();
+        return DEFAULT_FORGING_COOLDOWN;
+    }
+
     /** 加工: 这一种方式<b>整体</b>能不能用(总开关 + 子开关)。 */
     public static boolean processKindUsable(ProcessKind kind) {
         return processConfigEnabled() && processKindEnabled(kind);
@@ -596,6 +617,7 @@ public final class WrenchConfig {
             new Row("process", Kind.TOGGLE, "process.smoking", PROCESS_SMOKING),
             new Row("process", Kind.TOGGLE, "process.haunting", PROCESS_HAUNTING),
             new Row("process", Kind.TOGGLE, "process.forging", PROCESS_FORGING),
+            new Row("process", Kind.NUMBER, "process.forging_cooldown", PROCESS_FORGING_COOLDOWN),
 
             new Row("combat", Kind.TOGGLE, "combat.enabled", COMBAT_ENABLED),
             new Row("combat", Kind.LEVEL, "combat.permission_level", COMBAT_PERMISSION_LEVEL));

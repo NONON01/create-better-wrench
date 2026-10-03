@@ -269,7 +269,9 @@ public final class AssembleLogic {
         splitExtras(level, pos, depot);
         List<ItemStack> results = RecipeApplier.applyRecipeOn(level, working, recipe, true);
         consumeHeld(player, held, hand, false);
-        player.getCooldowns().addCooldown(held.getItem(), Forging.COOLDOWN_TICKS);
+        int cooldown = Forging.cooldownTicks();
+        if (cooldown > 0)
+            player.getCooldowns().addCooldown(held.getItem(), cooldown);
         return finishSequenceStep(level, pos, depot, player, results);
     }
 
