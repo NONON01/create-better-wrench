@@ -1,16 +1,16 @@
 package com.nonono.createbetterwrench.client;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.network.WrenchNetwork;
 import com.nonono.createbetterwrench.network.AssembleStayPayload;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 
 /**
  * 客户端: 把「加工」模式当前选的<b>成品停留时间</b>同步给服务端。
@@ -28,7 +28,7 @@ public final class AssembleStayClient {
     public static void send() {
         ClientPacketListener conn = Minecraft.getInstance().getConnection();
         if (conn != null)
-            PacketDistributor.sendToServer(new AssembleStayPayload(WrenchModeSwitcher.assembleStay.ticks()));
+            WrenchNetwork.sendToServer(new AssembleStayPayload(WrenchModeSwitcher.assembleStay.ticks()));
     }
 
     /** 进入世界时补发一次: 服务端只存内存, 重连后要重新同步。 */

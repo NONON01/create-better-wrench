@@ -17,11 +17,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.level.ChunkEvent;
-import net.neoforged.neoforge.event.level.LevelEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.event.level.ChunkEvent;
+import net.minecraftforge.event.level.LevelEvent;
+import net.minecraftforge.event.TickEvent;
 
 /**
  * 「锁定的置物台 + 下方是灵魂底座」时从台座<b>下方</b>往上冒灵魂火焰粒子。
@@ -208,7 +208,9 @@ public final class DepotSoulFlames {
         }
 
         @SubscribeEvent
-        public static void onServerTick(ServerTickEvent.Post event) {
+        public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END)
+            return;
             if (LOCKED_DEPOTS.isEmpty())
                 return;
             var server = event.getServer();

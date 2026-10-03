@@ -5,7 +5,7 @@ import com.simibubi.create.foundation.item.ItemDescription;
 import com.simibubi.create.foundation.item.TooltipModifier;
 
 import net.createmod.catnip.lang.FontHelper;
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 /**
  * 「万能扳手」的物品悬停提示: 复用 Create 的提示体系, 不自绘。

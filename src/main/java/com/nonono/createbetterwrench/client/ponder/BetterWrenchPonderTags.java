@@ -3,7 +3,7 @@ package com.nonono.createbetterwrench.client.ponder;
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.simibubi.create.AllBlocks;
 
-import net.createmod.catnip.registry.RegisteredObjectsHelper;
+import com.nonono.createbetterwrench.client.ponder.PonderKeys;
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -38,7 +38,7 @@ public final class BetterWrenchPonderTags {
     public static final ResourceLocation WRENCH = loc("wrench");
 
     private static ResourceLocation loc(String path) {
-        return ResourceLocation.fromNamespaceAndPath(BetterWrenchMod.MODID, path);
+        return new ResourceLocation(BetterWrenchMod.MODID, path);
     }
 
     private BetterWrenchPonderTags() {
@@ -47,7 +47,7 @@ public final class BetterWrenchPonderTags {
     /** 由插件在 {@code registerTags} 回调里调用。 */
     static void register(PonderTagRegistrationHelper<ResourceLocation> helper) {
         PonderTagRegistrationHelper<ItemLike> itemHelper =
-            helper.withKeyFunction(RegisteredObjectsHelper::getKeyOrThrow);
+            helper.withKeyFunction(PonderKeys::key);
 
         helper.registerTag(WRENCH)
             .addToIndex()                                           // 也进 /ponder 索引, 当作入口

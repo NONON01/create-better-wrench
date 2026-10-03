@@ -102,7 +102,7 @@ public final class DepotPiles {
             if (remaining.isEmpty())
                 return;
             ItemStack current = pile.getItem();
-            if (!ItemStack.isSameItemSameComponents(current, remaining))
+            if (!ItemStack.isSameItemSameTags(current, remaining))
                 continue;
             int room = current.getMaxStackSize() - current.getCount();
             if (room <= 0)
@@ -167,7 +167,7 @@ public final class DepotPiles {
             if (current.isEmpty())
                 continue;
             // 与已取出部分的物品/组件不一致则跳过, 不能 grow + shrink 造成静默丢失
-            if (!out.isEmpty() && !ItemStack.isSameItemSameComponents(out, current))
+            if (!out.isEmpty() && !ItemStack.isSameItemSameTags(out, current))
                 continue;
             int moved = Math.min(remain, current.getCount());
             if (out.isEmpty())

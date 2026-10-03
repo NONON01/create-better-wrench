@@ -4,11 +4,11 @@ import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.combat.CombatModeState;
 import com.nonono.createbetterwrench.config.FeatureToggles;
 
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 
 /**
  * 客户端: <b>断开连接时统一清理本模组的全部客户端静态状态</b>。

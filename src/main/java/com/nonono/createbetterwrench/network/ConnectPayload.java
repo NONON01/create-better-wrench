@@ -1,5 +1,7 @@
 package com.nonono.createbetterwrench.network;
 
+import java.util.function.Supplier;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,14 +11,11 @@ import com.nonono.createbetterwrench.connect.ConnectLogic;
 import com.nonono.createbetterwrench.mode.ConnectCorner;
 import com.nonono.createbetterwrench.permission.WrenchPermissions;
 
-import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.network.NetworkEvent;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
  * 客户端到服务端: 请求在起点 S、若干拐点与终点 E 之间铺设传动结构。
@@ -28,17 +27,8 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * 任一不通过即拒绝返回(功能开关与拐点超限会给出提示, 其余静默返回)。</p>
  */
 public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos end, String cornerTypeName)
-    implements CustomPacketPayload {
+    {
 
-    public static final Type<ConnectPayload> TYPE = new Type<>(
-        ResourceLocation.fromNamespaceAndPath(BetterWrenchMod.MODID, "connect"));
-
-    /**
-     * 拐点数量硬上限(服务端安全: 挡住"发超大 n 导致 ArrayList 预分配 OOM")。
-     *
-     * <p>可在配置里调: {@code config/WrenchConfig} 的 {@code connect.max_corners}(默认 32)。
-     * 客户端 {@code ConnectSelectionHandler} 读同一份配置来提前拦住第 N+1 个拐点。</p>
-     */
     public static int maxCorners() {
         return WrenchConfig.connectMaxCorners();
     }
@@ -56,50 +46,38 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
      */
     public static final int PROTOCOL_MAX_CORNERS = 256;
 
-    private static final StreamCodec<ByteBuf, List<BlockPos>> CORNERS_CODEC = new StreamCodec<>() {
-        @Override
-        public List<BlockPos> decode(ByteBuf buffer) {
-            int n = buffer.readInt();
-            // 注意: 审计发现 #2 —— 绝不拿线上读到的 int 直接当 ArrayList 容量。
-            //    n = Integer.MAX_VALUE 会让 new ArrayList<>(n) 直接 OOM, 而 OOM 属于 Error, 服务端无法恢复。
-            // 复审 A-18: 上界用固定常量(不是可变的配置值), 避免"配置漂移"把合法玩家踢下线。
-            if (n < 0 || n > PROTOCOL_MAX_CORNERS)
-                throw new io.netty.handler.codec.DecoderException("corner count out of range: " + n);
-            List<BlockPos> list = new ArrayList<>(Math.min(n, 8));
-            for (int i = 0; i < n; i++)
-                list.add(BlockPos.STREAM_CODEC.decode(buffer));
-            return list;
-        }
+;
 
-        @Override
-        public void encode(ByteBuf buffer, List<BlockPos> value) {
-            buffer.writeInt(value.size());
-            for (BlockPos p : value)
-                BlockPos.STREAM_CODEC.encode(buffer, p);
-        }
-    };
-
-    public static final StreamCodec<ByteBuf, ConnectPayload> STREAM_CODEC = StreamCodec.composite(
-        BlockPos.STREAM_CODEC, ConnectPayload::start,
-        CORNERS_CODEC, ConnectPayload::corners,
-        BlockPos.STREAM_CODEC, ConnectPayload::end,
-        ByteBufCodecs.STRING_UTF8, ConnectPayload::cornerTypeName,
-        ConnectPayload::new
-    );
-
+    /** 客户端构造: 把拐角枚举转成协议里的名字。 */
     public static ConnectPayload create(BlockPos start, List<BlockPos> corners, BlockPos end,
-                                        ConnectCorner cornerType) {
-        return new ConnectPayload(start, new ArrayList<>(corners), end, cornerType.name());
+                                        com.nonono.createbetterwrench.mode.ConnectCorner corner) {
+        return new ConnectPayload(start, corners, end, corner == null ? "GEARBOX" : corner.name());
     }
 
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public static void encode(ConnectPayload p, FriendlyByteBuf buf) {
+        buf.writeBlockPos(p.start());
+        buf.writeInt(p.corners().size());
+        for (BlockPos c : p.corners())
+            buf.writeBlockPos(c);
+        buf.writeBlockPos(p.end());
+        buf.writeUtf(p.cornerTypeName());
     }
 
-    public void handle(IPayloadContext ctx) {
-        ctx.enqueueWork(() -> {
-            if (!(ctx.player() instanceof ServerPlayer sp))
+    public static ConnectPayload decode(FriendlyByteBuf buf) {
+        BlockPos start = buf.readBlockPos();
+        int n = Math.min(buf.readInt(), 4096);
+        java.util.List<BlockPos> corners = new java.util.ArrayList<>(n);
+        for (int i = 0; i < n; i++)
+            corners.add(buf.readBlockPos());
+        BlockPos end = buf.readBlockPos();
+        return new ConnectPayload(start, corners, end, buf.readUtf());
+    }
+
+    public static void handle(ConnectPayload p, Supplier<NetworkEvent.Context> ctx) {
+
+        ctx.get().enqueueWork(() -> {
+            ServerPlayer sp = ctx.get().getSender();
+            if (sp == null)
                 return;
 
             // ===== 服务端校验(绝不信任客户端)=====
@@ -114,10 +92,10 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
                 return;
             // ② 必须是主手持本模组的扳手
             // 注意: 自 2026-09-20 起扳手在副手时"只作普通扳手", 不参与本模组的模式功能
-            if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH))
+            if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH.get()))
                 return;
             // ③ 拐点数量上限(解码层只有固定硬闸; 这里按服务端自己的配置做业务校验, 结果是友好拒绝而不是掉线)
-            if (corners.size() > maxCorners()) {
+            if (p.corners.size() > maxCorners()) {
                 sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(
                     "msg." + BetterWrenchMod.MODID + ".connect.too_many_corners", maxCorners()), true);
                 return;
@@ -129,9 +107,9 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
             //    它比 hasChunkAt 多一条"超出建筑高度则返回 false": 站在世界顶端对着开阔空气选拐点时, 那个拐点可能
             //    落在建筑高度之外, 于是这里就会拦下(以前是后面的 plan() 用 UNLOADED 拦)。
             //    注意: 因此拦下时必须给出与 plan() 相同的提示, 否则玩家只看到红框、没有任何文字反馈(审计发现)。
-            boolean nodesLoaded = sp.level().isLoaded(start) && sp.level().isLoaded(end);
+            boolean nodesLoaded = sp.level().isLoaded(p.start) && sp.level().isLoaded(p.end);
             if (nodesLoaded)
-                for (BlockPos c : corners)
+                for (BlockPos c : p.corners)
                     if (!sp.level().isLoaded(c)) {
                         nodesLoaded = false;
                         break;
@@ -142,15 +120,16 @@ public record ConnectPayload(BlockPos start, List<BlockPos> corners, BlockPos en
                 return;
             }
 
-            ConnectCorner cornerType = ConnectCorner.byName(cornerTypeName);
+            ConnectCorner cornerType = ConnectCorner.byName(p.cornerTypeName);
 
             ConnectLogic.Result result = ConnectLogic.connect(
-                (net.minecraft.server.level.ServerLevel) sp.level(), sp, start, corners, end, cornerType);
+                (net.minecraft.server.level.ServerLevel) sp.level(), sp, p.start, p.corners, p.end, cornerType);
 
             // 结果提示文案在语言文件: msg.<modid>.connect.<result 小写>。见 lang/*.json。
             String key = "msg." + BetterWrenchMod.MODID + ".connect."
                 + result.name().toLowerCase(java.util.Locale.ROOT);
             sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(key), true);
         });
+        ctx.get().setPacketHandled(true);
     }
 }

@@ -1,13 +1,13 @@
 package com.nonono.createbetterwrench.network;
 
+import java.util.function.Supplier;
+
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.config.FeatureToggles;
 
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.minecraftforge.network.NetworkEvent;
 
 /**
  * 服务端到客户端: 下发<b>功能开关快照</b>(总开关 / 各类上限 / 七个加工子开关 / 战斗开关与权限等级 / 本玩家的战斗授权)。
@@ -21,58 +21,49 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * <p>本类在<b>通用包</b>里, 专用服务器也会加载它 —— 所以 {@link #handle} 只把快照塞进纯 JDK 的
  * {@link FeatureToggles}, <b>不引用任何客户端类</b>(见 docs/design/known-issues.md B-1)。</p>
  */
-public record FeatureTogglePayload(FeatureToggles.Snapshot snapshot) implements CustomPacketPayload {
+public record FeatureTogglePayload(FeatureToggles.Snapshot snapshot) {
 
-    public static final Type<FeatureTogglePayload> TYPE = new Type<>(
-        ResourceLocation.fromNamespaceAndPath(BetterWrenchMod.MODID, "feature_toggles"));
+;
 
-    public static final StreamCodec<ByteBuf, FeatureTogglePayload> STREAM_CODEC = new StreamCodec<>() {
-        @Override
-        public FeatureTogglePayload decode(ByteBuf buffer) {
-            return new FeatureTogglePayload(new FeatureToggles.Snapshot(
-                buffer.readBoolean(),
-                buffer.readInt(), buffer.readInt(), buffer.readInt(),
-                buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
-                buffer.readInt(), buffer.readInt(),
-                buffer.readBoolean(),
-                buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
-                buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
-                buffer.readBoolean(),
-                buffer.readBoolean(), buffer.readInt(), buffer.readBoolean()));
-        }
-
-        @Override
-        public void encode(ByteBuf buffer, FeatureTogglePayload payload) {
-            FeatureToggles.Snapshot s = payload.snapshot();
-            buffer.writeBoolean(s.connectEnabled());
-            buffer.writeInt(s.connectMaxCorners());
-            buffer.writeInt(s.connectMaxLegLength());
-            buffer.writeInt(s.connectMaxTotalBlocks());
-            buffer.writeBoolean(s.deconstructEnabled());
-            buffer.writeBoolean(s.deconstructAllowCreate());
-            buffer.writeBoolean(s.deconstructAllowRedstone());
-            buffer.writeInt(s.deconstructMaxEdge());
-            buffer.writeInt(s.deconstructBlocksPerTick());
-            buffer.writeBoolean(s.processEnabled());
-            buffer.writeBoolean(s.processAssembly());
-            buffer.writeBoolean(s.processFilling());
-            buffer.writeBoolean(s.processSplash());
-            buffer.writeBoolean(s.processBlasting());
-            buffer.writeBoolean(s.processSmoking());
-            buffer.writeBoolean(s.processHaunting());
-            buffer.writeBoolean(s.processForging());
-            buffer.writeBoolean(s.combatEnabled());
-            buffer.writeInt(s.combatPermissionLevel());
-            buffer.writeBoolean(s.combatGranted());
-        }
-    };
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public static void encode(FeatureTogglePayload p, FriendlyByteBuf buf) {
+        FeatureToggles.Snapshot s = p.snapshot();
+        buf.writeBoolean(s.connectEnabled());
+        buf.writeInt(s.connectMaxCorners());
+        buf.writeInt(s.connectMaxLegLength());
+        buf.writeInt(s.connectMaxTotalBlocks());
+        buf.writeBoolean(s.deconstructEnabled());
+        buf.writeBoolean(s.deconstructAllowCreate());
+        buf.writeBoolean(s.deconstructAllowRedstone());
+        buf.writeInt(s.deconstructMaxEdge());
+        buf.writeInt(s.deconstructBlocksPerTick());
+        buf.writeBoolean(s.processEnabled());
+        buf.writeBoolean(s.processAssembly());
+        buf.writeBoolean(s.processFilling());
+        buf.writeBoolean(s.processSplash());
+        buf.writeBoolean(s.processBlasting());
+        buf.writeBoolean(s.processSmoking());
+        buf.writeBoolean(s.processHaunting());
+        buf.writeBoolean(s.processForging());
+        buf.writeBoolean(s.combatEnabled());
+        buf.writeInt(s.combatPermissionLevel());
+        buf.writeBoolean(s.combatGranted());
     }
 
-    public void handle(IPayloadContext ctx) {
-        ctx.enqueueWork(() -> FeatureToggles.set(snapshot));
+    public static FeatureTogglePayload decode(FriendlyByteBuf buf) {
+        return new FeatureTogglePayload(new FeatureToggles.Snapshot(
+            buf.readBoolean(),
+            buf.readInt(), buf.readInt(), buf.readInt(),
+            buf.readBoolean(), buf.readBoolean(), buf.readBoolean(),
+            buf.readInt(), buf.readInt(),
+            buf.readBoolean(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(),
+            buf.readBoolean(), buf.readBoolean(), buf.readBoolean(),
+            buf.readBoolean(),
+            buf.readBoolean(), buf.readInt(), buf.readBoolean()));
+    }
+
+    public static void handle(FeatureTogglePayload p, Supplier<NetworkEvent.Context> ctx) {
+
+        ctx.get().enqueueWork(() -> FeatureToggles.set(p.snapshot));
+        ctx.get().setPacketHandled(true);
     }
 }

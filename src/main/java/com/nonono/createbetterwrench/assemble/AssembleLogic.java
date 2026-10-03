@@ -44,17 +44,16 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.SingleRecipeInput;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
-import net.neoforged.neoforge.items.ItemStackHandler;
-import net.neoforged.neoforge.items.wrapper.RecipeWrapper;
+import net.minecraftforge.fluids.FluidStack;
+import com.simibubi.create.foundation.fluid.FluidIngredient;
+import net.minecraftforge.items.ItemStackHandler;
+import net.minecraftforge.items.wrapper.RecipeWrapper;
 import org.joml.Vector3f;
 
 /**
@@ -117,7 +116,7 @@ public final class AssembleLogic {
 
     public static boolean tryAssemble(Level level, BlockPos pos, DepotBlockEntity depot,
                                       Player player, ItemStack held, InteractionHand hand) {
-        if (held.isEmpty() || held.is(BetterWrenchMod.BETTER_WRENCH))
+        if (held.isEmpty() || held.is(BetterWrenchMod.BETTER_WRENCH.get()))
             return false; // 空手/扳手不参与工作模式(扳手用于锁定/解锁)
 
         // ⓪ 功能开关(2026-09-25): 「加工」总开关关闭后, 本方法不做任何加工, 只发送提示并吃掉这次交互
@@ -193,10 +192,10 @@ public final class AssembleLogic {
                                                 ItemStack current) {
         // 序列的每一步都是"独立配方 + 序列上下文", 因此三种步骤类型都要用序列感知的查找问一遍。
         // 顺序: deploying -> 注液 -> 冲压; 只有手持物满足该步要求时才由本方法消费这次交互。
-        Optional<RecipeHolder<DeployerApplicationRecipe>> deploying = SequencedAssemblyRecipe.getRecipe(
+        Optional<DeployerApplicationRecipe> deploying = SequencedAssemblyRecipe.getRecipe(
             level, current, AllRecipeTypes.DEPLOYING.getType(), DeployerApplicationRecipe.class);
-        if (deploying.isPresent() && deploying.get().value().getRequiredHeldItem().test(held)) {
-            DeployerApplicationRecipe recipe = deploying.get().value();
+        if (deploying.isPresent() && deploying.get().getRequiredHeldItem().test(held)) {
+            DeployerApplicationRecipe recipe = deploying.get();
             if (blockedSubKind(player, ProcessKind.ASSEMBLY))
                 return true;
             ItemStack working = current.copyWithCount(1);
@@ -206,16 +205,16 @@ public final class AssembleLogic {
             return finishSequenceStep(level, pos, depot, player, results);
         }
 
-        Optional<RecipeHolder<FillingRecipe>> filling = SequencedAssemblyRecipe.getRecipe(
+        Optional<FillingRecipe> filling = SequencedAssemblyRecipe.getRecipe(
             level, current, AllRecipeTypes.FILLING.getType(), FillingRecipe.class);
         if (filling.isPresent()
-            && tryApplySequenceFilling(level, pos, depot, player, held, hand, current, filling.get().value()))
+            && tryApplySequenceFilling(level, pos, depot, player, held, hand, current, filling.get()))
             return true;
 
-        Optional<RecipeHolder<PressingRecipe>> pressing = SequencedAssemblyRecipe.getRecipe(
+        Optional<PressingRecipe> pressing = SequencedAssemblyRecipe.getRecipe(
             level, current, AllRecipeTypes.PRESSING.getType(), PressingRecipe.class);
         if (pressing.isPresent()
-            && tryApplySequencePressing(level, pos, depot, player, held, hand, current, pressing.get().value()))
+            && tryApplySequencePressing(level, pos, depot, player, held, hand, current, pressing.get()))
             return true;
 
         return false;
@@ -237,10 +236,11 @@ public final class AssembleLogic {
         if (!GenericItemEmptying.canItemBeEmptied(level, held))
             return false;
         FluidStack available = GenericItemEmptying.emptyItem(level, held.copy(), true).getFirst();
-        SizedFluidIngredient required = recipe.getRequiredFluid();
-        if (available.isEmpty() || !required.ingredient().test(available))
+        FluidIngredient required = recipe.getRequiredFluid();
+        if (available.isEmpty() || !required.test(available))
             return false;
-        int perItem = Math.max(1, required.amount());
+        int perItem = Math.max(1, com.simibubi.create.content.fluids.spout.FillingBySpout
+            .getRequiredAmountForItem(level, current.copyWithCount(1), available));
         int units = available.getAmount() / perItem;      // 这一份流体够注几件
         if (units <= 0)
             return false;
@@ -256,7 +256,7 @@ public final class AssembleLogic {
         if (wanted > onDepot) {
             ItemStack extra = DepotPiles.take(level, pos, wanted - onDepot);
             if (!extra.isEmpty()) {
-                if (ItemStack.isSameItemSameComponents(combined, extra)) {
+                if (ItemStack.isSameItemSameTags(combined, extra)) {
                     extraMerged = extra.getCount();
                     combined.grow(extraMerged);
                 } else {
@@ -406,14 +406,14 @@ public final class AssembleLogic {
         inv.setStackInSlot(1, held.copyWithCount(1));
         RecipeWrapper wrapper = new RecipeWrapper(inv);
 
-        Optional<RecipeHolder<Recipe<RecipeWrapper>>> found =
+        Optional<Recipe<RecipeWrapper>> found =
             AllRecipeTypes.DEPLOYING.find(wrapper, level).filter(AllRecipeTypes.CAN_BE_AUTOMATED);
         if (found.isEmpty())
             found = AllRecipeTypes.ITEM_APPLICATION.find(wrapper, level).filter(AllRecipeTypes.CAN_BE_AUTOMATED);
         if (found.isEmpty())
             return false;
 
-        Recipe<RecipeWrapper> recipe = found.get().value();
+        Recipe<RecipeWrapper> recipe = found.get();
         ItemStack working = current.copyWithCount(1);
         List<ItemStack> results = RecipeApplier.applyRecipeOn(level, working, recipe, true);
         if (results.isEmpty() || results.get(0).isEmpty())
@@ -450,7 +450,7 @@ public final class AssembleLogic {
             return false;
 
         if (!player.isCreative() && held.getMaxDamage() > 0)
-            held.hurtAndBreak(1, player, handSlot(hand));
+            held.hurtAndBreak(1, player, e -> e.broadcastBreakEvent(hand));
 
         splitExtras(level, pos, depot);
         holdThenEject(level, pos, depot, out, player);
@@ -500,7 +500,7 @@ public final class AssembleLogic {
         if (wanted > onDepot) {
             ItemStack extra = DepotPiles.take(level, pos, wanted - onDepot);
             if (!extra.isEmpty()) {
-                if (ItemStack.isSameItemSameComponents(combined, extra)) {
+                if (ItemStack.isSameItemSameTags(combined, extra)) {
                     extraMerged = extra.getCount();
                     combined.grow(extraMerged);
                 } else {
@@ -519,8 +519,8 @@ public final class AssembleLogic {
         // 注意: Create 的 AllRecipeTypes.FILLING 泛型是基类型, 直接取会被推断成 RecipeHolder<Recipe<...>>,
         //   因此这里遍历并按 instanceof 收窄到 FillingRecipe。
         FillingRecipe fillingRecipe = null;
-        for (RecipeHolder<?> holder : level.getRecipeManager().getAllRecipesFor(AllRecipeTypes.FILLING.getType())) {
-            if (holder.value() instanceof FillingRecipe candidate
+        for (Recipe<?> holder : level.getRecipeManager().getAllRecipesFor(AllRecipeTypes.FILLING.getType())) {
+            if (holder instanceof FillingRecipe candidate
                 && !candidate.getIngredients().isEmpty()
                 && candidate.getIngredients().get(0).test(probe)) {
                 fillingRecipe = candidate;
@@ -667,7 +667,7 @@ public final class AssembleLogic {
         if (batch.getCount() < limit) {
             ItemStack extra = DepotPiles.take(level, pos, limit - batch.getCount());
             if (!extra.isEmpty()) {
-                if (ItemStack.isSameItemSameComponents(batch, extra)) {
+                if (ItemStack.isSameItemSameTags(batch, extra)) {
                     fromPile = extra.getCount();
                     batch.grow(fromPile);
                 } else {
@@ -1032,7 +1032,7 @@ public final class AssembleLogic {
         if (player.isCreative() || keepHeld)
             return;
         if (held.getMaxDamage() > 0) {
-            held.hurtAndBreak(1, player, handSlot(hand));
+            held.hurtAndBreak(1, player, e -> e.broadcastBreakEvent(hand));
             return;
         }
         ItemStack leftover = held.getCraftingRemainingItem();

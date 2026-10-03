@@ -315,7 +315,7 @@ public final class DepotScenes {
         scene.idle(70);
 
         scene.overlay().showControls(util.vector().topOf(DEPOT), Pointing.DOWN, 20)
-            .withItem(new ItemStack(Items.MACE))
+            .withItem(new ItemStack(net.minecraft.world.item.Items.IRON_INGOT))
             .rightClick();
         puff(scene, util, DEPOT, ParticleTypes.CRIT, 1, 60);
         scene.effects().indicateSuccess(DEPOT);
@@ -443,7 +443,7 @@ public final class DepotScenes {
     private static void hold(CreateSceneBuilder scene, SceneBuildingUtil util, BlockPos depot, ItemStack stack) {
         scene.world().modifyBlockEntityNBT(util.select().position(depot), DepotBlockEntity.class,
             nbt -> nbt.put("HeldItem",
-                new TransportedItemStack(stack.copy()).serializeNBT(scene.world().getHolderLookupProvider())));
+                new TransportedItemStack(stack.copy()).serializeNBT()));
     }
 
     /** 台面上方喷一小撮粒子(与游戏内加工反馈同款)。 */

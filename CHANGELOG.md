@@ -6,6 +6,29 @@ Versions are SemVer; the current scheme is `<mod version>+mc<Minecraft version>`
 everything after `+` is build metadata. Earlier releases used `<mod version>+create<Create version>`
 (e.g. `0.4.0+create6.0.10`), and `1.0.0-beta` was a short-lived prerelease-style label.
 
+## [1.1.1-beta+mc1.20.1] - 2026-10-03
+
+### Added
+- **Minecraft 1.20.1 + Forge line**: the mod is ported to Forge 47.1.3 or newer with Create 6.0.8 to
+  6.1.0 (excluding). Feature set matches `1.1.1-beta+mc1.21.1`.
+
+### Changed
+- **Networking was rewritten for Forge 1.20.1**: the NeoForge payload system (`CustomPacketPayload`,
+  `StreamCodec`, `IPayloadContext`) does not exist before 1.20.2, so the seven payloads now use a Forge
+  `SimpleChannel` with `FriendlyByteBuf` codecs. Every server-side validation step is preserved in the
+  same order.
+- **Lock state moved from data attachments to `SavedData`**: NeoForge data attachments are unavailable
+  on 1.20.1, so the depot lock table is stored per dimension in the world save, with explicit cleanup
+  when a depot is broken or destroyed.
+- **Model loader switched to `forge:composite`**, and the `c:tools/hammer` tag no longer references
+  `minecraft:mace`.
+
+### Notes
+- Minecraft 1.20.1 has no vanilla hammer, so Forging needs a mod or a data pack that provides one
+  through the `c:tools/hammer` tag.
+- The 1.20.1 line requires **Forge**, while the 1.21.1 line requires **NeoForge**; the two lines are
+  published as separate branches of this repository.
+
 ## [Unreleased]
 
 ### Changed

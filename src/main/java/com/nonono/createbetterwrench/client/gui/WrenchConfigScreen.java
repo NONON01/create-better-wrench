@@ -34,11 +34,11 @@ import net.minecraft.util.Mth;
  * <ul>
  *   <li>读: {@code ConfigValue#get()}; 范围与默认值取 {@code getSpec().getRange()} / {@code getDefault()};</li>
  *   <li>写: {@code ConfigValue#set(v)} —— 立即更新内存缓存(本 mod 的 getter 马上生效, 不必重进世界);</li>
- *   <li>落盘: {@code ModConfigSpec#save()}, 本页面<b>只在关闭时统一保存一次</b>, 不在拖动过程中反复写盘。</li>
+ *   <li>落盘: {@code ForgeConfigSpec#save()}, 本页面<b>只在关闭时统一保存一次</b>, 不在拖动过程中反复写盘。</li>
  * </ul>
  *
  * <p><b>只读情形</b>: 配置是 SERVER 类型。专用服务器上客户端拿不到服务端配置
- * ({@code ModConfigSpec#isLoaded()} 为 false), 因此本页面自动变<b>只读</b>并给出提示
+ * ({@code ForgeConfigSpec#isLoaded()} 为 false), 因此本页面自动变<b>只读</b>并给出提示
  * (此时开关值来自服务端下发的快照, 见 {@code config/FeatureToggles})。</p>
  */
 public final class WrenchConfigScreen extends Screen {
@@ -180,14 +180,14 @@ public final class WrenchConfigScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
         double maxScroll = Math.max(0, visibleHeight() - listHeight());
         if (maxScroll > 0) {
             scroll = Mth.clamp(scroll - scrollY * 14, 0, maxScroll);
             layoutRows();
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        return super.mouseScrolled(mouseX, mouseY, scrollY);
     }
 
     @Override
@@ -206,7 +206,7 @@ public final class WrenchConfigScreen extends Screen {
     // ---------------------------------------------------------------- 绘制
 
     @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void renderBackground(GuiGraphics g) {
         int x = width / 2 - listW() / 2;
         int listBottom = LIST_TOP + listHeight();
         g.fill(0, 0, width, height, 0xC0101010);

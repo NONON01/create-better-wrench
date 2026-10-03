@@ -26,9 +26,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.item.crafting.SingleRecipeInput;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
@@ -54,7 +53,7 @@ public final class Forging {
      * 其它模组只要把自己的锤子加入同一标签即可共用这条路径。
      */
     private static final TagKey<Item> HAMMER_TOOLS =
-        TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "tools/hammer"));
+        TagKey.create(Registries.ITEM, new ResourceLocation("c", "tools/hammer"));
 
     /**
      * 一次锻击后给锤子加的冷却(tick) —— 与"一次右击只做一件"的节奏配套, 防止连点。
@@ -83,14 +82,19 @@ public final class Forging {
         if (!isHammer(held) || onCooldown(player, held))
             return false;
 
-        Optional<RecipeHolder<PressingRecipe>> found =
-            AllRecipeTypes.PRESSING.find(new SingleRecipeInput(current.copyWithCount(1)), level);
+        // 1.20.1: Create 的 find(C extends Container, ...) 与本地的容器类型推断不合,
+        // 改用原版配方管理器按类型查找(1.20.1 返回配方本体, 没有 RecipeHolder)
+        Optional<PressingRecipe> found = AllRecipeTypes.PRESSING.find(
+            new net.minecraftforge.items.wrapper.RecipeWrapper(
+                new net.minecraftforge.items.wrapper.InvWrapper(
+                    new net.minecraft.world.SimpleContainer(current.copyWithCount(1)))),
+            level);
         if (found.isEmpty())
             return false;
         if (AssembleLogic.blockedSubKind(player, ProcessKind.FORGING))
             return true;
 
-        ItemStack product = firstNonEmpty(found.get().value().rollResults(level.random));
+        ItemStack product = firstNonEmpty(found.get().rollResults());
         if (product.isEmpty())
             return false;
 
@@ -111,7 +115,7 @@ public final class Forging {
     static boolean isHammer(ItemStack held) {
         // 原版重锤直接命中: 即使数据包标签因某种原因没生效, 重锤也一定能用于锻造(2026-10-03 加固)
         return !held.isEmpty()
-            && (held.is(net.minecraft.world.item.Items.MACE) || held.is(HAMMER_TOOLS));
+            && held.is(HAMMER_TOOLS);
     }
 
     private static boolean onCooldown(Player player, ItemStack held) {

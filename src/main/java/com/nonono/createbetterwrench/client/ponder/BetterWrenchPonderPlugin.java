@@ -5,7 +5,7 @@ import com.nonono.createbetterwrench.client.ponder.scenes.DepotScenes;
 import com.nonono.createbetterwrench.client.ponder.scenes.WrenchScenes;
 import com.simibubi.create.AllBlocks;
 
-import net.createmod.catnip.registry.RegisteredObjectsHelper;
+import com.nonono.createbetterwrench.client.ponder.PonderKeys;
 import net.createmod.ponder.api.registration.PonderPlugin;
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper;
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper;
@@ -42,7 +42,7 @@ public class BetterWrenchPonderPlugin implements PonderPlugin {
     @Override
     public void registerScenes(PonderSceneRegistrationHelper<ResourceLocation> helper) {
         // 把注册键的类型从 ResourceLocation 换成物品, 这样可以直接写本模组的物品
-        PonderSceneRegistrationHelper<ItemLike> h = helper.withKeyFunction(RegisteredObjectsHelper::getKeyOrThrow);
+        PonderSceneRegistrationHelper<ItemLike> h = helper.withKeyFunction(PonderKeys::key);
 
         // ---- ① 直接附属于万能扳手的两段 ----
         h.forComponents(BetterWrenchMod.BETTER_WRENCH.get())
@@ -80,7 +80,7 @@ public class BetterWrenchPonderPlugin implements PonderPlugin {
     /**
      * 「加工」那 7 段的宿主组件: <b>本模组的扳手</b> + <b>Create 的置物台</b>。
      *
-     * <p>置物台拿不到时(理论上不该发生)就只挂扳手, 避免 {@code RegisteredObjectsHelper.getKeyOrThrow}
+     * <p>置物台拿不到时(理论上不该发生)就只挂扳手, 避免 {@code PonderKeys.key}
      * 在注册期抛异常导致客户端启动失败。</p>
      */
     private static ItemLike[] depotHolders() {

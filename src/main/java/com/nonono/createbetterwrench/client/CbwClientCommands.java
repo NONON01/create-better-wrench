@@ -5,8 +5,8 @@ import com.nonono.createbetterwrench.client.gui.WrenchConfigScreen;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
 /**
  * 客户端指令 {@code /cbw config}: 打开本模组<b>自绘的配置页面</b>。

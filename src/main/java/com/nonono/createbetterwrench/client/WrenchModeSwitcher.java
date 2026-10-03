@@ -11,9 +11,9 @@ import com.nonono.createbetterwrench.mode.WrenchMode;
 import com.mojang.blaze3d.platform.InputConstants;
 
 import net.minecraft.client.KeyMapping;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 
 /**
  * 客户端: ALT 呼出/聚焦底部工具条所需的按键绑定与当前模式状态。

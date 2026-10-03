@@ -29,8 +29,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.neoforged.neoforge.common.util.BlockSnapshot;
-import net.neoforged.neoforge.event.EventHooks;
+import net.minecraftforge.common.util.BlockSnapshot;
+import net.minecraftforge.event.ForgeEventFactory;
 
 /**
  * 「连接」模式的服务端核心: 拐点数量不限, 每段边按几何自动路由。
@@ -665,9 +665,9 @@ public final class ConnectLogic {
             if (!world.mayInteract(player, c.pos))
                 return Result.PROTECTED;
 
-        Item gearboxItem = AllBlocks.GEARBOX.asItem();
+        Item gearboxItem = AllBlocks.GEARBOX.get().asItem();
         Item verticalItem = AllItems.VERTICAL_GEARBOX.get();
-        Item cogItem = AllBlocks.LARGE_COGWHEEL.asItem();
+        Item cogItem = AllBlocks.LARGE_COGWHEEL.get().asItem();
 
         // 审计 A-1: 材料需求先按 Item 聚合再一次性校验(而不是按用途分头校验)。
         // 这条口径在 2026-09-20 之前用来防"副手持轴变体(齿轮)当轴用, 同一堆叠被两个用途重复计入"的复制漏洞;
@@ -697,7 +697,7 @@ public final class ConnectLogic {
                 return Result.PROTECTED;
             }
             if (outcome == PlaceOutcome.OK)
-                addDemand(placedItems, AllBlocks.SHAFT.asItem(), 1);
+                addDemand(placedItems, AllBlocks.SHAFT.get().asItem(), 1);
         }
         for (GearboxPlace g : plan.gearboxes) {
             BlockState st = AllBlocks.GEARBOX.getDefaultState()
@@ -770,8 +770,8 @@ public final class ConnectLogic {
                                                Player player, List<BlockSnapshot> undo) {
         BlockSnapshot snapshot = BlockSnapshot.create(world.dimension(), world, pos);
         KineticBlockEntity.switchToBlockState(world, pos, st);
-        if (EventHooks.onBlockPlace(player, snapshot, Direction.UP)) {
-            snapshot.restore(snapshot.getFlags() | Block.UPDATE_CLIENTS);
+        if (ForgeEventFactory.onBlockPlace(player, snapshot, Direction.UP)) {
+            snapshot.restore();
             BetterWrenchMod.LOGGER.warn("connect: 放置被 EntityPlaceEvent 取消 {}", pos);
             return PlaceOutcome.DENIED;
         }
@@ -787,7 +787,7 @@ public final class ConnectLogic {
     private static void revertAll(List<BlockSnapshot> undo) {
         for (int i = undo.size() - 1; i >= 0; i--) {
             BlockSnapshot snapshot = undo.get(i);
-            snapshot.restore(snapshot.getFlags() | Block.UPDATE_CLIENTS);
+            snapshot.restore();
         }
     }
 
@@ -804,10 +804,10 @@ public final class ConnectLogic {
     /** 本单按 Item 聚合的需求量(同一 Item 的多项用途必须累加, 见审计 A-1)。轴固定用 create:shaft。 */
     private static Map<Item, Integer> demandOf(Plan plan) {
         Map<Item, Integer> demand = new LinkedHashMap<>();
-        addDemand(demand, AllBlocks.SHAFT.asItem(), plan.shaftPositions.size());
-        addDemand(demand, AllBlocks.GEARBOX.asItem(), gearboxCount(plan.gearboxes, false));
+        addDemand(demand, AllBlocks.SHAFT.get().asItem(), plan.shaftPositions.size());
+        addDemand(demand, AllBlocks.GEARBOX.get().asItem(), gearboxCount(plan.gearboxes, false));
         addDemand(demand, AllItems.VERTICAL_GEARBOX.get(), gearboxCount(plan.gearboxes, true));
-        addDemand(demand, AllBlocks.LARGE_COGWHEEL.asItem(), plan.cogs.size());
+        addDemand(demand, AllBlocks.LARGE_COGWHEEL.get().asItem(), plan.cogs.size());
         return demand;
     }
 

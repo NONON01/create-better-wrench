@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.network.WrenchNetwork;
 import com.nonono.createbetterwrench.connect.ConnectLogic;
 import com.nonono.createbetterwrench.connect.ConnectLogic.Plan;
 import com.nonono.createbetterwrench.mode.ConnectCorner;
@@ -27,13 +28,12 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.client.event.InputEvent;
 
 /**
  * 客户端「连接」选择状态机(2026-09-07 重定义)。
@@ -85,7 +85,7 @@ public final class ConnectSelectionHandler {
      */
     private static boolean active(Minecraft mc) {
         return mc.player != null
-            && mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
+            && mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH.get())
             && WrenchModeSwitcher.current == WrenchMode.CONNECT;
     }
 
@@ -128,7 +128,7 @@ public final class ConnectSelectionHandler {
         if (kinetic) {
             ClientPacketListener conn = mc.getConnection();
             if (conn != null)
-                PacketDistributor.sendToServer(
+                WrenchNetwork.sendToServer(
                     ConnectPayload.create(startPos, corners, hit, WrenchModeSwitcher.connectCorner));
             resetSelection();
             return true;
@@ -247,7 +247,9 @@ public final class ConnectSelectionHandler {
     }
 
     @SubscribeEvent
-    public static void onClientTick(ClientTickEvent.Post event) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END)
+            return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null)
             return;

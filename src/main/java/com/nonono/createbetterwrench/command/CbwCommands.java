@@ -17,7 +17,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 
 /**
  * 服务端指令 {@code /cbw}(玩家指令的另一半 {@code /cbw config} 在客户端类 {@code client/CbwClientCommands})。

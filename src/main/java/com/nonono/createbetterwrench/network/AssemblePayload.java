@@ -1,5 +1,7 @@
 package com.nonono.createbetterwrench.network;
 
+import java.util.function.Supplier;
+
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.assemble.AssembleLock;
@@ -7,16 +9,14 @@ import com.nonono.createbetterwrench.assemble.AssembleLogic;
 import com.nonono.createbetterwrench.permission.WrenchPermissions;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 
-import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.network.NetworkEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
  * 客户端到服务端: 在「加工」模式下右击置物台, 请求<b>切换锁定状态</b>(锁定/解锁)。
@@ -26,22 +26,9 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * 通过后才写锁定状态 —— 置物台按新状态决定"返还台面物品"还是"自动续料"
  * (盆内物品与流体留在原处)。详见 {@link #handle}。</p>
  */
-public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
+public record AssemblePayload(BlockPos pos) {
 
-    public static final Type<AssemblePayload> TYPE = new Type<>(
-        ResourceLocation.fromNamespaceAndPath(BetterWrenchMod.MODID, "assemble_toggle"));
-
-    public static final StreamCodec<ByteBuf, AssemblePayload> STREAM_CODEC = StreamCodec.composite(
-        BlockPos.STREAM_CODEC, AssemblePayload::pos,
-        AssemblePayload::new
-    );
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
-
-    /**
+/**
      * 允许的最大交互距离(格)的<b>平方</b>。
      *
      * <p>取 8 格(8²=64): 比原版 4.5 格的正常触及范围宽松, 但足以挡住"改包远程操作"。
@@ -49,9 +36,19 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
      */
     private static final double MAX_INTERACTION_DISTANCE_SQR = 64.0;
 
-    public void handle(IPayloadContext ctx) {
-        ctx.enqueueWork(() -> {
-            if (!(ctx.player() instanceof ServerPlayer sp))
+    public static void encode(AssemblePayload p, FriendlyByteBuf buf) {
+        buf.writeBlockPos(p.pos());
+    }
+
+    public static AssemblePayload decode(FriendlyByteBuf buf) {
+        return new AssemblePayload(buf.readBlockPos());
+    }
+
+    public static void handle(AssemblePayload p, Supplier<NetworkEvent.Context> ctx) {
+
+        ctx.get().enqueueWork(() -> {
+            ServerPlayer sp = ctx.get().getSender();
+            if (sp == null)
                 return;
 
             // ===== 服务端校验(绝不信任客户端; 审计发现: 原本这里一条校验都没有)=====
@@ -67,16 +64,16 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
                 return;
             // ② 必须是主手持本模组的扳手(锁定/解锁是扳手模式下的行为)
             // 注意: 自 2026-09-20 起扳手在副手时"只作普通扳手", 不参与本模组的模式功能
-            if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH))
+            if (!sp.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH.get()))
                 return;
             // ③ 距离: 必须在可交互范围内
-            if (sp.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)
+            if (sp.distanceToSqr(p.pos.getX() + 0.5, p.pos.getY() + 0.5, p.pos.getZ() + 0.5)
                 > MAX_INTERACTION_DISTANCE_SQR)
                 return;
             // ④ 区块已加载 + 目标确实是可锁定的机器(仅置物台)
-            if (!sp.level().isLoaded(pos))
+            if (!sp.level().isLoaded(p.pos))
                 return;
-            BlockEntity be = sp.level().getBlockEntity(pos);
+            BlockEntity be = sp.level().getBlockEntity(p.pos);
             if (be instanceof DepotBlockEntity depot) {
                 boolean now = !AssembleLock.isLocked(depot);
                 AssembleLock.setLocked(depot, now);
@@ -85,15 +82,16 @@ public record AssemblePayload(BlockPos pos) implements CustomPacketPayload {
                 if (!now) {
                     // 解锁: 把台面上的物品 + 两个料堆(含被弹出的成品)全部返还到玩家背包
                     // (设计约定, 2026-09-17; 装不下的会由原版逻辑掉在玩家脚下, 不会丢)
-                    AssembleLogic.returnHeldAndPiles((ServerLevel) sp.level(), pos, depot, sp);
+                    AssembleLogic.returnHeldAndPiles((ServerLevel) sp.level(), p.pos, depot, sp);
                 } else {
                     // 刚锁定: 台面若空而原料堆还有货, 自动续一个上去(「自动续料」)
-                    AssembleLogic.refillIfEmpty(sp.level(), pos, depot);
+                    AssembleLogic.refillIfEmpty(sp.level(), p.pos, depot);
                 }
                 sp.displayClientMessage(Component.translatable("msg." + BetterWrenchMod.MODID
                     + (now ? ".assemble.locked" : ".assemble.unlocked")), true);
                 return;
             }
 });
+        ctx.get().setPacketHandled(true);
     }
 }

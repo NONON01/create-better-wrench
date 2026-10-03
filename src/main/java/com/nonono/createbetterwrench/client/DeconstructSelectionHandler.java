@@ -1,6 +1,7 @@
 package com.nonono.createbetterwrench.client;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.network.WrenchNetwork;
 import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.mode.DeconstructScope;
 import com.nonono.createbetterwrench.mode.WrenchMode;
@@ -15,13 +16,12 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.client.event.InputEvent;
 
 /**
  * 客户端「拆除」选框状态机(仿 Create SchematicAndQuillHandler)。
@@ -75,7 +75,7 @@ public final class DeconstructSelectionHandler {
      */
     private static boolean active(Minecraft mc) {
         return mc.player != null
-            && mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH)
+            && mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH.get())
             && WrenchModeSwitcher.current == WrenchMode.DECONSTRUCT;
     }
 
@@ -108,7 +108,7 @@ public final class DeconstructSelectionHandler {
         DeconstructScope scope = WrenchConfig.effectiveScope(WrenchModeSwitcher.deconstructScope);
         ClientPacketListener conn = mc.getConnection();
         if (conn != null)
-            PacketDistributor.sendToServer(DeconstructPayload.create(cornerA, b, scope));
+            WrenchNetwork.sendToServer(DeconstructPayload.create(cornerA, b, scope));
         resetSelection();
         return true;
     }
@@ -146,7 +146,9 @@ public final class DeconstructSelectionHandler {
      * 由本类的 ClientTickEvent.Post 订阅驱动(仿 Create 每帧刷新 outliner 的惯用法)。
      */
     @SubscribeEvent
-    public static void onClientTick(ClientTickEvent.Post event) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END)
+            return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null)
             return;

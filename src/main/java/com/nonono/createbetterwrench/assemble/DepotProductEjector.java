@@ -13,10 +13,10 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.level.LevelEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.event.level.LevelEvent;
+import net.minecraftforge.event.TickEvent;
 
 /**
  * 「<b>成品先在台面上停留若干 tick, 然后弹出</b>」的延时弹出器。
@@ -103,7 +103,9 @@ public final class DepotProductEjector {
         }
 
         @SubscribeEvent
-        public static void onServerTick(ServerTickEvent.Post event) {
+        public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END)
+            return;
             if (PENDING.isEmpty())
                 return;
             Iterator<Pending> it = PENDING.iterator();
@@ -119,7 +121,7 @@ public final class DepotProductEjector {
                     continue;
                 // 审计 A-6: 台面上的东西已经不是当初摆上去的那件(被玩家/其它路径换过), 放弃这次弹出,
                 // 否则会把当下台面上的东西误弹出去。只比物品与组件, 不比数量。
-                if (!ItemStack.isSameItemSameComponents(pending.expected(), depot.getHeldItem()))
+                if (!ItemStack.isSameItemSameTags(pending.expected(), depot.getHeldItem()))
                     continue;
                 // 2026-10-03(设计约定): 停留时间到 -> 成品<b>进入玩家背包</b>(半成品仍按原样留在台面推进)。
                 //   玩家已离线 / 跨维度时退回"弹成掉落物", 保证物品不会因为交付目标不存在而消失。

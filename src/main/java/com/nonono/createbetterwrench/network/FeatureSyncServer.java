@@ -1,5 +1,7 @@
 package com.nonono.createbetterwrench.network;
 
+import java.util.function.Supplier;
+
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.combat.WrenchCombatGrant;
 import com.nonono.createbetterwrench.config.FeatureToggles;
@@ -7,12 +9,11 @@ import com.nonono.createbetterwrench.config.WrenchConfig;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.event.config.ModConfigEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.server.ServerLifecycleHooks;
 
 /**
  * 服务端: 把<b>功能开关快照</b>下发给客户端(专用服务器上客户端读不到 SERVER 配置, 靠这个知道开关状态)。
@@ -46,7 +47,7 @@ public final class FeatureSyncServer {
 
     /** 给单个玩家下发快照。 */
     public static void sendTo(ServerPlayer player) {
-        PacketDistributor.sendToPlayer(player,
+        WrenchNetwork.sendToPlayer(player,
             new FeatureTogglePayload(WrenchConfig.snapshot(WrenchCombatGrant.isGranted(player))));
     }
 

@@ -16,16 +16,11 @@ import net.minecraft.resources.ResourceLocation;
  */
 public enum WrenchMode {
 
-    WRENCH("wrench", ResourceLocation.fromNamespaceAndPath(
-        BetterWrenchMod.MODID, "textures/gui/mode_wrench.png")),
-    CONNECT("connect", ResourceLocation.fromNamespaceAndPath(
-        BetterWrenchMod.MODID, "textures/gui/mode_connect.png")),
-    DECONSTRUCT("deconstruct", ResourceLocation.fromNamespaceAndPath(
-        BetterWrenchMod.MODID, "textures/gui/mode_deconstruct.png")),
-    ASSEMBLE("assemble", ResourceLocation.fromNamespaceAndPath(
-        BetterWrenchMod.MODID, "textures/gui/mode_assemble.png")),
-    COMING_SOON("coming_soon", ResourceLocation.fromNamespaceAndPath(
-        BetterWrenchMod.MODID, "textures/gui/mode_coming_soon.png"));
+    WRENCH("wrench", new ResourceLocation(BetterWrenchMod.MODID, "textures/gui/mode_wrench.png")),
+    CONNECT("connect", new ResourceLocation(BetterWrenchMod.MODID, "textures/gui/mode_connect.png")),
+    DECONSTRUCT("deconstruct", new ResourceLocation(BetterWrenchMod.MODID, "textures/gui/mode_deconstruct.png")),
+    ASSEMBLE("assemble", new ResourceLocation(BetterWrenchMod.MODID, "textures/gui/mode_assemble.png")),
+    COMING_SOON("coming_soon", new ResourceLocation(BetterWrenchMod.MODID, "textures/gui/mode_coming_soon.png"));
 
     /** HUD 顶部提示与描述里"按键/可选项"提示共用的蓝色(与 {@code hint.create_better_wrench.toolbar.scroll} 那行同色)。 */
     public static final int HINT_BLUE = 0xCCDDFF;
@@ -59,7 +54,7 @@ public enum WrenchMode {
 
     /** 本模组的版本号(与 gradle.properties 写入模组容器的值同源)。 */
     private static String modVersion() {
-        return net.neoforged.fml.ModList.get()
+        return net.minecraftforge.fml.ModList.get()
             .getModContainerById(BetterWrenchMod.MODID)
             .map(container -> container.getModInfo()
                 .getVersion()

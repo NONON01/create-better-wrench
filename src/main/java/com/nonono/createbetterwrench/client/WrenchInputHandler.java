@@ -2,11 +2,11 @@ package com.nonono.createbetterwrench.client;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
 
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.InputEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.client.event.InputEvent;
 
 /**
  * 客户端 GAME 总线(NeoForge.EVENT_BUS)输入事件: 把滚轮事件转交给 {@link WrenchHud} 处理。

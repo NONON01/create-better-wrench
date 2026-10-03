@@ -27,14 +27,19 @@ and both `en_us` and `zh_cn` are kept in sync.
 
 | | |
 | --- | --- |
-| Minecraft | **1.21.1** |
-| NeoForge | **21.1.219** or newer (the floor Create 6.0.10 itself requires; built against 21.1.249) |
+| Minecraft | **1.20.1** |
+| Forge | **47.1.3** or newer (tested on 47.4.23) |
 | Create | **6.0.10** up to (not including) 6.1.0 — **required** |
+
+
+> **1.20.1 line note.** Minecraft 1.20.1 has no vanilla hammer (the mace was added in 1.21), so the
+> Forging feature requires a mod that provides a hammer, or a data pack that adds an item to the
+> `c:tools/hammer` tag. All other features behave identically to the 1.21.1 line.
 
 ## Install / 安装
 
-1. Install NeoForge 21.1.x for Minecraft 1.21.1.
-2. Drop Create 6.0.10+ and `create_better_wrench-<version>.jar` into your `mods/` folder.
+1. Install Forge 47.1.3 or newer for Minecraft 1.20.1.
+2. Drop Create 6.0.8+ (below 6.1.0) and `create_better_wrench-<version>.jar` into your `mods/` folder.
 3. Works on both the client and a dedicated server.
 
 Get the wrench in game with `/give @s create_better_wrench:better_wrench`, from Create's

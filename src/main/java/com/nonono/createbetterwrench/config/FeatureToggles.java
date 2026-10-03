@@ -5,7 +5,7 @@ package com.nonono.createbetterwrench.config;
  *
  * <h2>为什么需要它</h2>
  * <p>本模组的配置是 NeoForge 的 <b>SERVER</b> 类型: 数值由<b>服务端权威</b>读取。单人游戏里客户端与内置服务端同进程,
- * 客户端能直接读到同一份配置; 但<b>专用服务器</b>上客户端读不到({@code ModConfigSpec#isLoaded()} 为 false),
+ * 客户端能直接读到同一份配置; 但<b>专用服务器</b>上客户端读不到({@code ForgeConfigSpec#isLoaded()} 为 false),
  * 于是"某个功能被服主关掉了"这件事客户端一无所知 —— 模式仍可切换、HUD 也不会提示。</p>
  *
  * <p>因此专用服务器在玩家登录时(以及每次配置重载后)把这份快照下发给客户端, 客户端据此:

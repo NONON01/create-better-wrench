@@ -5,7 +5,7 @@ import java.util.List;
 import com.nonono.createbetterwrench.mode.DeconstructScope;
 import com.nonono.createbetterwrench.mode.ProcessKind;
 
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec;
 
 /**
  * 「万能扳手」的<b>可调参数 + 功能开关</b>(NeoForge 配置)。
@@ -78,35 +78,35 @@ public final class WrenchConfig {
     /** 战斗: 需要的权限等级(0 = 普通玩家, 2 = OP)。 */
     public static final int DEFAULT_COMBAT_PERMISSION_LEVEL = 2;
 
-    public static final ModConfigSpec SPEC;
+    public static final ForgeConfigSpec SPEC;
 
     // ---- 连接
-    private static final ModConfigSpec.BooleanValue CONNECT_ENABLED;
-    private static final ModConfigSpec.IntValue CONNECT_MAX_CORNERS;
-    private static final ModConfigSpec.IntValue CONNECT_MAX_LEG_LENGTH;
-    private static final ModConfigSpec.IntValue CONNECT_MAX_TOTAL_BLOCKS;
+    private static final ForgeConfigSpec.BooleanValue CONNECT_ENABLED;
+    private static final ForgeConfigSpec.IntValue CONNECT_MAX_CORNERS;
+    private static final ForgeConfigSpec.IntValue CONNECT_MAX_LEG_LENGTH;
+    private static final ForgeConfigSpec.IntValue CONNECT_MAX_TOTAL_BLOCKS;
     // ---- 拆除
-    private static final ModConfigSpec.BooleanValue DECONSTRUCT_ENABLED;
-    private static final ModConfigSpec.BooleanValue DECONSTRUCT_ALLOW_CREATE;
-    private static final ModConfigSpec.BooleanValue DECONSTRUCT_ALLOW_REDSTONE;
-    private static final ModConfigSpec.IntValue DECONSTRUCT_MAX_EDGE;
-    private static final ModConfigSpec.IntValue DECONSTRUCT_BLOCKS_PER_TICK;
+    private static final ForgeConfigSpec.BooleanValue DECONSTRUCT_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue DECONSTRUCT_ALLOW_CREATE;
+    private static final ForgeConfigSpec.BooleanValue DECONSTRUCT_ALLOW_REDSTONE;
+    private static final ForgeConfigSpec.IntValue DECONSTRUCT_MAX_EDGE;
+    private static final ForgeConfigSpec.IntValue DECONSTRUCT_BLOCKS_PER_TICK;
     // ---- 加工
-    private static final ModConfigSpec.BooleanValue PROCESS_ENABLED;
-    private static final ModConfigSpec.BooleanValue PROCESS_ASSEMBLY;
-    private static final ModConfigSpec.BooleanValue PROCESS_FILLING;
-    private static final ModConfigSpec.BooleanValue PROCESS_SPLASH;
-    private static final ModConfigSpec.BooleanValue PROCESS_BLASTING;
-    private static final ModConfigSpec.BooleanValue PROCESS_SMOKING;
-    private static final ModConfigSpec.BooleanValue PROCESS_HAUNTING;
-    private static final ModConfigSpec.BooleanValue PROCESS_FORGING;
-    private static final ModConfigSpec.IntValue PROCESS_FORGING_COOLDOWN;
+    private static final ForgeConfigSpec.BooleanValue PROCESS_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue PROCESS_ASSEMBLY;
+    private static final ForgeConfigSpec.BooleanValue PROCESS_FILLING;
+    private static final ForgeConfigSpec.BooleanValue PROCESS_SPLASH;
+    private static final ForgeConfigSpec.BooleanValue PROCESS_BLASTING;
+    private static final ForgeConfigSpec.BooleanValue PROCESS_SMOKING;
+    private static final ForgeConfigSpec.BooleanValue PROCESS_HAUNTING;
+    private static final ForgeConfigSpec.BooleanValue PROCESS_FORGING;
+    private static final ForgeConfigSpec.IntValue PROCESS_FORGING_COOLDOWN;
     // ---- 战斗
-    private static final ModConfigSpec.BooleanValue COMBAT_ENABLED;
-    private static final ModConfigSpec.IntValue COMBAT_PERMISSION_LEVEL;
+    private static final ForgeConfigSpec.BooleanValue COMBAT_ENABLED;
+    private static final ForgeConfigSpec.IntValue COMBAT_PERMISSION_LEVEL;
 
     static {
-        ModConfigSpec.Builder b = new ModConfigSpec.Builder();
+        ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
 
         b.comment(
             "Create Better Wrench —— 功能开关与可调参数 / Feature switches and tunable values",
@@ -271,7 +271,7 @@ public final class WrenchConfig {
     }
 
     /** 七个加工子开关的公共定义(注释格式一致)。 */
-    private static ModConfigSpec.BooleanValue subSwitch(ModConfigSpec.Builder b, String id, String zhName) {
+    private static ForgeConfigSpec.BooleanValue subSwitch(ForgeConfigSpec.Builder b, String id, String zhName) {
         return b
             .comment(
                 "加工方式「" + zhName + "」的开关, 默认开。",
@@ -507,7 +507,7 @@ public final class WrenchConfig {
     }
 
     /** 配置页面里的一行。{@code group} = 所属分组(页面据此画分组标题)。 */
-    public record Row(String group, Kind kind, String path, ModConfigSpec.ConfigValue<?> value) {
+    public record Row(String group, Kind kind, String path, ForgeConfigSpec.ConfigValue<?> value) {
 
         public boolean isToggle() {
             return kind == Kind.TOGGLE;
@@ -573,12 +573,12 @@ public final class WrenchConfig {
 
         /** 数值行下限。 */
         public double min() {
-            return ((Number) value.getSpec().getRange().getMin()).doubleValue();
+            return boundsOf(path)[0];
         }
 
         /** 数值行上限。 */
         public double max() {
-            return ((Number) value.getSpec().getRange().getMax()).doubleValue();
+            return boundsOf(path)[1];
         }
 
         public String labelKey() {
@@ -588,6 +588,21 @@ public final class WrenchConfig {
         public String descKey() {
             return "gui.create_better_wrench.config.desc." + path;
         }
+    }
+
+
+    /** 数值项的取值范围(与各自的 defineInRange 一致; 页面用它夹住输入, 服务端仍会再校验一次)。 */
+    private static double[] boundsOf(String path) {
+        return switch (path) {
+            case "max_corners" -> new double[] { 1, 256 };
+            case "max_leg_length" -> new double[] { 1, 512 };
+            case "max_total_blocks" -> new double[] { 1, 4096 };
+            case "max_edge" -> new double[] { 1, 512 };
+            case "blocks_per_tick" -> new double[] { 16, 16384 };
+            case "forging_cooldown" -> new double[] { 0, 200 };
+            case "permission_level" -> new double[] { 0, 4 };
+            default -> new double[] { 0, Integer.MAX_VALUE };
+        };
     }
 
     /** 页面里的全部分组(顺序 = 显示顺序)。 */
@@ -645,7 +660,7 @@ public final class WrenchConfig {
     public static void applyToggle(Row row, boolean on) {
         if (!SPEC.isLoaded() || !row.isToggle())
             return;
-        ((ModConfigSpec.ConfigValue) row.value()).set(on);
+        ((ForgeConfigSpec.ConfigValue) row.value()).set(on);
         String path = row.path();
 
         if (on) {
@@ -672,7 +687,7 @@ public final class WrenchConfig {
         if (!SPEC.isLoaded() || row.isToggle())
             return;
         double clamped = Math.max(row.min(), Math.min(row.max(), v));
-        ((ModConfigSpec.ConfigValue) row.value()).set((int) Math.round(clamped));
+        ((ForgeConfigSpec.ConfigValue) row.value()).set((int) Math.round(clamped));
     }
 
     /** 把某一行恢复默认值。 */
@@ -680,7 +695,7 @@ public final class WrenchConfig {
     public static void resetRow(Row row) {
         if (!SPEC.isLoaded())
             return;
-        ModConfigSpec.ConfigValue raw = row.value();
+        ForgeConfigSpec.ConfigValue raw = (ForgeConfigSpec.ConfigValue) row.value();
         if (row.isToggle())
             raw.set(row.defaultBool());
         else
@@ -699,7 +714,7 @@ public final class WrenchConfig {
 
     /** 子开关所属的总开关。 */
     @SuppressWarnings("rawtypes")
-    private static ModConfigSpec.ConfigValue<Boolean> masterOf(String path) {
+    private static ForgeConfigSpec.ConfigValue<Boolean> masterOf(String path) {
         if (path.startsWith("process."))
             return PROCESS_ENABLED;
         if (path.startsWith("deconstruct."))

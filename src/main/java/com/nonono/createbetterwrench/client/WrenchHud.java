@@ -5,16 +5,14 @@ import com.nonono.createbetterwrench.mode.WrenchMode;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.LayeredDraw;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.client.event.InputEvent;
+import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
 
 /**
  * 客户端: 底部"模式工具条"(仿 Create 蓝图部署的 ToolSelection 风格)。
@@ -30,7 +28,7 @@ import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 public final class WrenchHud {
 
     private static final ResourceLocation LAYER_ID =
-        ResourceLocation.fromNamespaceAndPath(BetterWrenchMod.MODID, "wrench_mode_bar");
+        new ResourceLocation(BetterWrenchMod.MODID, "wrench_mode_bar");
 
     /** 视觉聚焦进度 0..1(用于淡入淡出)。 */
     private static float focusAmount;
@@ -41,8 +39,11 @@ public final class WrenchHud {
     }
 
     /** MOD 总线: 把工具条注册到最顶层。由 {@code client/BetterWrenchClient} 显式注册。 */
-    public static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
-        event.registerAboveAll(LAYER_ID, WrenchHud::renderLayer);
+    public static void onRegisterGuiOverlays(RegisterGuiOverlaysEvent event) {
+        // 1.20.1: HUD 叠加层用 Forge 的 RegisterGuiOverlaysEvent + IGuiOverlay
+        //   (1.21 的 LayeredDraw / DeltaTracker 在这一版不存在)。
+        event.registerAboveAll(LAYER_ID.getPath(), (gui, g, partialTick, screenWidth, screenHeight) ->
+            WrenchHud.renderLayer(g, partialTick));
     }
 
     /**
@@ -66,13 +67,13 @@ public final class WrenchHud {
     }
 
     /** 渲染层: 只负责画(转交 {@link WrenchToolSelection#render}), 不再推进状态。 */
-    private static void renderLayer(GuiGraphics g, DeltaTracker deltaTracker) {
+    private static void renderLayer(GuiGraphics g, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen != null)
             return;
         if (!isHoldingOurWrench(mc) && focusAmount < 0.02f)
             return;
-        getSelection().render(g, deltaTracker.getGameTimeDeltaPartialTick(false));
+        getSelection().render(g, partialTick);
     }
 
     /** GAME 总线: 每客户端刻推进动画状态(与原版 SchematicHandler 同一节奏)。 */
@@ -82,7 +83,7 @@ public final class WrenchHud {
         }
 
         @SubscribeEvent
-        public static void onClientTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+        public static void onClientTick(net.minecraftforge.event.TickEvent.ClientTickEvent event) {
             WrenchHud.tick();
         }
     }
@@ -94,7 +95,7 @@ public final class WrenchHud {
      * ALT+滚轮也不切模式(滚轮照常切物品栏)。</p>
      */
     private static boolean isHoldingOurWrench(Minecraft mc) {
-        return mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH);
+        return mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH.get());
     }
 
     /** 由 GAME 总线客户端事件调用: 处理扳手模式/选项的滚轮切换, 返回 true 表示已消费本次滚动。 */
@@ -104,7 +105,7 @@ public final class WrenchHud {
             return false;
         if (!isHoldingOurWrench(mc))
             return false;
-        double delta = event.getScrollDeltaY();
+        double delta = event.getScrollDelta();
         if (delta == 0)
             return true;
         int dir = (int) Math.signum(delta);

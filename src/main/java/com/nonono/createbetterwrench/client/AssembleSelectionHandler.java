@@ -1,6 +1,7 @@
 package com.nonono.createbetterwrench.client;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.network.WrenchNetwork;
 import com.nonono.createbetterwrench.mode.WrenchMode;
 import com.nonono.createbetterwrench.network.AssemblePayload;
 import com.simibubi.create.content.logistics.depot.DepotBlock;
@@ -11,12 +12,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.client.event.InputEvent;
 
 /**
  * 客户端: <b>主手</b>持有扳手且处于<b>[加工] / [模组描述]</b> 模式时, 消费右键点击。
@@ -44,7 +44,7 @@ public final class AssembleSelectionHandler {
 
     /** 主手是否持有本模组扳手(只有这种情况才消费右键)。 */
     private static boolean mainHandWrench(Minecraft mc) {
-        return mc.player != null && mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH);
+        return mc.player != null && mc.player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH.get());
     }
 
     private static boolean modeActive() {
@@ -87,7 +87,7 @@ public final class AssembleSelectionHandler {
                 if (!ClientFeatureGate.blockIfDisabled(WrenchMode.ASSEMBLE)) {
                     ClientPacketListener conn = mc.getConnection();
                     if (conn != null)
-                        PacketDistributor.sendToServer(new AssemblePayload(pos));
+                        WrenchNetwork.sendToServer(new AssemblePayload(pos));
                 }
             }
         }

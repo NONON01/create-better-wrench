@@ -5,10 +5,10 @@ import com.nonono.createbetterwrench.BetterWrenchMod;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.event.entity.player.AttackEntityEvent;
 
 /**
  * 「万能扳手」战斗加成(可选): 取消攻击命中后实体的受伤冷却(无敌帧)。
@@ -39,7 +39,7 @@ public final class WrenchAttackHandler {
         if (!WrenchCombat.getServer(player.getUUID()))
             return;
         // 2026-09-20(设计约定): 只认主手 —— 扳手在副手时"只作普通扳手", 战斗加成不生效
-        if (!player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH))
+        if (!player.getMainHandItem().is(BetterWrenchMod.BETTER_WRENCH.get()))
             return;
 
         Entity target = event.getTarget();

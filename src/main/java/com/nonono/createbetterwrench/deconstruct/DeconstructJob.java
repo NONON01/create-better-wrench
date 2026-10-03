@@ -18,10 +18,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.TickEvent;
 
 /**
  * 「拆除」的<b>逐刻执行器</b>: 把一个大选区切成若干片, 每服务端刻处理一片。
@@ -212,7 +212,9 @@ public final class DeconstructJob {
         }
 
         @SubscribeEvent
-        public static void onServerTick(ServerTickEvent.Post event) {
+        public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END)
+            return;
             tick(event.getServer());
         }
 

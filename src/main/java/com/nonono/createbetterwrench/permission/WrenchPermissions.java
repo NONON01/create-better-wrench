@@ -6,12 +6,12 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.server.permission.PermissionAPI;
-import net.neoforged.neoforge.server.permission.events.PermissionGatherEvent;
-import net.neoforged.neoforge.server.permission.nodes.PermissionNode;
-import net.neoforged.neoforge.server.permission.nodes.PermissionTypes;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.server.permission.PermissionAPI;
+import net.minecraftforge.server.permission.events.PermissionGatherEvent;
+import net.minecraftforge.server.permission.nodes.PermissionNode;
+import net.minecraftforge.server.permission.nodes.PermissionTypes;
 
 /**
  * 「万能扳手」的权限节点集合。
@@ -37,7 +37,7 @@ public final class WrenchPermissions {
      * 单独改写这个节点来覆盖配置。</p>
      */
     public static final PermissionNode<Boolean> COMBAT_MODE = new PermissionNode<>(
-        ResourceLocation.fromNamespaceAndPath("cbw", "combatmode"),
+        new ResourceLocation("cbw", "combatmode"),
         PermissionTypes.BOOLEAN,
         // player 可能为 null(离线查询), 此时一律拒绝
         (player, playerUUID, context) -> player != null

@@ -11,13 +11,13 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.neoforged.neoforge.event.level.BlockEvent;
-import net.neoforged.neoforge.event.level.ExplosionEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.level.BlockEvent;
+import net.minecraftforge.event.level.ExplosionEvent;
 
 /**
  * 服务端: 已锁定的置物台被右键时, 先尝试「工作」模式的各种施加
@@ -102,6 +102,7 @@ if (!(be instanceof DepotBlockEntity depot))
             return;
         DepotProductEjector.cancelAt(level, event.getPos());
         DepotPiles.releaseAll(level, event.getPos());
+            AssembleLock.clear(level, event.getPos());
     }
 
     /**
@@ -120,6 +121,7 @@ if (!(be instanceof DepotBlockEntity depot))
             if (level.getBlockEntity(pos) instanceof DepotBlockEntity) {
                 DepotProductEjector.cancelAt(level, pos);
                 DepotPiles.releaseAll(level, pos);
+            AssembleLock.clear(level, pos);
             }
     }
 

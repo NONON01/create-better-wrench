@@ -6,8 +6,8 @@ import com.nonono.createbetterwrench.mode.WrenchMode;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
 /**
  * 客户端: <b>功能开关的闸门</b> —— 某个功能被配置关掉时统一提示 + 拦截。

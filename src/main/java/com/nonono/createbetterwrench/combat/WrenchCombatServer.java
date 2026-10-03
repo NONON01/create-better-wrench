@@ -3,10 +3,10 @@ package com.nonono.createbetterwrench.combat;
 import com.nonono.createbetterwrench.BetterWrenchMod;
 
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.TickEvent;
 
 /**
  * 服务端: 每 tick 依据该玩家的战斗模式开关(与是否持扳手)应用/移除战斗加成; 玩家登出时清理记录。
@@ -22,8 +22,10 @@ public final class WrenchCombatServer {
     }
 
     @SubscribeEvent
-    public static void onPlayerTick(PlayerTickEvent.Post event) {
-        Player player = event.getEntity();
+    public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END)
+            return;
+        Player player = event.player;
         if (player.level().isClientSide)
             return;
         WrenchCombat.tickServer(player);

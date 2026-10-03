@@ -23,8 +23,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.level.BlockEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.level.BlockEvent;
 
 /**
  * 「拆除」的服务端核心: 判定一个方块是否"可用扳手拆下"、是否落在某 Ctrl 档过滤内,
@@ -41,7 +41,7 @@ public final class DeconstructLogic {
 
     /** Create 的 wrench_pickup block tag(数据包, create 命名空间)。 */
     public static final TagKey<Block> CREATE_WRENCH_PICKUP =
-        TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("create", "wrench_pickup"));
+        TagKey.create(Registries.BLOCK, new ResourceLocation("create", "wrench_pickup"));
 
     private DeconstructLogic() {
     }
@@ -156,7 +156,7 @@ public final class DeconstructLogic {
 
         // 静默拆除(绝大多数方块走这里)
         BlockEvent.BreakEvent event = new BlockEvent.BreakEvent(level, pos, state, player);
-        NeoForge.EVENT_BUS.post(event);
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event);
         if (event.isCanceled())
             return false;
 

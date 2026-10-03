@@ -1,6 +1,7 @@
 package com.nonono.createbetterwrench.client;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.network.WrenchNetwork;
 import com.nonono.createbetterwrench.combat.CombatModeState;
 import com.nonono.createbetterwrench.combat.WrenchCombat;
 import com.nonono.createbetterwrench.network.CombatModePayload;
@@ -8,13 +9,12 @@ import com.nonono.createbetterwrench.network.CombatModePayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.event.tick.PlayerTickEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.event.TickEvent;
 
 /**
  * 客户端: 本地玩家按战斗模式开关应用加成(与 HUD 显示一致); 进入世界时把开关同步给服务端。
@@ -30,9 +30,11 @@ public final class WrenchCombatClient {
     }
 
     @SubscribeEvent
-    public static void onPlayerTick(PlayerTickEvent.Post event) {
+    public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END)
+            return;
         Minecraft mc = Minecraft.getInstance();
-        Player player = event.getEntity();
+        Player player = event.player;
         if (player != mc.player)
             return;
         // 落地服务端回传的权威开关;若是玩家自己发起的切换, 就用权威结果再显示一次 actionbar。
@@ -62,7 +64,7 @@ public final class WrenchCombatClient {
     public static void sendCombatMode() {
         ClientPacketListener conn = Minecraft.getInstance().getConnection();
         if (conn != null)
-            PacketDistributor.sendToServer(new CombatModePayload(WrenchModeSwitcher.combatMode, false));
+            WrenchNetwork.sendToServer(new CombatModePayload(WrenchModeSwitcher.combatMode, false));
     }
 
     /**
@@ -75,6 +77,6 @@ public final class WrenchCombatClient {
     public static void sendCombatModeRequest(boolean wanted) {
         ClientPacketListener conn = Minecraft.getInstance().getConnection();
         if (conn != null)
-            PacketDistributor.sendToServer(new CombatModePayload(wanted, true));
+            WrenchNetwork.sendToServer(new CombatModePayload(wanted, true));
     }
 }
