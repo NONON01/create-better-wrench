@@ -9,7 +9,7 @@
 #   * 仓库 Secret 名为 MODRINTH_TOKEN, 值为 Modrinth 个人访问令牌(账户设置 -> PAT, 至少勾选
 #     "Create versions"); 令牌只存在于 GitHub 侧, 不进入仓库;
 #   * 仓库 Secret 名为 CURSEFORGE_TOKEN, 值为 CurseForge 作者后台的 API 令牌;
-#   * 版本号由标签去掉前缀 v 得到(v1.0.5-beta+mc1.21.1 到 1.0.5-beta+mc1.21.1);
+#   * 版本号由标签去掉前缀 v 得到(v1.1.1-beta+mc1.20.1 到 1.0.5-beta+mc1.21.1);
 #   * 依赖在创建版本时一并提交: Modrinth 的 API 不支持事后修改版本的依赖。
 #
 # 变更日志口径:
@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to publish (for example v1.0.5-beta+mc1.21.1)"
+        description: "Release tag to publish (for example v1.1.1-beta+mc1.20.1)"
         required: true
 
 permissions:
@@ -71,8 +71,8 @@ jobs:
           name: Create Better Wrench ${{ steps.version.outputs.version }}
           version: ${{ steps.version.outputs.version }}
           version-type: beta
-          loaders: neoforge
-          game-versions: 1.21.1
+          loaders: forge
+          game-versions: 1.20.1
           environment: client | server
 
           # 本项目既定口径: Modrinth 不填版本 changelog(空字符串即不提交)
@@ -80,7 +80,7 @@ jobs:
 
           # Create 为必装前置; 与手动上传时选择的依赖保持一致
           modrinth-dependencies: |
-            LNytGWDc@6.0.10+mc1.21.1(required)
+            LNytGWDc@mc1.20.1-6.0.8(required)
 
           # CurseForge: 项目 id 为作者后台项目页的编号, 首个文件已按手动上传的口径核对
           curseforge-id: 1722342
@@ -93,7 +93,7 @@ jobs:
             328085(required)
 
           # CurseForge 的 Java 字段, 与手动上传首个文件时选择的取值一致
-          java: Java 21
+          java: Java 17
 
           # 发布失败不静默: 运行记录直接变红, 便于人工用 workflow_dispatch 补发
           fail-mode: fail
