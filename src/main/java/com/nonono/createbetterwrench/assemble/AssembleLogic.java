@@ -224,8 +224,12 @@ public final class AssembleLogic {
     /**
      * 序列装配的<b>注液步</b>({@code create:filling} 步骤): 手持流体容器提供该步所需流体。
      *
-     * <p>先做一次模拟: 容器能排出的流体必须与配方要求同种且量够, 否则<b>不消耗任何东西</b>直接返回;
-     * 通过后才真正排空容器(剩余物如空桶还给玩家)并施加该步配方。</p>
+     * <p><b>按桶内 ml 数批量处理</b>(2026-10-03 维护者确认): 先用容器可排出的流体量除以"每件所需量",
+     * 得到这一次最多能注几件; 再逐件施加该步配方, 把<b>全部</b>中间产物先送入半成品堆, 最后按
+     * "半成品堆优先"自动补 1 件到台面, 让下一步可以直接继续。</p>
+     *
+     * <p>材料不足时按既有约定从原料堆续料(取来的部分失败时原样退回, 不静默丢料)。
+     * 容器在成功后会整份排空并把剩余物(空桶/空瓶)交还玩家 —— 与「注液」路径的语义一致。</p>
      */
     private static boolean tryApplySequenceFilling(Level level, BlockPos pos, DepotBlockEntity depot,
                                                    Player player, ItemStack held, InteractionHand hand,
@@ -234,15 +238,54 @@ public final class AssembleLogic {
             return false;
         FluidStack available = GenericItemEmptying.emptyItem(level, held.copy(), true).getFirst();
         SizedFluidIngredient required = recipe.getRequiredFluid();
-        if (available.isEmpty() || !required.ingredient().test(available)
-            || available.getAmount() < required.amount())
+        if (available.isEmpty() || !required.ingredient().test(available))
+            return false;
+        int perItem = Math.max(1, required.amount());
+        int units = available.getAmount() / perItem;      // 这一份流体够注几件
+        if (units <= 0)
             return false;
         if (blockedSubKind(player, ProcessKind.ASSEMBLY))
             return true;
 
-        ItemStack working = current.copyWithCount(1);
-        splitExtras(level, pos, depot);
-        List<ItemStack> results = RecipeApplier.applyRecipeOn(level, working, recipe, true);
+        // 输入 = 台面现有的 + 从原料堆续上来的, 最多凑到 units 件
+        int onDepot = current.getCount();
+        int wanted = Math.min(units, onDepot + (int) Math.min(Integer.MAX_VALUE, countRaw(level, pos)));
+        ItemStack combined = current.copy();
+        int extraMerged = 0;
+        if (wanted > onDepot) {
+            ItemStack extra = DepotPiles.take(level, pos, wanted - onDepot);
+            if (!extra.isEmpty()) {
+                if (ItemStack.isSameItemSameComponents(combined, extra)) {
+                    extraMerged = extra.getCount();
+                    combined.grow(extraMerged);
+                } else {
+                    DepotPiles.deposit(level, pos, extra);
+                }
+            }
+        }
+        int toFill = Math.min(units, combined.getCount());
+        if (toFill <= 0)
+            return false;
+
+        splitExtras(level, pos, depot);   // 台面多出来的部分进原料堆(combined 已包含它们)
+        List<ItemStack> results = new ArrayList<>();
+        int made = 0;
+        for (int i = 0; i < toFill; i++) {
+            List<ItemStack> one = RecipeApplier.applyRecipeOn(level, combined.copyWithCount(1), recipe, true);
+            if (one.isEmpty() || one.get(0).isEmpty())
+                break;
+            for (ItemStack result : one)
+                if (!result.isEmpty())
+                    results.add(result.copy());
+            combined.shrink(1);
+            made++;
+        }
+        if (made <= 0) {
+            // 一份也未注成: 把从原料堆取走的输入原样退回, 避免静默丢料
+            if (extraMerged > 0)
+                DepotPiles.deposit(level, pos, combined.copyWithCount(extraMerged));
+            return false;
+        }
 
         // 真正排空容器; 剩余物(空桶/空瓶等)交还玩家
         Pair<FluidStack, ItemStack> drained = GenericItemEmptying.emptyItem(level, held.copy(), false);
@@ -254,6 +297,9 @@ public final class AssembleLogic {
             else if (!remainder.isEmpty() && !player.getInventory().add(remainder))
                 player.drop(remainder, false);
         }
+        // 台面上还没处理的材料留在台面(已入半成品堆的部分不在其中)
+        if (!combined.isEmpty())
+            setDepot(depot, combined.copy());
         return finishSequenceStep(level, pos, depot, player, results);
     }
 
