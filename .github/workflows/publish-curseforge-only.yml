@@ -45,6 +45,7 @@ jobs:
           ls -l artifacts
 
       - name: Publish to CurseForge
+        id: publish
         uses: Kira-NT/mc-publish@v3
         with:
           files: artifacts/*.jar
@@ -66,3 +67,11 @@ jobs:
           fail-mode: fail
           retry-attempts: 3
           retry-delay: 10000
+
+      - name: Print publish outputs
+        if: always()
+        run: |
+          echo "curseforge-id      : ${{ steps.publish.outputs.curseforge-id }}"
+          echo "curseforge-version : ${{ steps.publish.outputs.curseforge-version }}"
+          echo "curseforge-url     : ${{ steps.publish.outputs.curseforge-url }}"
+          echo "curseforge-files   : ${{ steps.publish.outputs.curseforge-files }}"
