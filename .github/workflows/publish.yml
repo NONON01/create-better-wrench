@@ -1,23 +1,29 @@
-# 发布到 Modrinth 与 CurseForge(1.21.1 与 1.20.1 两条线): 由 GitHub Release 触发, 使用 Kira-NT/mc-publish。
-# 加载器、游戏版本、Java 与 Create 依赖由标签里的 Minecraft 版本自动判定。
+# 发布到 Modrinth 与 CurseForge: 由 GitHub Release 触发, 使用 Kira-NT/mc-publish。
 #
 # 触发方式:
 #   * 在 GitHub 上创建/发布 Release(包括预发布)时自动运行 —— 本项目的 Release 由
 #     scripts/publish-<版本>.ps1 经 API 创建, 创建完成即触发本工作流;
 #   * 也可在仓库的 Actions 页面手动运行(workflow_dispatch)并填入标签, 用于补发已存在的 Release。
 #
+# 两条发布线(按标签分流, 修复 1.2.0 时 1.20.1 被推成 NeoForge/1.21.1 的问题):
+#   * 标签含 mc1.20.1: Modrinth/CurseForge 均为 Minecraft 1.20.1 + Forge,
+#     依赖 Create mc1.20.1-6.0.8, Java 17;
+#   * 标签含 mc1.21.1: Minecraft 1.21.1 + NeoForge, 依赖 Create 6.0.10+mc1.21.1, Java 21;
+#   * jar 一律取该标签 Release 的附件; 其余标签直接失败, 不允许回落到固定值。
+#
 # 前置条件:
 #   * 仓库 Secret 名为 MODRINTH_TOKEN, 值为 Modrinth 个人访问令牌(账户设置 -> PAT, 至少勾选
 #     "Create versions"); 令牌只存在于 GitHub 侧, 不进入仓库;
 #   * 仓库 Secret 名为 CURSEFORGE_TOKEN, 值为 CurseForge 作者后台的 API 令牌;
-#   * 版本号由标签去掉前缀 v 得到(v1.0.5-beta+mc1.21.1 到 1.0.5-beta+mc1.21.1);
+#   * 版本号由标签去掉前缀 v 得到(v1.2.0+mc1.21.1 到 1.2.0+mc1.21.1);
 #   * 依赖在创建版本时一并提交: Modrinth 的 API 不支持事后修改版本的依赖。
 #
-# 变更日志口径:
-#   * Modrinth 不提交版本 changelog(下方 changelog 为空字符串);
-#   * CurseForge 每次上传都必须有变更日志, 缺失会被退回。默认写一句「修复了一些已知问题」;
-#     遇到大版本(例如 1.1.0)时, 在创建 Release 时填写正文, 本工作流会自动改用正文作为
-#     CurseForge 的正式变更日志 —— 两个平台互不影响。
+# 变更日志口径(两个平台一致, 必须双语且英文在前 —— 平台不接受纯中文):
+#   * 优先取该 Release 的正文; 手动补发时取本工作流的 changelog 输入;
+#   * 两者都为空时用双语兜底;
+#   * Release 正文示例:
+#       Added feature [Chain Conveyor] / 增添功能[锁链传动]
+#       Build your logistics network quickly / 快速搭建你的物流网络
 #
 # 说明: 本工作流只发布到 Modrinth 与 CurseForge, 不创建也不修改 GitHub Release(未提供 github-token)。
 
@@ -29,8 +35,11 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to publish (for example v1.0.5-beta+mc1.21.1)"
+        description: "Release tag to publish (for example v1.2.0+mc1.21.1)"
         required: true
+      changelog:
+        description: "Optional changelog (the release body is used when left empty); keep it bilingual, English first"
+        required: false
 
 permissions:
   contents: read
@@ -49,24 +58,53 @@ jobs:
           if [ -z "$TAG" ]; then TAG="$INPUT_TAG"; fi
           if [ -z "$TAG" ]; then echo "No tag provided" >&2; exit 1; fi
           VERSION="${TAG#v}"
-
-          # 两条线共用本工作流: 由标签里的 Minecraft 版本决定加载器、游戏版本、Java 与 Create 依赖。
-          # 1.21.1 线沿用原取值, 行为不变; 1.20.1 线使用 Forge 与 Java 17。
-          if [[ "$VERSION" == *"mc1.20.1"* ]]; then
-            echo "loaders=forge"                >> "$GITHUB_OUTPUT"
-            echo "game_versions=1.20.1"         >> "$GITHUB_OUTPUT"
-            echo "java=Java 17"                 >> "$GITHUB_OUTPUT"
-            echo "create_dep=LNytGWDc@mc1.20.1-6.0.8(required)" >> "$GITHUB_OUTPUT"
-          else
-            echo "loaders=neoforge"             >> "$GITHUB_OUTPUT"
-            echo "game_versions=1.21.1"         >> "$GITHUB_OUTPUT"
-            echo "java=Java 21"                 >> "$GITHUB_OUTPUT"
-            echo "create_dep=LNytGWDc@6.0.10+mc1.21.1(required)" >> "$GITHUB_OUTPUT"
-          fi
-
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Resolved tag=$TAG version=$VERSION"
+
+      - name: Resolve target line and changelog
+        id: target
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+          INPUT_CHANGELOG: ${{ inputs.changelog }}
+        run: |
+          set -euo pipefail
+          case "$TAG" in
+            *mc1.20.1*)
+              LOADERS=forge
+              GAME_VERSIONS=1.20.1
+              JAVA="Java 17"
+              MODRINTH_DEPENDENCIES="LNytGWDc@mc1.20.1-6.0.8(required)"
+              ;;
+            *mc1.21.1*)
+              LOADERS=neoforge
+              GAME_VERSIONS=1.21.1
+              JAVA="Java 21"
+              MODRINTH_DEPENDENCIES="LNytGWDc@6.0.10+mc1.21.1(required)"
+              ;;
+            *)
+              echo "Unsupported tag '$TAG': it must contain mc1.20.1 or mc1.21.1" >&2
+              exit 1
+              ;;
+          esac
+
+          CHANGELOG="$RELEASE_BODY"
+          if [ -z "$CHANGELOG" ]; then CHANGELOG="$INPUT_CHANGELOG"; fi
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="Maintenance update for Create Better Wrench. / 万能扳手维护性更新。"
+          fi
+
+          {
+            echo "loaders=$LOADERS"
+            echo "game_versions=$GAME_VERSIONS"
+            echo "java=$JAVA"
+            echo "modrinth_dependencies=$MODRINTH_DEPENDENCIES"
+            echo "changelog<<CHANGELOG_EOF"
+            printf '%s\n' "$CHANGELOG"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved line: loaders=$LOADERS game-versions=$GAME_VERSIONS java=$JAVA"
 
       - name: Download the jar attached to the release
         env:
@@ -87,29 +125,27 @@ jobs:
           name: Create Better Wrench ${{ steps.version.outputs.version }}
           version: ${{ steps.version.outputs.version }}
           version-type: beta
-          loaders: ${{ steps.version.outputs.loaders }}
-          game-versions: ${{ steps.version.outputs.game_versions }}
           environment: client | server
 
-          # 本项目既定口径: Modrinth 不填版本 changelog(空字符串即不提交)
-          changelog: ""
+          # 两条线按标签分流: 通用值与 Modrinth 专属值写成同一份, 任何一侧都不会回落到固定值
+          loaders: ${{ steps.target.outputs.loaders }}
+          game-versions: ${{ steps.target.outputs.game_versions }}
+          java: ${{ steps.target.outputs.java }}
+          modrinth-loaders: ${{ steps.target.outputs.loaders }}
+          modrinth-game-versions: ${{ steps.target.outputs.game_versions }}
 
-          # Create 为必装前置; 与手动上传时选择的依赖保持一致
-          modrinth-dependencies: |
-            ${{ steps.version.outputs.create_dep }}
+          # 变更日志(双语、英文在前): 两个平台都取该 Release 正文, 不会再出现 Modrinth 为空
+          modrinth-changelog: ${{ steps.target.outputs.changelog }}
+          curseforge-changelog: ${{ steps.target.outputs.changelog }}
+
+          # Create 为必装前置; 两条线的依赖版本要求不同
+          modrinth-dependencies: ${{ steps.target.outputs.modrinth_dependencies }}
 
           # CurseForge: 项目 id 为作者后台项目页的编号, 首个文件已按手动上传的口径核对
           curseforge-id: 1722342
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
-
-          # CurseForge 强制要求变更日志: 默认一句简报;
-          # Release 正文非空时(大版本才写)自动改用正文作为正式变更日志
-          curseforge-changelog: ${{ github.event.release.body != '' && github.event.release.body || '修复了一些已知问题' }}
           curseforge-dependencies: |
             328085(required)
-
-          # CurseForge 的 Java 字段, 与手动上传首个文件时选择的取值一致
-          java: ${{ steps.version.outputs.java }}
 
           # 发布失败不静默: 运行记录直接变红, 便于人工用 workflow_dispatch 补发
           fail-mode: fail
