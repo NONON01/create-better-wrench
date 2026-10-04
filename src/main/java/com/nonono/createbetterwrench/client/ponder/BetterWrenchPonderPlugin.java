@@ -1,6 +1,7 @@
 package com.nonono.createbetterwrench.client.ponder;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.client.ponder.scenes.ChainScenes;
 import com.nonono.createbetterwrench.client.ponder.scenes.DepotScenes;
 import com.nonono.createbetterwrench.client.ponder.scenes.WrenchScenes;
 import com.simibubi.create.AllBlocks;
@@ -25,7 +26,7 @@ import net.minecraft.world.level.ItemLike;
  *
  * <h2>场景的归属与顺序(设计约定, 2026-09-23)</h2>
  * <pre>
- *   直接附属于万能扳手:  使用万能扳手连接应力 / 使用万能扳手批量拆除
+ *   直接附属于万能扳手:  使用万能扳手连接应力 / 使用万能扳手批量拆除 / 使用万能扳手铺设锁链传动
  *   归在置物台(同时也关联到万能扳手):
  *       使用万能扳手进行加工(总述), 以及随后的进行装配 / 注液 / 洗涤 / 冶炼 / 烤制 / 缠魂
  * </pre>
@@ -44,16 +45,17 @@ public class BetterWrenchPonderPlugin implements PonderPlugin {
         // 把注册键的类型从 ResourceLocation 换成物品, 这样可以直接写本模组的物品
         PonderSceneRegistrationHelper<ItemLike> h = helper.withKeyFunction(RegisteredObjectsHelper::getKeyOrThrow);
 
-        // ---- ① 直接附属于万能扳手的两段 ----
+        // ---- ① 直接附属于万能扳手的四段(连接 / 拆除 / 锁链传动) ----
         h.forComponents(BetterWrenchMod.BETTER_WRENCH.get())
             .addStoryBoard("wrench/connect", WrenchScenes::connect, BetterWrenchPonderTags.WRENCH)
-            .addStoryBoard("wrench/deconstruct", WrenchScenes::deconstruct, BetterWrenchPonderTags.WRENCH);
+            .addStoryBoard("wrench/deconstruct", WrenchScenes::deconstruct, BetterWrenchPonderTags.WRENCH)
+            .addStoryBoard("wrench/chain", ChainScenes::chain, BetterWrenchPonderTags.WRENCH);
 
         // ---- ② 加工那 7 段: 归在置物台, 同时也关联到万能扳手 ----
         //      (Create 的做法: 同一段场景可以注册给多个组件 —— 例如 cog/speedup 同时挂小/大齿轮)
         //
         // 注意: 场景路径的尾段必须等于 assets/create_better_wrench/ponder/wrench/<尾段>.nbt 的文件名
-        //    (2026-09-23 的实例: 曾生成成 wrench_process.nbt, 于是 9 段全部报 schematic missing,
+        //    (2026-09-23 的实例: 曾生成成 wrench_process.nbt, 于是当时那批场景全部报 schematic missing,
         //     场景照常播放但世界里没有任何方块 —— 见 docs/log/01-operations.md)。
         ItemLike[] holders = depotHolders();
         h.forComponents(holders)

@@ -102,5 +102,7 @@ public class BetterWrenchMod {
             com.nonono.createbetterwrench.network.FeatureTogglePayload.TYPE,
             com.nonono.createbetterwrench.network.FeatureTogglePayload.STREAM_CODEC,
             com.nonono.createbetterwrench.network.FeatureTogglePayload::handle);
+        // 锁链传动: 规划好的路径(客户端到服务端), 登记逻辑集中在 WrenchNetwork, 此处只调用一次
+        com.nonono.createbetterwrench.network.WrenchNetwork.register(registrar);
     }
 }

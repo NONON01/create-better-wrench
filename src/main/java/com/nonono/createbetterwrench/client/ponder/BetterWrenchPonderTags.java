@@ -20,7 +20,7 @@ import net.minecraft.world.level.ItemLike;
  *   <li>挂在<b>置物台</b>上, 因此悬停置物台按 W 时, 左栏出现「万能扳手」这一条(即置物台思索页面左上角那块);</li>
  *   <li>同时挂在<b>扳手</b>上, 因此点进标签页后能看到<b>万能扳手这件物品</b>, 也就是定向到万能扳手的落点
  *       (Ponder 没有跨物品跳转的 API, 这是官方机制里最接近把玩家引导过去的做法);</li>
- *   <li>9 段场景全部带这个标签, 因此标签下能看到全部场景。</li>
+ *   <li>全部场景都带这个标签, 因此标签下能看到万能扳手当前的全部场景。</li>
  * </ul>
  *
  * <p><b>图标</b>: 用<b>扳手物品图标</b>({@code .item(扳手, useAsIcon=true, useAsMainItem=true)}), 因此
@@ -53,7 +53,7 @@ public final class BetterWrenchPonderTags {
             .addToIndex()                                           // 也进 /ponder 索引, 当作入口
             .item(BetterWrenchMod.BETTER_WRENCH.get(), true, true)   // 图标与主物品都用扳手
             .title("Universal Wrench")
-            .description("Everything the wrench can do - open its Ponder to see all nine scenes")
+            .description("Everything the wrench can do - open its Ponder for step-by-step tutorials")
             .register();
 
         // ---- 组件与标签 ----

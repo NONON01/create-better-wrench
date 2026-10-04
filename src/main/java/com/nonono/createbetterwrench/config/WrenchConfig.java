@@ -22,12 +22,13 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  * 因此客户端预览读到的是同一份值; <b>专用服务器</b>上客户端读不到, 只能走服务端登录时下发的
  * {@link FeatureToggles} 快照(无快照时按出厂默认值处理, 真正的限制仍由服务端执行)。</p>
  *
- * <h2>四个分组</h2>
+ * <h2>五个分组</h2>
  * <pre>
  *   [connect]     总开关 + 3 个数值(拐点上限 / 单段长度 / 单次方块数)
  *   [deconstruct] 总开关 + 允许机械动力方块 + 允许红石方块 + 2 个数值
  *   [process]     总开关 + 六个加工子功能开关
  *   [combat]      是否启用战斗模式 + 需要的权限等级(0=普通 / 2=OP)
+ *   [chain]       总开关 + 链条总长上限 + 2 个搜索上限(传动轮数量 / 搜索节点数)
  * </pre>
  *
  * <h2>联动规则(设计约定, 2026-09-25; 见 {@link #normalize()} / {@link #applyToggle})</h2>
@@ -78,6 +79,15 @@ public final class WrenchConfig {
     /** 战斗: 需要的权限等级(0 = 普通玩家, 2 = OP)。 */
     public static final int DEFAULT_COMBAT_PERMISSION_LEVEL = 2;
 
+    /** 锁链传动: 功能总开关。 */
+    public static final boolean DEFAULT_CHAIN_ENABLED = true;
+    /** 锁链传动: 一次铺设的全部链段长度之和上限(格)。 */
+    public static final int DEFAULT_CHAIN_MAX_TOTAL_LENGTH = 256;
+    /** 锁链传动: 一条路径最多包含多少台锁链传动轮(搜索上限)。 */
+    public static final int DEFAULT_CHAIN_SEARCH_MAX_CONVEYORS = 256;
+    /** 锁链传动: 路径规划最多搜索多少个节点(搜索上限)。 */
+    public static final int DEFAULT_CHAIN_SEARCH_MAX_NODES = 1024;
+
     public static final ModConfigSpec SPEC;
 
     // ---- 连接
@@ -104,6 +114,11 @@ public final class WrenchConfig {
     // ---- 战斗
     private static final ModConfigSpec.BooleanValue COMBAT_ENABLED;
     private static final ModConfigSpec.IntValue COMBAT_PERMISSION_LEVEL;
+    // ---- 锁链传动
+    private static final ModConfigSpec.BooleanValue CHAIN_ENABLED;
+    private static final ModConfigSpec.IntValue CHAIN_MAX_TOTAL_LENGTH;
+    private static final ModConfigSpec.IntValue CHAIN_SEARCH_MAX_CONVEYORS;
+    private static final ModConfigSpec.IntValue CHAIN_SEARCH_MAX_NODES;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -264,6 +279,47 @@ public final class WrenchConfig {
                 "0 = everyone, 2 = OP only (matching the vanilla level that allows most management commands); 1/3/4 are also accepted.",
                 "Individual players can be authorized with /cbw combat <selector> true, which bypasses this level.")
             .defineInRange("permission_level", DEFAULT_COMBAT_PERMISSION_LEVEL, 0, 4);
+
+        b.pop();
+
+        // ------------------------------------------------------------ 锁链传动 / Chain
+        b.comment(
+                "[锁链传动] Chain Conveyor",
+                "锁链传动模式的开关与各项上限; 超出上限的路径按不合法处理(客户端红框, 服务端拒绝且不放置方块)。",
+                "Switches and limits for the Chain Conveyor mode; a path beyond a limit is invalid (red client preview; the server rejects and places nothing).")
+            .push("chain");
+
+        CHAIN_ENABLED = b
+            .comment(
+                "锁链传动功能总开关, 默认开。",
+                "关闭后整个模式不可用: 切换模式或右键使用都会提示该功能未启用, 且不放置任何方块。",
+                "Master switch for the Chain Conveyor mode (default on).",
+                "When off the mode is unavailable: using it reports the feature as disabled and places no blocks.")
+            .define("enabled", DEFAULT_CHAIN_ENABLED);
+
+        CHAIN_MAX_TOTAL_LENGTH = b
+            .comment(
+                "一次铺设中全部链段长度之和的上限(格), 默认 256; 超出即判为不合法(客户端红框, 服务端拒绝)。",
+                "单段长度仍受 Create 的 32 格上限约束; 创造模式同样受限 —— 该上限保护服务器性能, 与材料无关。",
+                "Maximum total length of all chain segments in one layout, in blocks (default 256); exceeding it marks the path invalid (red preview, the server rejects).",
+                "Per-segment length stays limited by Create's 32 blocks; creative mode is not exempt because the cap protects the server, not the player's materials.")
+            .defineInRange("max_total_length", DEFAULT_CHAIN_MAX_TOTAL_LENGTH, 32, 4096);
+
+        CHAIN_SEARCH_MAX_CONVEYORS = b
+            .comment(
+                "一条路径最多包含多少台锁链传动轮, 默认 256(可填 1..1024); 超出即判为不合法, 不放置任何方块。",
+                "该值同时是网络载荷里路径长度的硬上限, 客户端预览与服务端校验一起放宽或收紧。",
+                "Maximum number of chain conveyors per path (default 256, range 1..1024); exceeding it marks the path invalid and places nothing.",
+                "It is also the hard cap for the path length in the network payload, so the client preview and the server check follow it together.")
+            .defineInRange("search_max_conveyors", DEFAULT_CHAIN_SEARCH_MAX_CONVEYORS, 1, 1024);
+
+        CHAIN_SEARCH_MAX_NODES = b
+            .comment(
+                "路径规划最多搜索多少个节点, 默认 1024; 超出即判为不合法, 不放置任何方块。",
+                "只约束客户端规划器的搜索预算, 不影响服务端其它上限。",
+                "Maximum number of nodes searched while planning a path (default 1024); exceeding it marks the path invalid and places nothing.",
+                "Only bounds the client planner's search budget; the server's other limits are unaffected.")
+            .defineInRange("search_max_nodes", DEFAULT_CHAIN_SEARCH_MAX_NODES, 1, 16384);
 
         b.pop();
 
@@ -468,6 +524,64 @@ public final class WrenchConfig {
         return s == null ? DEFAULT_COMBAT_PERMISSION_LEVEL : s.combatPermissionLevel();
     }
 
+    /**
+     * 锁链传动: 功能是否启用。
+     *
+     * <p>与其它总开关同一语义: 关闭后模式仍可切换, 但每次尝试使用都会收到
+     * {@code msg.create_better_wrench.feature_disabled} 提示, 且不放置任何方块。
+     * 服务端在 {@code chain/ChainConnectServer#handle} 里独立复验, 客户端闸门见
+     * {@code client/ClientFeatureGate}。</p>
+     *
+     * <p>与「连接 / 拆除 / 加工 / 战斗」四个开关的区别: 本项<b>不进</b> {@link FeatureToggles} 快照
+     * (该快照的网络字段顺序即协议, 本次不改既有载荷结构)。因此专用服务器上的客户端读不到它,
+     * 只会回落到默认值(开); 真正的开关始终由服务端执行 —— 关掉后客户端的每次请求仍会被服务端拒绝。</p>
+     */
+    public static boolean chainEnabled() {
+        if (SPEC.isLoaded())
+            return CHAIN_ENABLED.get();
+        return DEFAULT_CHAIN_ENABLED;
+    }
+
+    /**
+     * 锁链传动: 一次铺设中全部链段长度之和的上限(格, 默认 256)。
+     *
+     * <p>单段长度另受 Create 的 32 格上限约束; 本项限制整条路径的总长。客户端规划期即判非法(红框),
+     * 服务端在 {@code chain/ChainConnectServer#handle} 里用同一口径独立复验; 创造模式不豁免。</p>
+     *
+     * <p>同样不进 {@link FeatureToggles} 快照: 专用服务器客户端回落默认值, 服务端数值始终权威。</p>
+     */
+    public static int chainMaxTotalLength() {
+        if (SPEC.isLoaded())
+            return CHAIN_MAX_TOTAL_LENGTH.get();
+        return DEFAULT_CHAIN_MAX_TOTAL_LENGTH;
+    }
+
+    /**
+     * 锁链传动: 一条路径最多包含多少台锁链传动轮(默认 256)。
+     *
+     * <p>与其它子模式一样是 SERVER 配置: 专用服务器上的客户端读不到, 只能回落到默认值;
+     * 真正的限制始终由服务端执行(见 {@code chain/ChainConnectServer#handle})。
+     * 该键的取值范围上界 1024 与网络载荷的解码硬上限
+     * ({@code ChainConnectPayload#PROTOCOL_MAX_PATH})一致。</p>
+     */
+    public static int chainSearchMaxConveyors() {
+        if (SPEC.isLoaded())
+            return CHAIN_SEARCH_MAX_CONVEYORS.get();
+        return DEFAULT_CHAIN_SEARCH_MAX_CONVEYORS;
+    }
+
+    /**
+     * 锁链传动: 路径规划最多搜索多少个节点(默认 1024)。
+     *
+     * <p>只作用于客户端规划器的搜索预算; 服务端不会收到"搜索节点"这类中间数据,
+     * 因此这里同样在专用服务器客户端上回落默认值。</p>
+     */
+    public static int chainSearchMaxNodes() {
+        if (SPEC.isLoaded())
+            return CHAIN_SEARCH_MAX_NODES.get();
+        return DEFAULT_CHAIN_SEARCH_MAX_NODES;
+    }
+
     /** 服务端: 把当前配置 + 该玩家的单独授权打包成一份快照(登录/配置重载/授权变更时下发)。 */
     public static FeatureToggles.Snapshot snapshot(boolean combatGranted) {
         return new FeatureToggles.Snapshot(
@@ -592,7 +706,13 @@ public final class WrenchConfig {
 
     /** 页面里的全部分组(顺序 = 显示顺序)。 */
     public static List<String> groups() {
-        return List.of("connect", "deconstruct", "process", "combat");
+        return List.of(
+            "connect",
+            "deconstruct",
+            "process",
+            "chain",
+            "combat"
+        );
     }
 
     /** 页面里的全部行(顺序 = 显示顺序, 分组连续出现)。 */
@@ -619,6 +739,11 @@ public final class WrenchConfig {
             new Row("process", Kind.TOGGLE, "process.forging", PROCESS_FORGING),
             new Row("process", Kind.NUMBER, "process.forging_cooldown", PROCESS_FORGING_COOLDOWN),
 
+
+            new Row("chain", Kind.TOGGLE, "chain.enabled", CHAIN_ENABLED),
+            new Row("chain", Kind.NUMBER, "chain.max_total_length", CHAIN_MAX_TOTAL_LENGTH),
+            new Row("chain", Kind.NUMBER, "chain.search_max_conveyors", CHAIN_SEARCH_MAX_CONVEYORS),
+            new Row("chain", Kind.NUMBER, "chain.search_max_nodes", CHAIN_SEARCH_MAX_NODES),
             new Row("combat", Kind.TOGGLE, "combat.enabled", COMBAT_ENABLED),
             new Row("combat", Kind.LEVEL, "combat.permission_level", COMBAT_PERMISSION_LEVEL));
     }
@@ -627,7 +752,8 @@ public final class WrenchConfig {
 
     /** 这个开关是不是"总开关"。 */
     private static boolean isMaster(String path) {
-        return path.equals("connect.enabled") || path.equals("deconstruct.enabled") || path.equals("process.enabled");
+        return path.equals("connect.enabled") || path.equals("deconstruct.enabled")
+            || path.equals("process.enabled") || path.equals("chain.enabled");
     }
 
     /** 这个开关是不是"子功能开关"。 */
@@ -704,6 +830,8 @@ public final class WrenchConfig {
             return PROCESS_ENABLED;
         if (path.startsWith("deconstruct."))
             return DECONSTRUCT_ENABLED;
+        if (path.startsWith("chain."))
+            return CHAIN_ENABLED;          // 锁链传动目前没有子开关; 保留分支以免将来联动规则落到 connect
         return CONNECT_ENABLED;
     }
 

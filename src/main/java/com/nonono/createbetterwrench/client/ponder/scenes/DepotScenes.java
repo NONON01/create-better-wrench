@@ -126,7 +126,7 @@ public final class DepotScenes {
         scene.idle(70);
 
         scene.overlay().showText(80)
-            .text("Processing covers Assembly, Filling, Washing, Blasting, Smoking and Haunting")
+            .text("Processing supports assembly, filling, washing, blasting, smoking, haunting and forging")
             .pointAt(util.vector().topOf(DEPOT))
             .placeNearTarget();
         scene.idle(80);

@@ -39,6 +39,7 @@ public final class ClientFeatureGate {
             case CONNECT -> !WrenchConfig.connectEnabled();
             case DECONSTRUCT -> !WrenchConfig.deconstructEnabled();
             case ASSEMBLE -> !WrenchConfig.processEnabled();
+            case CHAIN -> !WrenchConfig.chainEnabled();
             default -> false;
         };
     }
