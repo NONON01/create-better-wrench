@@ -2,6 +2,14 @@
   "credit": "Create Better Wrench -- composite item model. The body geometry is referenced from Create's own wrench model at runtime (no Create asset is redistributed); the texture and the static gear part are our own work. See LICENSE.md.",
   "loader": "neoforge:composite",
   "parent": "create:item/wrench/item",
+  "overrides": [
+    {
+      "predicate": {
+        "create_better_wrench:shadow_steel": 1
+      },
+      "model": "create_better_wrench:item/better_wrench_shadow"
+    }
+  ],
   "textures": {
     "particle": "create_better_wrench:item/better_wrench"
   },

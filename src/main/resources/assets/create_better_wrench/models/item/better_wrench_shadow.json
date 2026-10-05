@@ -1,0 +1,20 @@
+{
+  "credit": "Create Better Wrench -- composite item model, shadow steel variant. Identical structure to better_wrench.json, including geometry, UVs and rotations; the only difference is texture slot 5, which points at better_wrench_shadow.png -- a programmatically derived copy of our own better_wrench texture whose wooden pixels are re-tinted with Create's shadow steel palette, while blue and brass pixels are copied pixel-for-pixel. See LICENSE.md.",
+  "loader": "neoforge:composite",
+  "parent": "create:item/wrench/item",
+  "textures": {
+    "particle": "create_better_wrench:item/better_wrench"
+  },
+  "children": {
+    "body": {
+      "parent": "create:item/wrench/item",
+      "textures": {
+        "5": "create_better_wrench:item/better_wrench_shadow",
+        "particle": "create_better_wrench:item/better_wrench"
+      }
+    },
+    "gear": {
+      "parent": "create_better_wrench:item/wrench_gear"
+    }
+  }
+}

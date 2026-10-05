@@ -218,5 +218,11 @@
   "gui.create_better_wrench.config.opt.chain.search_max_conveyors": "Max planned conveyors",
   "gui.create_better_wrench.config.desc.chain.search_max_conveyors": "Maximum chain conveyors placed by one plan (default 256); exceeding it marks the path invalid, and it is also the network payload hard cap.",
   "gui.create_better_wrench.config.opt.chain.search_max_nodes": "Max planner search nodes",
-  "gui.create_better_wrench.config.desc.chain.search_max_nodes": "Maximum nodes the client planner may search (default 1024); affects the preview only, the server keeps its own limits."
+  "gui.create_better_wrench.config.desc.chain.search_max_nodes": "Maximum nodes the client planner may search (default 1024); affects the preview only, the server keeps its own limits.",
+  "item.create_better_wrench.better_wrench.tooltip.refined_radiance": "+Refined Radiance",
+  "item.create_better_wrench.better_wrench.tooltip.shadow_steel": "+Shadow Steel",
+  "advancements.create_better_wrench.glow_wrench.title": "Dazzling",
+  "advancements.create_better_wrench.glow_wrench.description": "Decorate your wrench with refined radiance. (Visual only)",
+  "advancements.create_better_wrench.shadow_wrench.title": "Alloy Rework",
+  "advancements.create_better_wrench.shadow_wrench.description": "Rework your wrench with shadow steel. (Visual only)"
 }

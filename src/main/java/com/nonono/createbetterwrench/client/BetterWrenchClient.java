@@ -3,6 +3,7 @@ package com.nonono.createbetterwrench.client;
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.client.gui.WrenchConfigScreen;
 import com.nonono.createbetterwrench.client.ponder.BetterWrenchPonderPlugin;
+import com.nonono.createbetterwrench.client.render.WrenchGlowModels;
 
 import net.createmod.ponder.foundation.PonderIndex;
 import net.neoforged.api.distmarker.Dist;
@@ -33,6 +34,13 @@ public final class BetterWrenchClient {
     public BetterWrenchClient(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(WrenchHud::onRegisterGuiLayers);
         modEventBus.addListener(WrenchModeSwitcher::onRegisterKeyMappings);
+        // 实验(不进入发布, 分支 exp/wrench-glow): 给万能扳手的物品模型加一层外发光 pass。
+        // 挂在模型烘焙事件上, 只是把烘焙结果里的物品模型包一层, 不改模型 JSON 与贴图;
+        // 移除这一行即可整体关闭该效果。详见 client/render/WrenchGlowModel 的类注释。
+        modEventBus.addListener(WrenchGlowModels::onModifyBakingResult);
+        // 实验: 把「暗影钢标记组件」暴露成物品模型 predicate(create_better_wrench:shadow_steel),
+        // 让 better_wrench.json 的 overrides 能按组件切到暗影钢外观。详见 WrenchVariantProperties 的类注释。
+        modEventBus.addListener(WrenchVariantProperties::onClientSetup);
         // 物品悬停提示: 注册进 Create 的物品提示注册表(Shift 概要 / Ctrl 控制方法)。
         // 文案在语言文件: item.create_better_wrench.better_wrench.tooltip.*, 详见 WrenchTooltip 的类注释。
         modEventBus.addListener(WrenchTooltip::onClientSetup);

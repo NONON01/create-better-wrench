@@ -24,7 +24,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  * 物品只注册 {@link #BETTER_WRENCH}; 它加入 {@code c:tools/wrench} 标签使 Create 把它当扳手,
  * 并用 ALT 呼出底部工具条切换多种功能模式(连接/拆除)。物品放进 Create 的 BASE 创造标签。</p>
  *
- * <p>构造器依次完成: 物品注册、SERVER 类型配置注册、数据附件注册、
+ * <p>构造器依次完成: 物品注册、数据组件注册、SERVER 类型配置注册、数据附件注册、
  * 网络载荷注册({@link #registerPayloads})、配置重载监听、{@code /cbw} 服务端指令注册与创造标签注入。</p>
  */
 @Mod(BetterWrenchMod.MODID)
@@ -41,6 +41,11 @@ public class BetterWrenchMod {
 
     public BetterWrenchMod(IEventBus modEventBus, ModContainer modContainer) {
         ITEMS.register(modEventBus);
+        // 数据组件: 万能扳手的材质标记 create_better_wrench:glow(光辉石)/ shadow_steel(暗影钢)
+        // (实验, 分支 exp/wrench-glow)。普通合成出的扳手不带任何标记; 两种标记由铁砧升级产生(见下面的
+        // AnvilUpdateEvent 监听), 且互相独立, 可以同时存在于一把扳手上。
+        com.nonono.createbetterwrench.item.WrenchGlowComponent.COMPONENTS.register(modEventBus);
+        com.nonono.createbetterwrench.item.WrenchShadowSteelComponent.COMPONENTS.register(modEventBus);
         // 功能开关 + 可调参数写入 config/create_better_wrench-server.toml(实测位置: 实例或服务器根目录)
         // 类型 SERVER: 数值由服务端权威读取; 单人游戏里客户端与内置服务端共用同一份(预览与限制一致)。
         // 专用服务器上客户端读不到, 因此由 FeatureSyncServer 在登录/配置重载时下发 FeatureTogglePayload 快照。
@@ -50,10 +55,13 @@ public class BetterWrenchMod {
         modEventBus.addListener(BetterWrenchMod::registerPayloads);
         // 配置一重载(改 TOML + /reload, 或单人游戏里改配置)就把新开关下发给所有人
         modEventBus.addListener(com.nonono.createbetterwrench.network.FeatureSyncServer::onConfigReload);
-        // 指令 /cbw(服务端那一半: version / combat); 客户端那一半见 client/CbwClientCommands
+        // 指令 /cbw(服务端那一半: version / combat / glow); 客户端那一半见 client/CbwClientCommands
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
             (net.neoforged.neoforge.event.RegisterCommandsEvent event) ->
                 com.nonono.createbetterwrench.command.CbwCommands.registerServer(event.getDispatcher()));
+        // 铁砧升级: 普通扳手 + 光辉石 -> 发光扳手(实验, 分支 exp/wrench-glow)
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+            com.nonono.createbetterwrench.item.WrenchGlowItemEvents::onAnvilUpdate);
         // BuildCreativeModeTabContentsEvent 是 IModBusEvent, 须注册在 mod 事件总线上(非 NeoForge.EVENT_BUS)
         modEventBus.addListener(BetterWrenchMod::addToCreateTab);
         LOGGER.info("{} 正在加载...", MODID);

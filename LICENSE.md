@@ -120,18 +120,18 @@ How this mod uses Create:
 - `textures/item/better_wrench.png`, `textures/item/wrench_gear.png` — drawn procedurally by the
   scripts under `scripts/`.
 - `textures/gui/mode_*.png` — the five HUD mode icons are produced **by script** from 16×16
-  **originals hand-drawn by the author** (workspace `images/手绘/*.png`; the originals are **not**
+  **originals hand-drawn by the author** (kept by the author; the originals are **not**
   redistributed — only the recoloured results ship inside the JAR).
   `scripts/gen_mode_wrench_icon.ps1` only recolours them: **black → transparent, blue → black**,
   everything else kept as-is. Provenance verified pixel-exact on 2026-09-23:
 
-  | original (`images/手绘/`) | shipped icon | match |
+  | hand-drawn original | shipped icon | match |
   | --- | --- | --- |
-  | `扳手.png` | `textures/gui/mode_wrench.png` | exact (0 diff) |
-  | `拆除.png` | `textures/gui/mode_deconstruct.png` | exact (0 diff) |
-  | `工作.png` | `textures/gui/mode_assemble.png` | exact (0 diff) |
-  | `mod描述.png` | `textures/gui/mode_coming_soon.png` | exact (0 diff) |
-  | `连接.png` | `textures/gui/mode_connect.png` | near-exact (hand-tweaked afterwards) |
+  | (hand-drawn original) | `textures/gui/mode_wrench.png` | exact (0 diff) |
+  | (hand-drawn original) | `textures/gui/mode_deconstruct.png` | exact (0 diff) |
+  | (hand-drawn original) | `textures/gui/mode_assemble.png` | exact (0 diff) |
+  | (hand-drawn original) | `textures/gui/mode_coming_soon.png` | exact (0 diff) |
+  | (hand-drawn original) | `textures/gui/mode_connect.png` | near-exact (hand-tweaked afterwards) |
   | `曲柄.png`, `物流网络.png` | — | unused, not shipped |
 
   Command form: `powershell -File scripts/gen_mode_wrench_icon.ps1 -Source "<original>" -Out "<texture>"`.

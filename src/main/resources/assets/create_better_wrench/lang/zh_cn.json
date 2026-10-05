@@ -218,5 +218,11 @@
   "gui.create_better_wrench.config.opt.chain.search_max_conveyors": "规划传动轮上限(台)",
   "gui.create_better_wrench.config.desc.chain.search_max_conveyors": "一次规划最多放置多少台锁链传动轮, 默认 256; 超出即判为不合法, 同时也是网络载荷的硬上限。",
   "gui.create_better_wrench.config.opt.chain.search_max_nodes": "规划搜索节点上限(个)",
-  "gui.create_better_wrench.config.desc.chain.search_max_nodes": "客户端路径规划最多搜索多少个节点, 默认 1024; 只影响预览, 服务端另有自己的上限。"
+  "gui.create_better_wrench.config.desc.chain.search_max_nodes": "客户端路径规划最多搜索多少个节点, 默认 1024; 只影响预览, 服务端另有自己的上限。",
+  "item.create_better_wrench.better_wrench.tooltip.refined_radiance": "+光辉石",
+  "item.create_better_wrench.better_wrench.tooltip.shadow_steel": "+暗影钢",
+  "advancements.create_better_wrench.glow_wrench.title": "光彩夺目",
+  "advancements.create_better_wrench.glow_wrench.description": "用光辉石点缀万能扳手。（仅视觉效果）",
+  "advancements.create_better_wrench.shadow_wrench.title": "合金加固",
+  "advancements.create_better_wrench.shadow_wrench.description": "用暗影钢改造万能扳手。（仅视觉效果）"
 }

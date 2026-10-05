@@ -25,10 +25,12 @@ jobs:
           VERSION="${TAG#v}"
           if [[ "$VERSION" == *"mc1.20.1"* ]]; then
             echo "java=Java 17" >> "$GITHUB_OUTPUT"
+            echo "loader=forge" >> "$GITHUB_OUTPUT"
             echo "create_dep=328085@mc1.20.1-6.0.8(required)" >> "$GITHUB_OUTPUT"
             echo "game=1.20.1" >> "$GITHUB_OUTPUT"
           else
             echo "java=Java 21" >> "$GITHUB_OUTPUT"
+            echo "loader=neoforge" >> "$GITHUB_OUTPUT"
             echo "create_dep=328085(required)" >> "$GITHUB_OUTPUT"
             echo "game=1.21.1" >> "$GITHUB_OUTPUT"
           fi
@@ -54,7 +56,7 @@ jobs:
           name: Create Better Wrench ${{ steps.version.outputs.version }}
           version: ${{ steps.version.outputs.version }}
           version-type: beta
-          loaders: neoforge
+          loaders: ${{ steps.version.outputs.loader }}
           game-versions: ${{ steps.version.outputs.game }}
           environment: client | server
           changelog-file: changelog.md

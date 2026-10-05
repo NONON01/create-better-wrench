@@ -1,90 +1,95 @@
 # Create Better Wrench
 
-An **unofficial** [Create](https://github.com/Creators-of-Create/Create) addon that adds a more
-convenient wrench. Hold **ALT** to open a bottom tool-select bar, then **scroll** to switch modes.
+An **unofficial** [Create](https://github.com/Creators-of-Create/Create) addon that turns the wrench
+into a single tool for drivetrain laying, chain conveyor routes, bulk deconstruction, depot
+processing and optional combat bonuses.
 
 > Not affiliated with, endorsed by, or maintained by the Create team.
 
-**万能扳手** —— 一把更好用的机械动力扳手。按住 **ALT** 呼出底部工具条,**滚轮**切换模式。
-非官方 Create 扩展,与 Create 团队无隶属关系。
+## Features
 
----
+Hold **ALT** to open the bottom tool bar, then scroll to switch modes.
 
-## Modes / 模式
+| Mode | Summary |
+| --- | --- |
+| Wrench | The standard Create wrench behaviour: rotate blocks and pick them up. |
+| Connect | Right-click a start and an end block; corners are added freely, the drivetrain (shafts, gearboxes, large cogwheels) is laid automatically and the materials are consumed. |
+| Chain Conveyor | Chain conveyor routes in three layouts: Standard, Straight and Semi-auto. The wrench places the missing chain conveyors along the planned path and links them with chains. |
+| Deconstruction | Two-click area selection, then batch removal of everything a wrench can remove. Ctrl plus scroll cycles the filters: All, Create only, Redstone only. |
+| Depot Processing | Locks a Depot so that right-clicking it with an item acts like a Deployer, Spout or axe. Covers sequenced assembly, item application, log stripping and fluid filling; sub-features cover assembly, filling, splash, blasting, smoking, haunting and forging. |
+| Combat | Optional combat bonuses (damage and attack speed) while the mode is active, limited to players authorised on the server. |
+| Mod Info | Placeholder information page. |
 
-| Mode | id | What it does |
-| --- | --- | --- |
-| Wrench 扳手 | `wrench` | The standard Create wrench experience (rotate / pick up blocks) |
-| Connect 连接 | `connect` | Right-click a start and an end block, add air-cell corners freely; the drivetrain (shafts, gearboxes or large cogwheels) is placed and the materials are consumed |
-| Deconstruct 拆除 | `deconstruct` | Two-click area selection, then batch-remove everything a wrench can remove (Ctrl+Scroll filters: All / Create only / Redstone only) |
-| Process 加工 | `assemble` | Lock a Depot, then right-click it while holding an item to act as a Deployer / Spout / axe. Handles sequenced assembly, item application, log stripping and fluid filling. Ctrl+Scroll adjusts how long a finished product stays on the depot |
-| Mod Info 模组描述 | `coming_soon` | Placeholder info page (also hides a small easter egg) |
+Player-facing text lives in `src/main/resources/assets/create_better_wrench/lang/`; `en_us` and
+`zh_cn` are kept in sync.
 
-All player-facing text lives in the language files (`assets/create_better_wrench/lang/`),
-and both `en_us` and `zh_cn` are kept in sync.
-
-## Requirements / 依赖
+## Requirements
 
 | | |
 | --- | --- |
-| Minecraft | **1.21.1** |
-| NeoForge | **21.1.219** or newer (the floor Create 6.0.10 itself requires; built against 21.1.249) |
-| Create | **6.0.10** up to (not including) 6.1.0 — **required** |
+| Minecraft | 1.21.1 |
+| Loader | NeoForge 21.1.219 or newer (built against 21.1.249) |
+| Create | 6.0.10 or newer, below 6.1.0 (required) |
+| Java | 21 |
 
-## Install / 安装
+Flywheel, Ponder and Registrate are shipped inside the published Create jar, so Create is the only
+extra installation step.
 
-1. Install NeoForge 21.1.x for Minecraft 1.21.1.
-2. Drop Create 6.0.10+ and `create_better_wrench-<version>.jar` into your `mods/` folder.
-3. Works on both the client and a dedicated server.
+## Install
 
-Get the wrench in game with `/give @s create_better_wrench:better_wrench`, from Create's
-**Base** creative tab, or by crafting it.
+1. Install NeoForge for Minecraft 1.21.1.
+2. Place Create and `create_better_wrench-<version>.jar` into the `mods/` directory.
+3. Client and dedicated server are both supported.
 
-## Building from source / 从源码构建
+In game the wrench is obtained by crafting, from Create's Base creative tab, or with
+`/give @s create_better_wrench:better_wrench`. Version to game version correspondence follows the
+jar file name; exact builds are listed under the release tags of the repository and on the platform
+pages.
 
-```powershell
-# Windows (PowerShell)
-. .\scripts\setenv.ps1                                  # JDK 21 / Gradle 9.7.1 (workspace helper)
-$env:GRADLE_USER_HOME = '<your gradle home>'
-.\gradlew build                                          # -> build/libs/create_better_wrench-<version>.jar
-```
+## Configuration
 
-Requires **JDK 21**. Dependencies resolve from `maven.createmod.net` (Create, Ponder) and
-`maven.ithundxr.dev` (Registrate).
+`/cbw config` opens the in-game configuration screen. Settings are grouped as Connect,
+Deconstruction, Processing, Chain Conveyor and Combat.
 
-## License / 许可
+The Chain Conveyor group contains the master switch, the **total chain length limit** (default 256
+blocks, summed over all segments of one layout) and the planner search budgets. The limit keeps a
+single request from spanning a very long distance; Create's own per-segment limit is unaffected.
+On a dedicated server the values are authoritative server side, and the client only mirrors them.
 
-**Source code: MIT.** **Own assets (textures/models/sounds): All Rights Reserved.**
-Portions derived from Create remain under Create's **MIT**.
+## Commands
 
-- The source code may be freely used, modified and redistributed (including commercially),
-  provided the copyright and permission notice is kept — see §1.1 of [`LICENSE.md`](LICENSE.md).
-- Own assets may not be redistributed in modified form or reused in other projects without
-  permission; playing, shipping the unmodified jar in modpacks/servers and featuring it in
-  videos is always fine — see §1.2.
-- Portions derived from Create's MIT-licensed code **remain MIT**; the full MIT notice is
-  reproduced **verbatim in Appendix A** of [`LICENSE.md`](LICENSE.md) — see §1.3.
+| Command | Effect |
+| --- | --- |
+| `/cbw config` | Opens the configuration screen (client side). |
+| `/cbw version` | Prints the installed mod version. |
+| `/cbw combat <targets> <true\|false>` | Grants or revokes combat mode for the selected players; requires permission level 2. |
 
-Everything lives in that **single file** — our terms, every third-party notice, and the
-verbatim MIT texts. It is also what the in-game mod menu links to via its `license` field.
+## Building
 
----
+The Gradle wrapper in the repository root performs the build, and JDK 21 is required for this line.
+The built jar lands in `build/libs/`.
 
-## Credits / 署名
+## License
 
-- **Derived from Create's `ToolSelectionScreen`** (MIT License, Copyright (c) The Create Team /
-  The Creators of Create): `client/WrenchToolSelection.java`, and the HUD background texture
-  `AllGuiTextures.HUD_BACKGROUND` which is referenced at runtime from the player's own Create
-  installation (no Create asset is redistributed in this jar).
-- The item model is a `neoforge:composite` whose geometry `parent` points at
-  `create:item/wrench/item`; the geometry is resolved at runtime by Create, **not** copied.
-- All mode icons and the item texture are our own work.
+**Source code: MIT. Own assets (textures, models, sounds): All Rights Reserved.** Portions derived
+from Create remain under Create's MIT. All terms and every third-party notice are collected in the
+single [`LICENSE.md`](LICENSE.md) that is also shipped inside the jar and linked from the in-game mod
+list.
 
-## Repository notes / 仓库说明
+## Credits
 
-- This repository is the mod project itself; the wider development workspace (docs, tools,
-  reference sources) lives outside it.
-- **Release metadata is complete**: `displayName` / `authors` / `logoFile` / `displayURL` /
-  `license` / `description` are all filled in `src/main/templates/META-INF/neoforge.mods.toml`,
-  and `src/main/resources/icon.png` ships in the JAR. The release checklist lives in the
-  workspace docs (`docs/guides/04-publishing.md`).
+- The tool bar is derived from Create's `ToolSelectionScreen` (MIT, Copyright (c) The Create Team /
+  The Creators of Create): `src/main/java/com/nonono/createbetterwrench/client/WrenchToolSelection.java`.
+  The HUD background texture is referenced at runtime from the installed Create jar; no Create asset
+  is redistributed.
+- The item model is a `neoforge:composite` whose geometry `parent` points at `create:item/wrench/item`
+  and is resolved at runtime by Create.
+- Mode icons and the item texture are original work. Editable art sources are kept in `art-source/`
+  inside the repository.
+
+## Repository Notes
+
+- This repository contains the mod project itself.
+- Release metadata (display name, authors, logo, URL, license, description) is filled in
+  `src/main/templates/META-INF/neoforge.mods.toml`, and the icon ships from
+  `src/main/resources/icon.png`.
