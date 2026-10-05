@@ -161,7 +161,8 @@ public final class WrenchHud {
     /** 该模式是否有可循环的 Ctrl 选项。 */
     private static boolean modeHasCtrlOption(WrenchMode mode) {
         return mode == WrenchMode.DECONSTRUCT || mode == WrenchMode.CONNECT
-            || mode == WrenchMode.ASSEMBLE || mode == WrenchMode.COMING_SOON;
+            || mode == WrenchMode.ASSEMBLE || mode == WrenchMode.CHAIN
+            || mode == WrenchMode.COMING_SOON;
     }
 
     /**

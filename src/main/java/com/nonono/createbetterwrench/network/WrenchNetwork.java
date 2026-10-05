@@ -53,6 +53,9 @@ public final class WrenchNetwork {
             CombatModeSyncPayload::encode, CombatModeSyncPayload::decode, CombatModeSyncPayload::handle);
         CHANNEL.registerMessage(nextId++, FeatureTogglePayload.class,
             FeatureTogglePayload::encode, FeatureTogglePayload::decode, FeatureTogglePayload::handle);
+        // 「锁链传动」请求(客户端到服务端): 追加在末尾, 既有载荷的 id 不变
+        CHANNEL.registerMessage(nextId++, ChainConnectPayload.class,
+            ChainConnectPayload::encode, ChainConnectPayload::decode, ChainConnectPayload::handle);
     }
 
     /** 客户端到服务端。 */

@@ -5,6 +5,7 @@ import org.lwjgl.glfw.GLFW;
 import com.nonono.createbetterwrench.BetterWrenchMod;
 import com.nonono.createbetterwrench.config.WrenchConfig;
 import com.nonono.createbetterwrench.mode.AssembleStay;
+import com.nonono.createbetterwrench.mode.ChainSubMode;
 import com.nonono.createbetterwrench.mode.ConnectCorner;
 import com.nonono.createbetterwrench.mode.DeconstructScope;
 import com.nonono.createbetterwrench.mode.WrenchMode;
@@ -39,6 +40,9 @@ public final class WrenchModeSwitcher {
     /** 「加工」模式当前的 Ctrl 成品停留时间(不停留 / 短 / 中 / 长 = 0 / 2 / 4 / 8 tick)。 */
     public static AssembleStay assembleStay = AssembleStay.DEFAULT;
 
+    /** 「锁链传动」模式当前的 Ctrl 子模式(标准 / 直线 / 半自动)。 */
+    public static ChainSubMode chainSubMode = ChainSubMode.STANDARD;
+
     /** 「模组描述」里的战斗加成(可选)开关: false = 正常模式, true = 战斗模式(才应用伤害/攻速/取消无敌)。 */
     public static boolean combatMode = false;
 
@@ -57,6 +61,7 @@ public final class WrenchModeSwitcher {
         deconstructScope = DeconstructScope.ALL;
         connectCorner = ConnectCorner.GEARBOX;
         assembleStay = AssembleStay.DEFAULT;
+        chainSubMode = ChainSubMode.STANDARD;
         combatMode = false;
     }
 
@@ -75,9 +80,21 @@ public final class WrenchModeSwitcher {
     }
 
     /**
+     * 只读地取当前「锁链传动」子模式, 供客户端规划器与预览读取。
+     *
+     * <p>该值是 Ctrl+滚轮 切换的结果(见 {@link #cycleCtrlOption(int)}), 只存在于客户端;
+     * 发送给服务端的请求会单独携带子模式, 服务端不读取本方法。未切换到锁链传动模式时
+     * 返回上一次的档位(出厂值为 {@link ChainSubMode#STANDARD}, 不为 {@code null})。</p>
+     */
+    public static ChainSubMode chainSubMode() {
+        return chainSubMode;
+    }
+
+    /**
      * 循环切换"当前模式自己的 Ctrl 选项"。
      * 拆除: 拆除范围(全部 / 仅机械动力 / 仅红石); 连接: 拐角类型(齿轮箱 / 大齿轮);
-     * 加工: 成品停留时间(不停留 / 短 / 中 / 长); 模组描述: 战斗加成(可选)开关(正常 / 战斗);
+     * 加工: 成品停留时间(不停留 / 短 / 中 / 长); 锁链传动: 子模式(标准 / 直线 / 半自动);
+     * 模组描述: 战斗加成(可选)开关(正常 / 战斗);
      * 其它模式返回 {@code null}。
      *
      * <p>返回值语义: 一般是切换后的选项值; 功能被配置关闭时返回当前值(档位不变);
@@ -117,6 +134,14 @@ public final class WrenchModeSwitcher {
             AssembleStayClient.send();
             return assembleStay;
         }
+        if (current == WrenchMode.CHAIN) {
+            // 「锁链传动」的三个子模式只在客户端保存: 规划与预览是客户端行为, 真正发送请求时
+            // 由载荷携带子模式, 服务端以其收到的值为准重新校验(见 docs/design/chain-mode-spec.md 第 7 节)。
+            ChainSubMode[] subs = ChainSubMode.values();
+            int idx = chainSubMode.ordinal() + (direction < 0 ? -1 : 1);
+            chainSubMode = subs[((idx % subs.length) + subs.length) % subs.length];
+            return chainSubMode;
+        }
         if (current == WrenchMode.COMING_SOON) {
             // 配置里"是否启用战斗模式"被关掉: 由 ClientFeatureGate 提示 lang key
             // msg.create_better_wrench.feature_disabled, 不改本地开关也不发包
@@ -146,6 +171,8 @@ public final class WrenchModeSwitcher {
         if (current == WrenchMode.ASSEMBLE)
             return net.minecraft.network.chat.Component.translatable(
                 "hint." + BetterWrenchMod.MODID + ".stay", assembleStay.displayName());
+        if (current == WrenchMode.CHAIN)
+            return chainSubMode.displayName();
         if (current == WrenchMode.COMING_SOON)
             return net.minecraft.network.chat.Component.translatable(
                 "hint." + BetterWrenchMod.MODID + (combatMode ? ".combat.on" : ".combat.off"));

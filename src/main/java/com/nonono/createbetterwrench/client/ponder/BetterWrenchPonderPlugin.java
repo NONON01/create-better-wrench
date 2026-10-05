@@ -1,6 +1,7 @@
 package com.nonono.createbetterwrench.client.ponder;
 
 import com.nonono.createbetterwrench.BetterWrenchMod;
+import com.nonono.createbetterwrench.client.ponder.scenes.ChainScenes;
 import com.nonono.createbetterwrench.client.ponder.scenes.DepotScenes;
 import com.nonono.createbetterwrench.client.ponder.scenes.WrenchScenes;
 import com.simibubi.create.AllBlocks;
@@ -47,7 +48,8 @@ public class BetterWrenchPonderPlugin implements PonderPlugin {
         // ---- ① 直接附属于万能扳手的两段 ----
         h.forComponents(BetterWrenchMod.BETTER_WRENCH.get())
             .addStoryBoard("wrench/connect", WrenchScenes::connect, BetterWrenchPonderTags.WRENCH)
-            .addStoryBoard("wrench/deconstruct", WrenchScenes::deconstruct, BetterWrenchPonderTags.WRENCH);
+            .addStoryBoard("wrench/deconstruct", WrenchScenes::deconstruct, BetterWrenchPonderTags.WRENCH)
+            .addStoryBoard("wrench/chain", ChainScenes::chain, BetterWrenchPonderTags.WRENCH);
 
         // ---- ② 加工那 7 段: 归在置物台, 同时也关联到万能扳手 ----
         //      (Create 的做法: 同一段场景可以注册给多个组件 —— 例如 cog/speedup 同时挂小/大齿轮)

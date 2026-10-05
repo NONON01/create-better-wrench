@@ -102,7 +102,8 @@ public final class WrenchToolSelection {
         if (toolTipAlpha > 0.25f) {
             // 描述支持多行: 语言文件里写 \n 换行, 过长的行再由字体按面板宽度自动折行。
             // (对齐规则见下方 centerText 处的说明。)
-            List<FormattedCharSequence> lines = mc.font.split(modes.get(selection).description(), w - 20);
+            WrenchMode selected = modes.get(selection);
+            List<FormattedCharSequence> lines = mc.font.split(selected.description(), w - 20);
             RenderSystem.setShaderColor(.7f, .7f, .8f, toolTipAlpha);
             // 面板高度与 Create 一致固定为 h + 22, 不随行数增长: 若按行数加高, 面板会向下扩张,
             // 底边压到物品栏上。Create 面板 y+33 起、高 52, 底边在 y+85; 聚焦上浮 10 后底边 = screenH-30, 正好让开物品栏。
@@ -118,7 +119,12 @@ public final class WrenchToolSelection {
             //   ② 特例 —— [扳手] 模式永远居中(设计约定, 2026-09-20): 其描述见语言文件
             //      mode.create_better_wrench.wrench.desc, 共两行, 需要整段居中显示,
             //      因此该模式不受"多行左对齐"这条通用规则约束。
-            boolean centerText = modes.get(selection) == WrenchMode.WRENCH || lines.size() <= 1;
+            //   ③ 特例 —— [模组描述] 模式的两行(版本号与更新日志)均居中(设计约定, 2026-10-04):
+            //      该描述由 mode.create_better_wrench.coming_soon.desc 与
+            //      mode.create_better_wrench.coming_soon.changelog 两段拼成, 每行都很短,
+            //      居中比左对齐整齐; 因此该模式也不受"多行左对齐"这条通用规则约束。
+            boolean centerText = selected == WrenchMode.WRENCH
+                || selected == WrenchMode.COMING_SOON || lines.size() <= 1;
             int leftX = x - 15 + 10; // 面板左内边距(多行左对齐时用)
             int textY = y + 38;
             for (FormattedCharSequence line : lines) {

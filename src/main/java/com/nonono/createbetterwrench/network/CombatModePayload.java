@@ -13,7 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
 /**
- * 客户端到服务端: 请求切换<b>战斗(彩蛋)模式</b>, 并附带是否显示提示。
+ * 客户端到服务端: 请求切换<b>战斗模式</b>, 并附带是否显示提示。
  *
  * <p>服务端不信任请求: 权限判定由 {@link WrenchPermissions#canUseCombatMode} 给出
  * (含配置总开关 + 单独授权 + 权限等级三重), 结果通过 {@link CombatModeSyncPayload} 回传权威状态。</p>

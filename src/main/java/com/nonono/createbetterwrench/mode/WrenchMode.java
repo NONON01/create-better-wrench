@@ -10,7 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * 扳手的"模式"(用 ALT 呼出底部工具条 + 滚轮循环切换)。
  *
- * <p>图标: 全部 5 个模式都用<b>本模组自绘 PNG</b>(ResourceLocation) —— 本类<b>不再持有</b> Create 的
+ * <p>图标: 全部 6 个模式都用<b>本模组自绘 PNG</b>(ResourceLocation) —— 本类<b>不再持有</b> Create 的
  * {@code AllIcons} 之类的蓝图图标(2026-09-17 已彻底移除该分支), 因此本模组对 Create 资源的
  * 运行时引用只剩 HUD 底纹 {@code AllGuiTextures.HUD_BACKGROUND} 一处。</p>
  */
@@ -20,10 +20,26 @@ public enum WrenchMode {
     CONNECT("connect", new ResourceLocation(BetterWrenchMod.MODID, "textures/gui/mode_connect.png")),
     DECONSTRUCT("deconstruct", new ResourceLocation(BetterWrenchMod.MODID, "textures/gui/mode_deconstruct.png")),
     ASSEMBLE("assemble", new ResourceLocation(BetterWrenchMod.MODID, "textures/gui/mode_assemble.png")),
+    CHAIN("chain", new ResourceLocation(BetterWrenchMod.MODID, "textures/gui/mode_chain.png")),
     COMING_SOON("coming_soon", new ResourceLocation(BetterWrenchMod.MODID, "textures/gui/mode_coming_soon.png"));
 
     /** HUD 顶部提示与描述里"按键/可选项"提示共用的蓝色(与 {@code hint.create_better_wrench.toolbar.scroll} 那行同色)。 */
     public static final int HINT_BLUE = 0xCCDDFF;
+
+    /**
+     * 「模组描述」模式第二行(简短更新日志)的语言键。
+     *
+     * <p>该行的正式文案由语言文件提供: 每次发布只替换这一个键, 不必改动 Java 代码, 也不必改动
+     * 第一行的版本占位符。键名沿用 {@code mode.<modid>.<id>.desc} 的既有前缀约定。</p>
+     */
+    private static final String KEY_CHANGELOG = "mode." + BetterWrenchMod.MODID + ".coming_soon.changelog";
+
+    /**
+     * 上述语言键缺失时的兜底文案(英文, 与 en_us 的值逐字一致)。
+     *
+     * <p>仅在语言文件未提供该键时显示; 随包发布的 en_us 与 zh_cn 都会提供正式值。</p>
+     */
+    private static final String CHANGELOG_FALLBACK = "Added feature [Chain Conveyor]";
 
     private final String id;
     private final ResourceLocation icon;
@@ -45,10 +61,13 @@ public enum WrenchMode {
     /** 该模式的描述(用于选择器 tooltip); 文案在语言文件: mode.<modid>.<id>.desc。 */
     public Component description() {
         String key = "mode." + BetterWrenchMod.MODID + "." + id + ".desc";
-        // 「模组描述」模式里显示的是版本号: 用占位符 + 运行时读取, 不再把版本写死在语言文件里
-        //   (2026-10-03 修正: 之前那里一直停在 1.0.5-beta)。版本与 /cbw version 同源。
+        // 「模组描述」模式显示两行: 第一行是版本号(占位符 + 运行时读取, 与 /cbw version 同源,
+        //   2026-10-03 修正过"一直停在 1.0.5-beta"的问题), 第二行是简短更新日志(单独语言键,
+        //   见 KEY_CHANGELOG)。两行之间的换行符由本方法插入, 渲染层据此拆行并对齐。
         if (this == COMING_SOON)
-            return emphasizeBrackets(Component.translatable(key, modVersion()));
+            return emphasizeBrackets(Component.translatable(key, modVersion())
+                .append(Component.literal("\n"))
+                .append(Component.translatableWithFallback(KEY_CHANGELOG, CHANGELOG_FALLBACK)));
         return emphasizeBrackets(Component.translatable(key));
     }
 
