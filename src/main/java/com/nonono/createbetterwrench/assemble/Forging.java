@@ -49,10 +49,21 @@ public final class Forging {
 
 
     /**
-     * 「锻造」认的锤类标签。本模组在 {@code data/c/tags/item/tools/hammer.json} 里把原版重锤加入其中,
-     * 其它模组只要把自己的锤子加入同一标签即可共用这条路径。
+     * 「锻造」认的锤类标签(1.20.1 同时接受两种生态的命名)。
+     *
+     * <p>{@code forge:tools/hammer} 是 1.20.1 的通行约定: Forge 自身的公共标签全部放在 {@code forge:} 下
+     * (Forge 47.1.3 的 jar 里有 370 个 {@code data/forge/tags/...}, 没有任何 {@code data/c/tags/...}),
+     * Create 6.0.8 的扳手标签同样是 {@code forge:tools/wrench}。{@code c:tools/hammer} 是 1.21 以后
+     * NeoForge 与 Fabric 约定的命名(NeoForge 21.1.249 有 532 个 {@code data/c/tags/...}),
+     * 从高版本移植过来的数据包可能填的是这一支。两者<b>任一命中即可</b>, 因此本模组在
+     * {@code data/forge/tags/items/tools/hammer.json} 与 {@code data/c/tags/items/tools/hammer.json} 里都
+     * 声明了该标签(出厂为空 —— 1.20.1 没有原版锤子), 其它模组把锤子加入任一支即可共用这条路径。</p>
      */
-    private static final TagKey<Item> HAMMER_TOOLS =
+    private static final TagKey<Item> HAMMER_TOOLS_FORGE =
+        TagKey.create(Registries.ITEM, new ResourceLocation("forge", "tools/hammer"));
+
+    /** 1.20.1 的兼容分支, 命名依据见 {@link #HAMMER_TOOLS_FORGE} 的说明。 */
+    private static final TagKey<Item> HAMMER_TOOLS_COMMON =
         TagKey.create(Registries.ITEM, new ResourceLocation("c", "tools/hammer"));
 
     /**
@@ -111,11 +122,13 @@ public final class Forging {
 
     // ---------------------------------------------------------------- 公用
 
-    /** 手持物是不是锤类(标签 {@code c:tools/hammer})。 */
+    /**
+     * 手持物是不是锤类: 命中 {@code forge:tools/hammer} 或 {@code c:tools/hammer} 任一即可
+     * (1.20.1 上没有原版锤子, 该标签完全由其它模组或数据包填充; 两个标签都不存在/为空时恒为 false)。
+     */
     static boolean isHammer(ItemStack held) {
-        // 原版重锤直接命中: 即使数据包标签因某种原因没生效, 重锤也一定能用于锻造(2026-10-03 加固)
         return !held.isEmpty()
-            && held.is(HAMMER_TOOLS);
+            && (held.is(HAMMER_TOOLS_FORGE) || held.is(HAMMER_TOOLS_COMMON));
     }
 
     private static boolean onCooldown(Player player, ItemStack held) {
