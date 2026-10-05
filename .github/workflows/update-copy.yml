@@ -1,0 +1,47 @@
+name: Update platform copy
+
+# 一次性任务: 用仓库密钥里的 Modrinth 令牌更新项目描述(Summary 与正文)。
+# 由 workflow_dispatch 触发; 载荷取自仓库内的 ops/modrinth-copy.json。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PATCH Modrinth project
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o resp.json -w '%{http_code}' -X PATCH \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            -H "User-Agent: NONON01/create-better-wrench-copy" \
+            -H "Content-Type: application/json" \
+            --data @ops/modrinth-copy.json \
+            https://api.modrinth.com/v2/project/gm5PPeYh)
+          echo "HTTP $code"
+          head -c 600 resp.json; echo
+          test "$code" = "200" -o "$code" = "204"
+      - name: Read back
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl -sS -H "Authorization: $MODRINTH_TOKEN" -H "User-Agent: NONON01/create-better-wrench/1.0 (contact: github)" \
+            https://api.modrinth.com/v2/project/gm5PPeYh -o project.json -w 'HTTP %{http_code}\n'
+          python3 - <<'PY'
+          import json
+          d=json.load(open('project.json'))
+          print('summary     :', d.get('description'))
+          body=d.get('body','')
+          print('body 行数    :', len(body.splitlines()))
+          print('含 1.21.1 依赖:', '1.21.1 (NeoForge)' in body)
+          print('含 1.20.1 依赖:', '1.20.1 (Forge)' in body)
+          print('正文开头    :', body[:90].replace(chr(10), ' / '))
+          print('含锻造说明   :', 'c:tools/hammer' in body)
+          PY
