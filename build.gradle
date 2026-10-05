@@ -15,7 +15,7 @@ base {
 }
 
 java {
-    // 1.20.1 的目标字节码是 Java 17。ForgeGradle 的 MCP 步骤**强制要求 Java 17 工具链**
+    // 1.20.1 的目标字节码是 Java 17。ForgeGradle 的 MCP 步骤强制要求 Java 17 工具链
     //   (实测报错 DefaultJavaToolchainService.launcherFor), 因此本线必须使用 JDK 17;
     //   本机 JDK 17 的路径通过 gradle.properties 的 installations.paths 告知 Gradle。
     toolchain.languageVersion = JavaLanguageVersion.of(17)
@@ -51,13 +51,13 @@ repositories {
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
-    // Create 1.20.1: 用 **all** 分类器(内嵌 Ponder/catnip/Flywheel/Registrate)。
+    // Create 1.20.1: 用 all 分类器(内嵌 Ponder/catnip/Flywheel/Registrate)。
     //   实测: create 的 maven 上 1.20.1 线只有 all / slim / sources / javadoc, 且 ponder-forge 等
     //   独立坐标只有 1.21.1 及以后 —— 与调研"前置模组已被 Create 内嵌"一致, 因此 slim 会缺类。
     compileOnly fg.deobf("com.simibubi.create:create-${minecraft_version}:${create_version}:all")
 
     // 开发期(仅 runClient / runServer)需要 Create 真的在场上, 且必须是 remap 到开发映射的产物 ——
-    // 直接把平台版 jar 丢进 mods 目录会因为 mixin 里是 SRG 名而报 InvalidAccessorException。
+    // 直接把平台版 jar 放入 mods 目录会因为 mixin 里是 SRG 名而报 InvalidAccessorException。
     // 发布产物仍然只声明 compileOnly(用户自己装 Create)。
     runtimeOnly fg.deobf("com.simibubi.create:create-${minecraft_version}:${create_version}:all")
 

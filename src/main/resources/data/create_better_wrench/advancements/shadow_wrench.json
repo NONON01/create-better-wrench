@@ -1,0 +1,40 @@
+{
+  "display": {
+    "icon": {
+      "item": "create_better_wrench:better_wrench",
+      "nbt": "{create_better_wrench:{shadow_steel:1b}}"
+    },
+    "title": {
+      "translate": "advancements.create_better_wrench.shadow_wrench.title"
+    },
+    "description": {
+      "translate": "advancements.create_better_wrench.shadow_wrench.description"
+    },
+    "frame": "challenge",
+    "background": "minecraft:textures/gui/advancements/backgrounds/stone.png",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": true
+  },
+  "criteria": {
+    "has_it": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "create_better_wrench:better_wrench"
+            ],
+            "nbt": "{create_better_wrench:{shadow_steel:1b}}"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_it"
+    ]
+  ],
+  "sends_telemetry_event": false
+}

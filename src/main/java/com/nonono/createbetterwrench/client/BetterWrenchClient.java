@@ -34,6 +34,12 @@ public final class BetterWrenchClient {
     public static void init(IEventBus modEventBus) {
         modEventBus.addListener(WrenchHud::onRegisterGuiOverlays);
         modEventBus.addListener(WrenchModeSwitcher::onRegisterKeyMappings);
+        // 给万能扳手的物品模型加一层外发光 pass: 挂在模型烘焙事件上, 只把烘焙结果里的物品模型包一层,
+        // 不改模型 JSON 与贴图; 移除这一行即可整体关闭该效果。详见 client/render/WrenchGlowModel 的类注释。
+        modEventBus.addListener(com.nonono.createbetterwrench.client.render.WrenchGlowModels::onModifyBakingResult);
+        // 把暗影钢标记(NBT create_better_wrench.shadow_steel)暴露成物品模型 predicate,
+        // 让 better_wrench.json 的 overrides 能按标记切到暗影钢外观。详见 WrenchVariantProperties 的类注释。
+        modEventBus.addListener(WrenchVariantProperties::onClientSetup);
         // 物品悬停提示: 注册进 Create 的物品提示注册表(Shift 概要 / Ctrl 控制方法)。
         // 文案在语言文件: item.create_better_wrench.better_wrench.tooltip.*, 详见 WrenchTooltip 的类注释。
         modEventBus.addListener(WrenchTooltip::onClientSetup);

@@ -63,6 +63,10 @@ public class BetterWrenchMod {
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
             (net.minecraftforge.event.RegisterCommandsEvent event) ->
                 com.nonono.createbetterwrench.command.CbwCommands.registerServer(event.getDispatcher()));
+        // 铁砧升级: 普通扳手 + 光辉石 / 暗影钢 -> 材质变体(标记写进 ItemStack 的 NBT 子标签
+        // create_better_wrench.{glow|shadow_steel}; 详细语义见 item/WrenchGlowItemEvents)。
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+            com.nonono.createbetterwrench.item.WrenchGlowItemEvents::onAnvilUpdate);
         // BuildCreativeModeTabContentsEvent 是 IModBusEvent, 须注册在 mod 事件总线上(非 NeoForge.EVENT_BUS)
         modEventBus.addListener(BetterWrenchMod::addToCreateTab);
         LOGGER.info("{} 正在加载...", MODID);
